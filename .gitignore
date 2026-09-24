@@ -2,3 +2,4 @@ node_modules/
 .edgeone/
 dist/
 .DS_Store
+.env
