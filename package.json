@@ -1,0 +1,22 @@
+{
+  "name": "ai-gateway-edgeone",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "cloud-functions/[[default]].js",
+  "scripts": {
+    "build": "npm run build:bundle",
+    "build:bundle": "mkdir -p public cloud-functions/api && cp -f index.html public/index.html && esbuild src/edgeone-entry.ts --bundle --format=esm --platform=node --target=node20 --external:@edgeone/pages-blob --outfile=cloud-functions/[[default]].js && echo \"export { onRequest, default } from '../[[default]].js';\" > cloud-functions/api/[[default]].js",
+    "dev": "PAGES_SOURCE=skills npx edgeone makers dev",
+    "deploy": "npm run build && PAGES_SOURCE=skills npx edgeone makers deploy --json"
+  },
+  "dependencies": {
+    "@edgeone/pages-blob": "^0.0.17",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "edgeone": "^1.6.41",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.2"
+  }
+}
