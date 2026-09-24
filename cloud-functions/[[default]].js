@@ -17686,7 +17686,7 @@ app.use("*", async (c, next) => {
   }
   return next();
 });
-app.get("/", async (c) => {
+async function renderHome(c) {
   const { getCookie: getCookie2 } = await Promise.resolve().then(() => (init_cookie2(), cookie_exports));
   const sessionId = getCookie2(c, "session_id");
   let isLoggedIn = false;
@@ -17695,7 +17695,9 @@ app.get("/", async (c) => {
     isLoggedIn = session !== null;
   }
   return renderHomePage(c, isLoggedIn);
-});
+}
+app.get("/", renderHome);
+app.get("/home", renderHome);
 app.get("/admin/login", async (c) => renderLoginPage(c));
 app.post("/admin/login", handleLogin);
 app.get("/admin/logout", handleLogout);

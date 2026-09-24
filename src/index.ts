@@ -61,16 +61,20 @@ app.use('*', async (c, next) => {
 })
 
 // ===== 首页 =====
-app.get('/', async (c) => {
+// EdgeOne 平台对根路径 `/` 强制走静态文件（缺失时直接平台 404，不回落函数），
+// 故部署 routes.json 中将 `/` 重写到 `/home`，由这里动态渲染，保证与后台数据同源一致。
+async function renderHome(c: Context) {
   const { getCookie } = await import('hono/cookie')
   const sessionId = getCookie(c, 'session_id')
   let isLoggedIn = false
   if (sessionId) {
-const session = await getSession(c.env, sessionId)
+    const session = await getSession(c.env, sessionId)
     isLoggedIn = session !== null
   }
   return renderHomePage(c, isLoggedIn)
-})
+}
+app.get('/', renderHome)
+app.get('/home', renderHome)
 
 // ===== 登录/退出 =====
 app.get('/admin/login', async (c) => renderLoginPage(c))
