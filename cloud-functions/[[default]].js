@@ -17834,7 +17834,7 @@ if (typeof globalThis.crypto === "undefined") {
   }
 }
 async function onRequest(context) {
-  const req = context.request;
+  const incoming = context.request;
   const env = {
     ADMIN_USERNAME: process.env.ADMIN_USERNAME || "admin",
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "yxy.@990524gdg",
@@ -17844,7 +17844,23 @@ async function onRequest(context) {
     ...process.env,
     ...context?.env || {}
   };
-  return await index_default.fetch(req, env, context);
+  const method = (incoming.method || "GET").toUpperCase();
+  const hasBody = method !== "GET" && method !== "HEAD";
+  let request = incoming;
+  if (hasBody) {
+    try {
+      const buf = await incoming.arrayBuffer();
+      request = new Request(incoming.url, {
+        method,
+        headers: incoming.headers,
+        body: buf.byteLength > 0 ? buf : void 0
+      });
+    } catch (err) {
+      console.error("[Entry] Failed to materialize request body:", err?.message);
+      request = incoming;
+    }
+  }
+  return await index_default.fetch(request, env, context);
 }
 var edgeone_entry_default = index_default;
 export {
