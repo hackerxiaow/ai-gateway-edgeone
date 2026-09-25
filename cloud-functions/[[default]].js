@@ -13048,6 +13048,31 @@ async function handleModels(c) {
 // src/admin.ts
 init_storage();
 init_storage_adapter();
+
+// src/request-utils.ts
+function isInternalHost(host) {
+  return /qcloudteo\.com$|pages-scf-|pages-pro-/i.test(host);
+}
+function getExternalOrigin(c) {
+  const candidates = [
+    c.req.header("eo-pages-host"),
+    c.req.header("x-forwarded-host"),
+    c.req.header("host")
+  ];
+  for (const candidate of candidates) {
+    const host = candidate?.split(",")[0].trim();
+    if (host && !isInternalHost(host)) {
+      return `https://${host}`;
+    }
+  }
+  try {
+    return new URL(c.req.url).origin;
+  } catch {
+    return "https://localhost";
+  }
+}
+
+// src/admin.ts
 init_antigravity();
 init_claude();
 init_codex();
@@ -13509,7 +13534,7 @@ async function handleStatus(c) {
       enabledModelsCount: enabledModels,
       proxyKeysCount: proxyKeys.filter((k) => k.enabled).length,
       adminConfigured: !!(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD) || await getAdminCredentials(c.env) !== null,
-      baseUrl: new URL(c.req.url).origin
+      baseUrl: getExternalOrigin(c)
     }
   });
 }
@@ -15120,8 +15145,7 @@ var H = (title) => `
 </head>`;
 async function renderHomePage(c, isLoggedIn) {
   const providers = await getProviders(c.env);
-  const host = c.req.header("host") || "localhost:8787";
-  const apiBase = `https://${host}/v1`;
+  const apiBase = `${getExternalOrigin(c)}/v1`;
   const enabledProviders = providers.filter((provider) => provider.enabled);
   const allModelsCount = providers.reduce((total, provider) => total + provider.models.length, 0);
   const enabledModelsCount = enabledProviders.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0);

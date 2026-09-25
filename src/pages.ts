@@ -5,6 +5,7 @@ import { SITE_CONFIG, OPENCODE_DEFAULT_URL } from './config'
 import type { Env } from './types'
 import { CSS_CONTENT } from './pages.css'
 import { SHARED_JS, renderSiteFooter } from './shared.js'
+import { getExternalOrigin } from './request-utils'
 
 // 检测运行平台 + 存储类型, 返回如 "EdgeOne · Blob"
 function getPlatformLabel(_env: any, _host?: string): string {
@@ -70,8 +71,7 @@ const H = (title: string) => `
 
 export async function renderHomePage(c: Context<{ Bindings: Env }>, isLoggedIn: boolean) {
   const providers = await getProviders(c.env)
-  const host = c.req.header('host') || 'localhost:8787'
-  const apiBase = `https://${host}/v1`
+  const apiBase = `${getExternalOrigin(c)}/v1`
   const enabledProviders = providers.filter((provider) => provider.enabled)
   const allModelsCount = providers.reduce((total, provider) => total + provider.models.length, 0)
   const enabledModelsCount = enabledProviders.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0)
