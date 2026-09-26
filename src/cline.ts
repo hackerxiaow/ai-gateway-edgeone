@@ -494,10 +494,14 @@ export async function startClineDeviceFlow(env: Env): Promise<ClineDeviceFlow> {
     console.error('[cline] start store failed', state.slice(0, 8), String(e))
     throw new Error('设备码会话写入失败(存储异常)，请重试')
   }
+  // ⚠️ 追加 prompt=login：AuthKit 前端识别该参数（与 screen_hint 同在参数白名单），
+  // 已有会话时强制重新登录，避免「添加第二个账号」时被浏览器里已登录的旧账号静默复用。
+  // 若上游某天不生效，前端弹窗还有「无痕窗口打开」的兜底指引。
+  const withFreshLogin = (u: string) => u + (u.includes('?') ? '&' : '?') + 'prompt=login'
   return {
     state,
-    verificationUri: String(json.verification_uri || 'https://cline.bot'),
-    verificationUriComplete: json.verification_uri_complete ? String(json.verification_uri_complete) : undefined,
+    verificationUri: withFreshLogin(String(json.verification_uri || 'https://authkit.cline.bot/device')),
+    verificationUriComplete: json.verification_uri_complete ? withFreshLogin(String(json.verification_uri_complete)) : undefined,
     userCode: String(json.user_code || ''),
     expiresIn: Number(json.expires_in) || 600,
     interval: Math.max(5, Number(json.interval) || 5),

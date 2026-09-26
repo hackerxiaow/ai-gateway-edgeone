@@ -966,6 +966,7 @@ async function oauthChannel(id) {
       const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : provider === 'cline' ? 'Cline' : 'Grok'
       showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' 设备码授权</h3>'
         + '<p class="form-helper" style="margin-bottom:8px">已尝试在新窗口打开授权页面（链接已自动带上验证码）。若浏览器拦截了弹窗，请点击下面的按钮打开——<b>必须使用带 user_code 的完整链接</b>，直接打开验证地址会提示「缺少 user_code 参数」。</p>'
+        + (provider === 'cline' ? '<p class="form-helper" style="margin-bottom:8px"><b>添加第二个账号时</b>：授权链接已带强制重新登录参数；若页面仍自动带出旧账号，点页面里的「使用其他账号 / Sign out」重新登录，或把下方完整授权链接复制到<b>无痕窗口</b>打开。</p>' : '')
         + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> 打开授权页面</a></p>'
         + '<div class="fg"><label>验证码 User Code（页面要求手动输入时使用）</label><input type="text" class="fx1" value="' + escapeHtml(d.data.user_code || '') + '" readonly onclick="this.select()"></div>'
         + '<div class="fg"><label>完整授权链接（打不开时复制到浏览器）</label><input type="text" class="fx1" value="' + escapeHtml(complete) + '" readonly onclick="this.select()"></div>'

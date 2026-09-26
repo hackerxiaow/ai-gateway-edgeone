@@ -9926,10 +9926,11 @@ async function startClineDeviceFlow(env) {
     console.error("[cline] start store failed", state.slice(0, 8), String(e));
     throw new Error("\u8BBE\u5907\u7801\u4F1A\u8BDD\u5199\u5165\u5931\u8D25(\u5B58\u50A8\u5F02\u5E38)\uFF0C\u8BF7\u91CD\u8BD5");
   }
+  const withFreshLogin = (u) => u + (u.includes("?") ? "&" : "?") + "prompt=login";
   return {
     state,
-    verificationUri: String(json.verification_uri || "https://cline.bot"),
-    verificationUriComplete: json.verification_uri_complete ? String(json.verification_uri_complete) : void 0,
+    verificationUri: withFreshLogin(String(json.verification_uri || "https://authkit.cline.bot/device")),
+    verificationUriComplete: json.verification_uri_complete ? withFreshLogin(String(json.verification_uri_complete)) : void 0,
     userCode: String(json.user_code || ""),
     expiresIn: Number(json.expires_in) || 600,
     interval: Math.max(5, Number(json.interval) || 5)
@@ -16483,6 +16484,7 @@ async function oauthChannel(id) {
       const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : provider === 'cline' ? 'Cline' : 'Grok'
       showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' \u8BBE\u5907\u7801\u6388\u6743</h3>'
         + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5C1D\u8BD5\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u6388\u6743\u9875\u9762\uFF08\u94FE\u63A5\u5DF2\u81EA\u52A8\u5E26\u4E0A\u9A8C\u8BC1\u7801\uFF09\u3002\u82E5\u6D4F\u89C8\u5668\u62E6\u622A\u4E86\u5F39\u7A97\uFF0C\u8BF7\u70B9\u51FB\u4E0B\u9762\u7684\u6309\u94AE\u6253\u5F00\u2014\u2014<b>\u5FC5\u987B\u4F7F\u7528\u5E26 user_code \u7684\u5B8C\u6574\u94FE\u63A5</b>\uFF0C\u76F4\u63A5\u6253\u5F00\u9A8C\u8BC1\u5730\u5740\u4F1A\u63D0\u793A\u300C\u7F3A\u5C11 user_code \u53C2\u6570\u300D\u3002</p>'
+        + (provider === 'cline' ? '<p class="form-helper" style="margin-bottom:8px"><b>\u6DFB\u52A0\u7B2C\u4E8C\u4E2A\u8D26\u53F7\u65F6</b>\uFF1A\u6388\u6743\u94FE\u63A5\u5DF2\u5E26\u5F3A\u5236\u91CD\u65B0\u767B\u5F55\u53C2\u6570\uFF1B\u82E5\u9875\u9762\u4ECD\u81EA\u52A8\u5E26\u51FA\u65E7\u8D26\u53F7\uFF0C\u70B9\u9875\u9762\u91CC\u7684\u300C\u4F7F\u7528\u5176\u4ED6\u8D26\u53F7 / Sign out\u300D\u91CD\u65B0\u767B\u5F55\uFF0C\u6216\u628A\u4E0B\u65B9\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u590D\u5236\u5230<b>\u65E0\u75D5\u7A97\u53E3</b>\u6253\u5F00\u3002</p>' : '')
         + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> \u6253\u5F00\u6388\u6743\u9875\u9762</a></p>'
         + '<div class="fg"><label>\u9A8C\u8BC1\u7801 User Code\uFF08\u9875\u9762\u8981\u6C42\u624B\u52A8\u8F93\u5165\u65F6\u4F7F\u7528\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(d.data.user_code || '') + '" readonly onclick="this.select()"></div>'
         + '<div class="fg"><label>\u5B8C\u6574\u6388\u6743\u94FE\u63A5\uFF08\u6253\u4E0D\u5F00\u65F6\u590D\u5236\u5230\u6D4F\u89C8\u5668\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(complete) + '" readonly onclick="this.select()"></div>'
