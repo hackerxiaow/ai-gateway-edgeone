@@ -9835,14 +9835,17 @@ async function handleClineRequest(p) {
   const hashByKey = /* @__PURE__ */ new Map();
   for (const t of tokens) hashByKey.set(t, await clineKeyHash16(t));
   for (const t of tokens) await loadCoolIntoMemory(p.env, hashByKey.get(t));
-  const ordered = [];
+  const available = [];
+  const cooling = [];
   for (const t of tokens) {
     const until = cooldowns.get(hashByKey.get(t) + "|" + p.modelId) || 0;
-    if (until <= Date.now()) ordered.push(t);
+    (until <= Date.now() ? available : cooling).push(t);
   }
-  for (const t of tokens) {
-    if (!ordered.includes(t)) ordered.push(t);
+  for (let i = available.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
   }
+  const ordered = [...available, ...cooling];
   let lastError = "";
   let lastStatus = 502;
   for (const refreshToken of ordered) {

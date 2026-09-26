@@ -384,18 +384,22 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
   const wantStream = (p.body as any)?.stream === true
   const upstreamBody = rewriteClinePayload(p.body, p.modelId, wantStream)
 
-  // 先按冷却状态排序：可用的在前，冷却中的放最后兜底（冷却到期会被直接试用）
   const hashByKey = new Map<string, string>()
   for (const t of tokens) hashByKey.set(t, await clineKeyHash16(t))
   for (const t of tokens) await loadCoolIntoMemory(p.env, hashByKey.get(t) as string)
-  const ordered: string[] = []
+  // 负载均衡：可用账号随机洗牌后按序尝试（用量在账号间摊平，与通用渠道的健康 key 洗牌同风格）；
+  // 冷却中的账号保持原顺序垫底兜底（冷却到期会被直接试用）
+  const available: string[] = []
+  const cooling: string[] = []
   for (const t of tokens) {
     const until = cooldowns.get((hashByKey.get(t) as string) + '|' + p.modelId) || 0
-    if (until <= Date.now()) ordered.push(t)
+    ;(until <= Date.now() ? available : cooling).push(t)
   }
-  for (const t of tokens) {
-    if (!ordered.includes(t)) ordered.push(t)
+  for (let i = available.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[available[i], available[j]] = [available[j], available[i]]
   }
+  const ordered = [...available, ...cooling]
 
   let lastError = ''
   let lastStatus = 502
