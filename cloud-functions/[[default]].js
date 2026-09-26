@@ -9926,7 +9926,7 @@ async function startClineDeviceFlow(env) {
     console.error("[cline] start store failed", state.slice(0, 8), String(e));
     throw new Error("\u8BBE\u5907\u7801\u4F1A\u8BDD\u5199\u5165\u5931\u8D25(\u5B58\u50A8\u5F02\u5E38)\uFF0C\u8BF7\u91CD\u8BD5");
   }
-  const withFreshLogin = (u) => u + (u.includes("?") ? "&" : "?") + "prompt=login";
+  const withFreshLogin = (u) => u + (u.includes("?") ? "&" : "?") + "prompt=login&max_age=0";
   return {
     state,
     verificationUri: withFreshLogin(String(json.verification_uri || "https://authkit.cline.bot/device")),
@@ -9941,7 +9941,7 @@ async function pollClineDeviceFlow(env, state) {
   if (!raw2) return { status: "error", message: "\u8BBE\u5907\u7801\u4F1A\u8BDD\u4E0D\u5B58\u5728\u6216\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u6388\u6743" };
   const session = JSON.parse(raw2);
   if (session.done && session.refreshToken) {
-    return { status: "ok", refreshToken: session.refreshToken };
+    return { status: "ok", refreshToken: session.refreshToken, email: session.email };
   }
   const form = new URLSearchParams({
     grant_type: "urn:ietf:params:oauth:grant-type:device_code",
@@ -9985,13 +9985,15 @@ async function pollClineDeviceFlow(env, state) {
   }
   const rt = reg?.data?.refreshToken;
   if (!rt) return { status: "error", message: `Cline \u6CE8\u518C\u5931\u8D25: ${regText.slice(0, 200)}` };
+  const email = String(reg?.data?.userInfo?.email || "");
   await getKV(env).put(CLINE_DEVICE_PREFIX + state, JSON.stringify({
     deviceCode: session.deviceCode,
     done: true,
-    refreshToken: rt
+    refreshToken: rt,
+    email
   }), { expirationTtl: 3600 }).catch(() => {
   });
-  return { status: "ok", refreshToken: rt };
+  return { status: "ok", refreshToken: rt, email };
 }
 var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, FREE_CHANNEL_PREFIXES, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, queueTail, MIN_GAP_MS;
 var init_cline = __esm({
@@ -16484,7 +16486,7 @@ async function oauthChannel(id) {
       const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : provider === 'cline' ? 'Cline' : 'Grok'
       showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' \u8BBE\u5907\u7801\u6388\u6743</h3>'
         + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5C1D\u8BD5\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u6388\u6743\u9875\u9762\uFF08\u94FE\u63A5\u5DF2\u81EA\u52A8\u5E26\u4E0A\u9A8C\u8BC1\u7801\uFF09\u3002\u82E5\u6D4F\u89C8\u5668\u62E6\u622A\u4E86\u5F39\u7A97\uFF0C\u8BF7\u70B9\u51FB\u4E0B\u9762\u7684\u6309\u94AE\u6253\u5F00\u2014\u2014<b>\u5FC5\u987B\u4F7F\u7528\u5E26 user_code \u7684\u5B8C\u6574\u94FE\u63A5</b>\uFF0C\u76F4\u63A5\u6253\u5F00\u9A8C\u8BC1\u5730\u5740\u4F1A\u63D0\u793A\u300C\u7F3A\u5C11 user_code \u53C2\u6570\u300D\u3002</p>'
-        + (provider === 'cline' ? '<p class="form-helper" style="margin-bottom:8px"><b>\u6DFB\u52A0\u7B2C\u4E8C\u4E2A\u8D26\u53F7\u65F6</b>\uFF1A\u6388\u6743\u94FE\u63A5\u5DF2\u5E26\u5F3A\u5236\u91CD\u65B0\u767B\u5F55\u53C2\u6570\uFF1B\u82E5\u9875\u9762\u4ECD\u81EA\u52A8\u5E26\u51FA\u65E7\u8D26\u53F7\uFF0C\u70B9\u9875\u9762\u91CC\u7684\u300C\u4F7F\u7528\u5176\u4ED6\u8D26\u53F7 / Sign out\u300D\u91CD\u65B0\u767B\u5F55\uFF0C\u6216\u628A\u4E0B\u65B9\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u590D\u5236\u5230<b>\u65E0\u75D5\u7A97\u53E3</b>\u6253\u5F00\u3002</p>' : '')
+        + (provider === 'cline' ? '<p class="form-helper" style="margin-bottom:8px"><b>\u6DFB\u52A0\u7B2C\u4E8C\u4E2A\u8D26\u53F7\u65F6</b>\uFF1A\u6388\u6743\u9875\u4F1A\u590D\u7528\u6D4F\u89C8\u5668\u91CC\u5DF2\u767B\u5F55\u7684\u65E7\u8D26\u53F7\uFF08Cline \u767B\u5F55\u670D\u52A1\u7684\u884C\u4E3A\uFF0C\u94FE\u63A5\u5C42\u9762\u65E0\u6CD5\u5F3A\u5236\u5207\u6362\uFF09\u2014\u2014\u8BF7\u628A\u4E0B\u65B9\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u590D\u5236\u5230<b>\u65E0\u75D5\u7A97\u53E3</b>\u6253\u5F00\uFF0C\u7528\u65B0\u8D26\u53F7\u767B\u5F55\u5E76\u5B8C\u6210\u6388\u6743\u3002</p>' : '')
         + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> \u6253\u5F00\u6388\u6743\u9875\u9762</a></p>'
         + '<div class="fg"><label>\u9A8C\u8BC1\u7801 User Code\uFF08\u9875\u9762\u8981\u6C42\u624B\u52A8\u8F93\u5165\u65F6\u4F7F\u7528\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(d.data.user_code || '') + '" readonly onclick="this.select()"></div>'
         + '<div class="fg"><label>\u5B8C\u6574\u6388\u6743\u94FE\u63A5\uFF08\u6253\u4E0D\u5F00\u65F6\u590D\u5236\u5230\u6D4F\u89C8\u5668\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(complete) + '" readonly onclick="this.select()"></div>'
@@ -16517,7 +16519,12 @@ async function pollDeviceFlow(provider, state, id, tr, boxEl) {
         if (!tok) { box.innerHTML = '<span class="c-e">\u6388\u6743\u6210\u529F\u4F46\u672A\u8FD4\u56DE\u4EE4\u724C\uFF0C\u8BF7\u91CD\u8BD5</span>'; return }
         addKeyValue(id, tok)
         closeM()
-        toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
+        var acctEmail = d.data.email || ''
+        if (provider === 'cline' && acctEmail) {
+          toast('\u5DF2\u83B7\u53D6\u8D26\u53F7 ' + acctEmail + ' \u7684 refreshToken\u3002\u82E5\u8FD9\u662F\u65E7\u8D26\u53F7\u800C\u975E\u8981\u65B0\u589E\u7684\u8D26\u53F7\uFF1A\u590D\u5236\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u5230\u65E0\u75D5\u7A97\u53E3\u91CD\u65B0\u6388\u6743\uFF08\u6388\u6743\u9875\u4F1A\u590D\u7528\u6D4F\u89C8\u5668\u5DF2\u767B\u5F55\u7684\u4F1A\u8BDD\uFF0C\u65E0\u6CD5\u4ECE\u94FE\u63A5\u5F3A\u5236\u5207\u6362\uFF09', 'success')
+        } else {
+          toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
+        }
         if (tr) showResult(tr, true, '')
         return
       }

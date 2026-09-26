@@ -494,10 +494,11 @@ export async function startClineDeviceFlow(env: Env): Promise<ClineDeviceFlow> {
     console.error('[cline] start store failed', state.slice(0, 8), String(e))
     throw new Error('设备码会话写入失败(存储异常)，请重试')
   }
-  // ⚠️ 追加 prompt=login：AuthKit 前端识别该参数（与 screen_hint 同在参数白名单），
-  // 已有会话时强制重新登录，避免「添加第二个账号」时被浏览器里已登录的旧账号静默复用。
-  // 若上游某天不生效，前端弹窗还有「无痕窗口打开」的兜底指引。
-  const withFreshLogin = (u: string) => u + (u.includes('?') ? '&' : '?') + 'prompt=login'
+  // ⚠️ 追加 prompt=login & max_age=0（OIDC 标准强制重登参数，AuthKit 前端参数白名单里识别）。
+  // 实测 Cline 的 AuthKit 配置为「Stale Account Allowed」：设备页会复用浏览器已有会话、
+  // 无视这两个参数，且设备页无切换账号入口、authkit 域无登出端点（已全量 404 探测）——
+  // 因此添加第二个账号的 100% 可靠路径是无痕窗口打开完整授权链接（前端弹窗有指引）。
+  const withFreshLogin = (u: string) => u + (u.includes('?') ? '&' : '?') + 'prompt=login&max_age=0'
   return {
     state,
     verificationUri: withFreshLogin(String(json.verification_uri || 'https://authkit.cline.bot/device')),
@@ -512,16 +513,18 @@ export interface ClinePollResult {
   status: 'pending' | 'ok' | 'error'
   message?: string
   refreshToken?: string
+  /** 授权返回的 Cline 账号邮箱（register 响应的 userInfo.email），用于前端提示拿到的是哪个账号 */
+  email?: string
 }
 
 /** WorkOS 设备码授权：轮询。WorkOS 用 HTTP 400 + JSON body 表达 pending，属正常等待 */
 export async function pollClineDeviceFlow(env: Env, state: string): Promise<ClinePollResult> {
   const raw = await getKV(env).get(CLINE_DEVICE_PREFIX + state)
   if (!raw) return { status: 'error', message: '设备码会话不存在或已过期，请重新发起授权' }
-  const session = JSON.parse(raw) as { deviceCode: string; done?: boolean; refreshToken?: string }
+  const session = JSON.parse(raw) as { deviceCode: string; done?: boolean; refreshToken?: string; email?: string }
   // 幂等：已换取成功过的会话直接复用结果
   if (session.done && session.refreshToken) {
-    return { status: 'ok', refreshToken: session.refreshToken }
+    return { status: 'ok', refreshToken: session.refreshToken, email: session.email }
   }
   const form = new URLSearchParams({
     grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
@@ -558,9 +561,10 @@ export async function pollClineDeviceFlow(env: Env, state: string): Promise<Clin
   try { reg = JSON.parse(regText) } catch { return { status: 'error', message: `Cline 注册返回非 JSON: ${regText.slice(0, 200)}` } }
   const rt = reg?.data?.refreshToken
   if (!rt) return { status: 'error', message: `Cline 注册失败: ${regText.slice(0, 200)}` }
+  const email = String(reg?.data?.userInfo?.email || '')
   // 标记完成并保留结果：后续重复轮询仍返回同一 refreshToken
   await getKV(env).put(CLINE_DEVICE_PREFIX + state, JSON.stringify({
-    deviceCode: session.deviceCode, done: true, refreshToken: rt,
+    deviceCode: session.deviceCode, done: true, refreshToken: rt, email,
   }), { expirationTtl: 3600 }).catch(() => {})
-  return { status: 'ok', refreshToken: rt }
+  return { status: 'ok', refreshToken: rt, email }
 }
