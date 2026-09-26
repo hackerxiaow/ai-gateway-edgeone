@@ -38,7 +38,6 @@ import {
   handleCodebuddyStatus,
   handleCodebuddyCheckin,
   handleCronCheckin,
-  handleClineStatus,
   handleClineQuota,
 } from './admin'
 import { renderHomePage, renderLoginPage, renderAdminPage } from './pages'
@@ -140,9 +139,6 @@ app.post('/admin/api/oauth/:provider/models', handleOAuthModels)
 
 // CodeBuddy 账号状态（积分/套餐余额）
 app.post('/admin/api/codebuddy/status', handleCodebuddyStatus)
-
-// Cline 账号状态（邮箱/Credit 余额）
-app.post('/admin/api/cline/status', handleClineStatus)
 
 // Cline 额度页（全部渠道各凭据的余额 + 各模型今日用量/冷却状态）
 app.post('/admin/api/cline/quota', handleClineQuota)
