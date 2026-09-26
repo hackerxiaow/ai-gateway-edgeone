@@ -189,9 +189,11 @@ function unwrapData(obj: any): any {
 interface ClineUsage { promptTokens: number; completionTokens: number }
 
 /**
- * 流式透传：逐行剥 {data:{...}} 包装后重发，done 在流结束时汇总 usage。
- * 与 codebuddy.normalizeCodebuddyStream 同构 —— EdgeOne 运行时上 TransformStream
- * 逐块转发已实测可靠；禁止整段缓冲后再回吐（客户端会超时重连）。
+ * 流式透传：跨块缓冲出完整行后，逐行剥 {data:{...}} 包装再重发，done 在流结束时汇总 usage。
+ * ⚠️ 必须缓冲：上游单个 SSE 事件是多 KB 大行，网络分块边界会切在 JSON 行中间——
+ * 若按收到的分块直接解析/转发，半截 JSON 会原样漏给客户端（表现为
+ * "Expected ',' or ']' after array element"）。与 codebuddy.normalizeCodebuddyStream 同构，
+ * EdgeOne 运行时上 TransformStream 逐块转发已实测可靠；禁止整段缓冲后再回吐（客户端会超时重连）。
  */
 function normalizeClineStream(src: ReadableStream<Uint8Array>): { stream: ReadableStream<Uint8Array>; done: Promise<ClineUsage> } {
   const decoder = new TextDecoder()
@@ -199,35 +201,46 @@ function normalizeClineStream(src: ReadableStream<Uint8Array>): { stream: Readab
   const usage: ClineUsage = { promptTokens: 0, completionTokens: 0 }
   let resolveDone!: (u: ClineUsage) => void
   const done = new Promise<ClineUsage>((r) => { resolveDone = r })
+  let buf = ''
+
+  const handleLine = (line: string, controller: TransformStreamDefaultController<Uint8Array>) => {
+    if (line.endsWith('\r')) line = line.slice(0, -1)
+    if (!line.startsWith('data:')) {
+      // 非 data 行（含 SSE 事件分隔空行）原样保序透传
+      controller.enqueue(encoder.encode(line + '\n'))
+      return
+    }
+    const payload = line.slice(5).trim()
+    if (!payload || payload === '[DONE]') {
+      controller.enqueue(encoder.encode(line + '\n\n'))
+      return
+    }
+    try {
+      const obj = unwrapData(JSON.parse(payload))
+      const u = obj?.usage
+      if (u) {
+        usage.promptTokens = Number(u.prompt_tokens ?? 0) || 0
+        usage.completionTokens = Number(u.completion_tokens ?? 0) || 0
+      }
+      controller.enqueue(encoder.encode('data: ' + JSON.stringify(obj) + '\n\n'))
+    } catch {
+      // 行已按 \n 完整缓冲，正常不会再有半截 JSON；保底原样透传
+      controller.enqueue(encoder.encode(line + '\n'))
+    }
+  }
 
   const stream = src.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
-      const text = decoder.decode(chunk, { stream: true })
-      for (const rawLine of text.split('\n')) {
-        const line = rawLine.trimEnd()
-        if (!line.startsWith('data:')) {
-          if (line) controller.enqueue(encoder.encode(line + '\n'))
-          continue
-        }
-        const payload = line.slice(5).trim()
-        if (!payload || payload === '[DONE]') {
-          controller.enqueue(encoder.encode(line + '\n\n'))
-          continue
-        }
-        try {
-          const obj = unwrapData(JSON.parse(payload))
-          const u = obj?.usage
-          if (u) {
-            usage.promptTokens = Number(u.prompt_tokens ?? 0) || 0
-            usage.completionTokens = Number(u.completion_tokens ?? 0) || 0
-          }
-          controller.enqueue(encoder.encode('data: ' + JSON.stringify(obj) + '\n\n'))
-        } catch {
-          controller.enqueue(encoder.encode(line + '\n'))
-        }
+      buf += decoder.decode(chunk, { stream: true })
+      let idx: number
+      while ((idx = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, idx)
+        buf = buf.slice(idx + 1)
+        handleLine(line, controller)
       }
     },
-    flush() {
+    flush(controller) {
+      if (buf) handleLine(buf, controller)
       resolveDone(usage)
     },
   }))

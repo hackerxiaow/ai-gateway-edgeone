@@ -9673,34 +9673,42 @@ function normalizeClineStream(src) {
   const done = new Promise((r) => {
     resolveDone = r;
   });
+  let buf = "";
+  const handleLine = (line, controller) => {
+    if (line.endsWith("\r")) line = line.slice(0, -1);
+    if (!line.startsWith("data:")) {
+      controller.enqueue(encoder.encode(line + "\n"));
+      return;
+    }
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") {
+      controller.enqueue(encoder.encode(line + "\n\n"));
+      return;
+    }
+    try {
+      const obj = unwrapData(JSON.parse(payload));
+      const u = obj?.usage;
+      if (u) {
+        usage.promptTokens = Number(u.prompt_tokens ?? 0) || 0;
+        usage.completionTokens = Number(u.completion_tokens ?? 0) || 0;
+      }
+      controller.enqueue(encoder.encode("data: " + JSON.stringify(obj) + "\n\n"));
+    } catch {
+      controller.enqueue(encoder.encode(line + "\n"));
+    }
+  };
   const stream = src.pipeThrough(new TransformStream({
     transform(chunk, controller) {
-      const text = decoder.decode(chunk, { stream: true });
-      for (const rawLine of text.split("\n")) {
-        const line = rawLine.trimEnd();
-        if (!line.startsWith("data:")) {
-          if (line) controller.enqueue(encoder.encode(line + "\n"));
-          continue;
-        }
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") {
-          controller.enqueue(encoder.encode(line + "\n\n"));
-          continue;
-        }
-        try {
-          const obj = unwrapData(JSON.parse(payload));
-          const u = obj?.usage;
-          if (u) {
-            usage.promptTokens = Number(u.prompt_tokens ?? 0) || 0;
-            usage.completionTokens = Number(u.completion_tokens ?? 0) || 0;
-          }
-          controller.enqueue(encoder.encode("data: " + JSON.stringify(obj) + "\n\n"));
-        } catch {
-          controller.enqueue(encoder.encode(line + "\n"));
-        }
+      buf += decoder.decode(chunk, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx);
+        buf = buf.slice(idx + 1);
+        handleLine(line, controller);
       }
     },
-    flush() {
+    flush(controller) {
+      if (buf) handleLine(buf, controller);
       resolveDone(usage);
     }
   }));
