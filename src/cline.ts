@@ -427,6 +427,55 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
 }
 
 // =====================================================================
+// 后台：账号身份/余额查询（「账号与余额」按钮，参照 cline-free 的官方查询链路）
+// =====================================================================
+
+export interface ClineAccountStatus {
+  /** 凭据前 8 位（脱敏展示） */
+  keyPreview: string
+  ok: boolean
+  /** 账号邮箱（/users/me） */
+  email?: string
+  /** 官方 Credit 余额（原始微单位 ÷ 1e6，与 app.cline.bot 显示对齐） */
+  balance?: number
+  error?: string
+}
+
+/** 查询单个 refreshToken 对应的账号邮箱与 Credit 余额（打官方 /users/me 与 /users/{id}/balance） */
+export async function fetchClineAccountStatus(env: Env, refreshToken: string): Promise<ClineAccountStatus> {
+  const keyPreview = refreshToken.slice(0, 8) + '***'
+  try {
+    const { accessToken } = await getClineAccess(env, refreshToken)
+    const headers = clineChatHeaders(accessToken, '')
+    const meRes = await fetch(CLINE_API_BASE + '/users/me', {
+      headers,
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!meRes.ok) {
+      return { keyPreview, ok: false, error: `HTTP ${meRes.status}: ${(await readErrorBody(meRes)).slice(0, 160)}` }
+    }
+    const me = ((await meRes.json().catch(() => null)) as any)?.data
+    const email = String(me?.email || '')
+    let balance: number | undefined
+    if (me?.id) {
+      const balRes = await fetch(CLINE_API_BASE + '/users/' + encodeURIComponent(String(me.id)) + '/balance', {
+        headers,
+        signal: AbortSignal.timeout(30000),
+      })
+      if (balRes.ok) {
+        const b = ((await balRes.json().catch(() => null)) as any)?.data
+        if (b?.balance !== undefined && b?.balance !== null) {
+          balance = Number(b.balance) / 1_000_000
+        }
+      }
+    }
+    return { keyPreview, ok: true, email, balance }
+  } catch (err) {
+    return { keyPreview, ok: false, error: (err as Error).message || '查询失败' }
+  }
+}
+
+// =====================================================================
 // 后台：连通性测试 / 模型列表 / WorkOS 设备码授权
 // =====================================================================
 

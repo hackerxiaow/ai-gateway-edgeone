@@ -38,6 +38,7 @@ import {
   handleCodebuddyStatus,
   handleCodebuddyCheckin,
   handleCronCheckin,
+  handleClineStatus,
 } from './admin'
 import { renderHomePage, renderLoginPage, renderAdminPage } from './pages'
 import { probeDeepSeek, probeDeepSeekLogin } from './deepseek-auth-probe'
@@ -138,6 +139,9 @@ app.post('/admin/api/oauth/:provider/models', handleOAuthModels)
 
 // CodeBuddy 账号状态（积分/套餐余额）
 app.post('/admin/api/codebuddy/status', handleCodebuddyStatus)
+
+// Cline 账号状态（邮箱/Credit 余额）
+app.post('/admin/api/cline/status', handleClineStatus)
 
 // CodeBuddy 每日签到（单账号；body.all=true 时遍历全部 codebuddy 渠道，供定时任务）
 app.post('/admin/api/codebuddy/checkin', handleCodebuddyCheckin)

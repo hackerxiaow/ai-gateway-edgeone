@@ -41,7 +41,7 @@ import {
   checkinCodebuddy, codebuddyCronToken,
 } from './codebuddy'
 import {
-  startClineDeviceFlow, pollClineDeviceFlow, testCline, fetchClineModels,
+  startClineDeviceFlow, pollClineDeviceFlow, testCline, fetchClineModels, fetchClineAccountStatus,
 } from './cline'
 import { fetchZaiModels } from './zai'
 import { fetchOpenCodeModels, isOpenCodeProvider, resolveOpenCodeUrls, resolveProviderMirrorUrls, testOpenCodeModel } from './opencode'
@@ -954,6 +954,19 @@ async function testOAuthProviderRotating(
     break
   }
   return last
+}
+
+// ===== Cline 账号状态（邮箱 / Credit 余额） =====
+
+/** 查询 cline 渠道各凭据的账号身份与余额（body.keys 为渠道表单里的 refreshToken 列表，逐个查官方 /users/me） */
+export async function handleClineStatus(c: Context<{ Bindings: Env }>) {
+  const { keys } = await c.req.json<{ keys?: string[] }>()
+  const list = (keys || []).map((k) => String(k).trim()).filter(Boolean)
+  if (list.length === 0) {
+    return c.json<ApiResponse>({ success: false, message: '请先填写 refreshToken（每行一个）' }, 400)
+  }
+  const accounts = await Promise.all(list.map((k) => fetchClineAccountStatus(c.env, k)))
+  return c.json<ApiResponse<{ accounts: typeof accounts }>>({ success: true, data: { accounts } })
 }
 
 // ===== CodeBuddy 账号状态（积分/套餐余额） =====
