@@ -41,7 +41,7 @@ import {
   checkinCodebuddy, codebuddyCronToken,
 } from './codebuddy'
 import {
-  startClineDeviceFlow, pollClineDeviceFlow, testCline, fetchClineModels, fetchClineAccountStatus,
+  startClineDeviceFlow, pollClineDeviceFlow, testCline, fetchClineModels, fetchClineAccountStatus, fetchClineKeyQuota,
 } from './cline'
 import { fetchZaiModels } from './zai'
 import { fetchOpenCodeModels, isOpenCodeProvider, resolveOpenCodeUrls, resolveProviderMirrorUrls, testOpenCodeModel } from './opencode'
@@ -954,6 +954,19 @@ async function testOAuthProviderRotating(
     break
   }
   return last
+}
+
+// ===== Cline 额度页（账号余额 + 各模型今日用量/冷却状态） =====
+
+/** 查询全部 cline 渠道各凭据的账号余额、各模型今日用量与冷却状态（额度页「查询 Cline 账号」数据源） */
+export async function handleClineQuota(c: Context<{ Bindings: Env }>) {
+  const providers = (await getProviders(c.env)).filter((p) => p.type === 'cline')
+  const channels = await Promise.all(providers.map(async (p) => {
+    const keys = p.apiKeys.filter((k) => k.enabled).map((k) => k.key)
+    const accounts = await Promise.all(keys.map((k) => fetchClineKeyQuota(c.env, k)))
+    return { id: p.id, name: p.name, accounts }
+  }))
+  return c.json<ApiResponse<{ channels: typeof channels }>>({ success: true, data: { channels } })
 }
 
 // ===== Cline 账号状态（邮箱 / Credit 余额） =====

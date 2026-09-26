@@ -498,6 +498,8 @@ ${H('管理')}
       <section id="quota" class="workspace-section" aria-labelledby="quota-title">
         <div class="section-heading section-heading--admin"><div><h2 id="quota-title">额度</h2><p>Antigravity 各账号的模型剩余额度与重置时间，共 ${agAccountCount} 个账号。账号卡片里的邮箱与订阅层（Google AI Pro 等）来自 Google，可用来确认某个 token 属于哪个账号、套餐是否真的生效。</p></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="queryAllAgQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>查询全部额度</button><button class="btn btn-s" onclick="refreshAgAccounts()"><i class="fas fa-sync-alt" aria-hidden="true"></i>刷新账号</button></div></div>
         <div id="quotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">点右上角「刷新账号」重新读取账号；点账号右侧「查询」获取该账号额度。</div></div>
+        <div class="section-heading" style="margin-top:28px"><div><h3 style="margin:0">Cline 账号</h3><p>每个凭据的账号邮箱与官方 Credit 余额，以及各模型的今日用量（网关记账，北京时间自然日）与 429 冷却状态。Cline 免费额度按「账号 × 模型」独立计额且上游不提供剩余量查询，用量以网关实际转发为准。</p></div><button class="btn btn-p" onclick="queryAllClineQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>查询 Cline 账号</button></div>
+        <div id="clineQuotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">点「查询 Cline 账号」获取全部账号的余额与各模型用量/冷却状态。</div></div>
       </section>
 
       <section id="proxy-keys" class="workspace-section" aria-labelledby="proxy-keys-title">
@@ -1597,6 +1599,83 @@ async function agAccountQuery(chId, idx) {
     }
     el.innerHTML = renderAgQuota(d.data.accounts[0], chId)
   } catch (e) { el.innerHTML = '<div class="al al-e">请求失败</div>' }
+}
+
+// ===== Cline 额度页（账号余额 + 各模型今日用量/冷却状态，卡片样式与 Antigravity 一致） =====
+async function queryAllClineQuota() {
+  const box = document.getElementById('clineQuotaBody')
+  if (!box) return
+  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">正在查询全部 Cline 账号（邮箱 + 官方余额 + 今日用量）…</div>'
+  try {
+    const r = await fetch('/admin/api/cline/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    const d = await r.json()
+    if (!d.success || !d.data || !Array.isArray(d.data.channels)) {
+      box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">' + escapeHtml(d.message || '查询失败') + '</div>'
+      return
+    }
+    const hasAny = d.data.channels.some(function (ch) { return ch.accounts && ch.accounts.length })
+    box.innerHTML = hasAny
+      ? renderClineQuotaCards(d.data.channels)
+      : '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-id-card" aria-hidden="true"></i><h3>暂无 Cline 渠道</h3><p>添加一个 Cline 反代渠道并填入 refreshToken 后即可查看。</p></div>'
+    toast('已刷新 Cline 账号额度', 'success')
+  } catch (e) {
+    box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">请求失败</div>'
+  }
+}
+
+function fmtTokens(n) {
+  if (!n) return '0'
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+  return String(n)
+}
+
+function fmtCoolUntil(ts) {
+  const ms = Number(ts) - Date.now()
+  if (ms <= 0) return ''
+  const mins = Math.round(ms / 60000)
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return (h > 0 ? h + '小时' + m + '分' : Math.max(1, m) + '分钟') + '后恢复'
+}
+
+function renderClineQuotaCard(a, idx) {
+  const mail = a.email ? '<code style="font-size:11px;font-weight:400">' + escapeHtml(a.email) + '</code>' : ''
+  const bal = (a.ok && a.balance !== undefined && a.balance !== null)
+    ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">' + a.balance.toFixed(4) + ' Credits</span>'
+    : ''
+  const head = '<div class="fc" style="gap:8px;align-items:center;flex-wrap:wrap"><strong>账号 #' + (idx + 1) + '</strong>' + mail + bal + '</div>'
+  if (!a.ok) {
+    return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.08)">' + head + '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.error || '查询失败') + '</div></div>'
+  }
+  const allModels = []
+  Object.keys(a.usage || {}).forEach(function (m) { if (allModels.indexOf(m) === -1) allModels.push(m) })
+  Object.keys(a.cooldowns || {}).forEach(function (m) { if (allModels.indexOf(m) === -1) allModels.push(m) })
+  const rows = allModels.map(function (m) {
+    const u = (a.usage || {})[m] || { requests: 0, promptTokens: 0, completionTokens: 0 }
+    const until = Number((a.cooldowns || {})[m] || 0)
+    const pill = until > Date.now()
+      ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(217,119,6,.14);color:#d97706;white-space:nowrap">冷却 · ' + escapeHtml(fmtCoolUntil(until)) + '</span>'
+      : '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">可用</span>'
+    return '<div class="fc" style="justify-content:space-between;gap:8px;padding:2px 0;font-size:12px"><code style="font-size:11px">' + escapeHtml(m) + '</code><span class="fc" style="gap:6px;align-items:center">' + pill + '<span class="form-helper" style="white-space:nowrap">今日 ' + u.requests + ' 次 · ' + fmtTokens(u.promptTokens) + '入 / ' + fmtTokens(u.completionTokens) + '出</span></span></div>'
+  }).join('')
+  const body = allModels.length
+    ? '<div class="quota-models">' + rows + '</div>'
+    : '<div class="form-helper" style="margin-top:4px">今日暂无调用记录（用量按北京时间自然日统计）。</div>'
+  return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08)">' + head + body + '</div>'
+}
+
+function renderClineQuotaCards(channels) {
+  return channels.map(function (ch) {
+    const head = '<div class="fc" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">' + escapeHtml(ch.name) + ' <code style="font-size:11px;font-weight:400">' + escapeHtml(ch.id) + '</code></h3></div>'
+    let accts = ''
+    if (ch.accounts && ch.accounts.length) {
+      ch.accounts.forEach(function (a, i) { accts += '<div class="ag-acct">' + renderClineQuotaCard(a, i) + '</div>' })
+    } else {
+      accts = '<div class="form-helper" style="padding:8px 0">该渠道未配置凭据</div>'
+    }
+    return '<article class="quota-card">' + head + accts + '</article>'
+  }).join('')
 }
 
 // 一键添加全部 Azure TTS 音色为模型 (音色 id 即模型 id, 调用时直接用音色名)

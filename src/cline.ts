@@ -114,8 +114,62 @@ function getClineAccess(env: Env, refreshToken: string) {
 /** 冷却表（实例内存）：key = refreshToken哈希|模型ID，value = 冷却到期时间戳 */
 const cooldowns = new Map<string, number>()
 
-function cooldownKey(refreshToken: string, modelId: string): Promise<string> {
-  return sha256Hex(refreshToken).then((h) => h.slice(0, 16) + '|' + modelId)
+/** KV 前缀：按账号持久化的冷却表 / 今日用量（额度页数据源，重启与多实例共享） */
+const COOL_PREFIX = 'cline:cool:'
+const USAGE_PREFIX = 'cline:usage:'
+/** 本 isolate 已从 KV 装载过冷却表的账号（避免每请求重复读） */
+const coolLoaded = new Set<string>()
+
+async function clineKeyHash16(refreshToken: string): Promise<string> {
+  return (await sha256Hex(refreshToken)).slice(0, 16)
+}
+
+/** 免费额度按自然日重置；用量记账以北京时间日期为准 */
+function clineDateKey(): string {
+  return new Date().toLocaleString('en-CA', { timeZone: 'Asia/Shanghai' }).slice(0, 10)
+}
+
+/** 首次遇到某账号时，把 KV 里的持久化冷却表合并进内存（重启后冷却不丢） */
+async function loadCoolIntoMemory(env: Env, hash: string): Promise<void> {
+  if (coolLoaded.has(hash)) return
+  coolLoaded.add(hash)
+  try {
+    const raw = await getKV(env).get(COOL_PREFIX + hash)
+    if (!raw) return
+    const map = JSON.parse(raw) as Record<string, number>
+    for (const [model, until] of Object.entries(map)) {
+      const k = hash + '|' + model
+      if (!cooldowns.has(k) || (cooldowns.get(k) || 0) < until) cooldowns.set(k, until)
+    }
+  } catch { /* 冷却表加载失败按无冷却处理 */ }
+}
+
+/** 冷却写穿 KV（尽力而为，失败只影响额度页展示） */
+async function persistCooldown(env: Env, hash: string, modelId: string, until: number): Promise<void> {
+  try {
+    const raw = await getKV(env).get(COOL_PREFIX + hash)
+    const map = raw ? (JSON.parse(raw) as Record<string, number>) : {}
+    map[modelId] = until
+    await getKV(env).put(COOL_PREFIX + hash, JSON.stringify(map)).catch(() => {})
+  } catch { /* ignore */ }
+}
+
+interface ClineUsageEntry { requests: number; promptTokens: number; completionTokens: number }
+
+/** 按「账号 × 模型」累加今日用量（北京时间自然日；KV 读改写为尽力而为） */
+async function recordClineUsage(env: Env, hash: string, modelId: string, u: { promptTokens: number; completionTokens: number }): Promise<void> {
+  try {
+    const date = clineDateKey()
+    const raw = await getKV(env).get(USAGE_PREFIX + hash)
+    const prev = raw ? (JSON.parse(raw) as { date?: string; models?: Record<string, ClineUsageEntry> }) : null
+    const models = prev && prev.date === date && prev.models ? prev.models : {}
+    const cur = models[modelId] || { requests: 0, promptTokens: 0, completionTokens: 0 }
+    cur.requests += 1
+    cur.promptTokens += u.promptTokens
+    cur.completionTokens += u.completionTokens
+    models[modelId] = cur
+    await getKV(env).put(USAGE_PREFIX + hash, JSON.stringify({ date, models })).catch(() => {})
+  } catch { /* 统计尽力而为 */ }
 }
 
 /** 从上游错误文本解析等待时长："Try again in 2h 51m" / "30m" / "15s" → 毫秒（上限 6h） */
@@ -331,10 +385,12 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
   const upstreamBody = rewriteClinePayload(p.body, p.modelId, wantStream)
 
   // 先按冷却状态排序：可用的在前，冷却中的放最后兜底（冷却到期会被直接试用）
+  const hashByKey = new Map<string, string>()
+  for (const t of tokens) hashByKey.set(t, await clineKeyHash16(t))
+  for (const t of tokens) await loadCoolIntoMemory(p.env, hashByKey.get(t) as string)
   const ordered: string[] = []
   for (const t of tokens) {
-    const key = await cooldownKey(t, p.modelId)
-    const until = cooldowns.get(key) || 0
+    const until = cooldowns.get((hashByKey.get(t) as string) + '|' + p.modelId) || 0
     if (until <= Date.now()) ordered.push(t)
   }
   for (const t of tokens) {
@@ -345,7 +401,8 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
   let lastStatus = 502
 
   for (const refreshToken of ordered) {
-    const key = await cooldownKey(refreshToken, p.modelId)
+    const hash = hashByKey.get(refreshToken) as string
+    const key = hash + '|' + p.modelId
     try {
       const { accessToken } = await getClineAccess(p.env, refreshToken)
       const upstream = await enqueue(() => fetch(CLINE_API_BASE + '/chat/completions', {
@@ -361,12 +418,16 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
         lastError = `HTTP ${upstream.status}: ${errText.slice(0, 300)}`
         // 鉴权失效：作废缓存的 accessToken，短冷却后换号
         if (upstream.status === 401 || upstream.status === 403) {
-          cooldowns.set(key, Date.now() + 60 * 1000)
+          const until401 = Date.now() + 60 * 1000
+          cooldowns.set(key, until401)
+          void persistCooldown(p.env, hash, p.modelId, until401)
           continue
         }
         // 额度/限流/上游空响应：按上游提示冷却该「账号×模型」组合，换下一个号
         if (upstream.status === 429 || upstream.status >= 500 || errText.includes('empty response content')) {
-          cooldowns.set(key, Date.now() + parseCooldownMs(errText, upstream.status))
+          const untilCool = Date.now() + parseCooldownMs(errText, upstream.status)
+          cooldowns.set(key, untilCool)
+          void persistCooldown(p.env, hash, p.modelId, untilCool)
           continue
         }
         return oauthErrorResponse(lastError, upstream.status, 'upstream_error')
@@ -379,7 +440,10 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
 
       if (wantStream) {
         const { stream, done } = normalizeClineStream(upstream.body)
-        defer(p, done.then((u) => recordOAuthUsage(p, u, true, 200)))
+        defer(p, done.then((u) => Promise.all([
+          recordOAuthUsage(p, u, true, 200),
+          recordClineUsage(p.env, hash, p.modelId, u),
+        ])))
         return new Response(stream, {
           status: 200,
           headers: {
@@ -394,7 +458,7 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
       const contentType = upstream.headers.get('content-type') || ''
       if (contentType.includes('text/event-stream')) {
         const agg = await aggregateClineStream(upstream.body, p.modelId)
-        defer(p, recordOAuthUsage(p, agg.usage, true, 200))
+        defer(p, recordOAuthUsage(p, agg.usage, true, 200).then(() => recordClineUsage(p.env, hash, p.modelId, agg.usage)))
         return new Response(JSON.stringify(agg.response), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -408,10 +472,11 @@ export async function handleClineRequest(p: OAuthCallParams): Promise<Response> 
       }
       const normalized = unwrapData(raw)
       const u = normalized?.usage
-      defer(p, recordOAuthUsage(p, {
+      const parsedUsage = {
         promptTokens: Number(u?.prompt_tokens ?? 0) || 0,
         completionTokens: Number(u?.completion_tokens ?? 0) || 0,
-      }, true, 200))
+      }
+      defer(p, recordOAuthUsage(p, parsedUsage, true, 200).then(() => recordClineUsage(p.env, hash, p.modelId, parsedUsage)))
       return new Response(JSON.stringify(normalized), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -472,6 +537,44 @@ export async function fetchClineAccountStatus(env: Env, refreshToken: string): P
     return { keyPreview, ok: true, email, balance }
   } catch (err) {
     return { keyPreview, ok: false, error: (err as Error).message || '查询失败' }
+  }
+}
+
+/** 额度页单凭据数据：账号身份/余额 + 各模型今日用量（网关记账）+ 429 冷却状态（KV 持久化） */
+export interface ClineKeyQuota {
+  keyPreview: string
+  ok: boolean
+  email?: string
+  balance?: number
+  error?: string
+  usage: Record<string, ClineUsageEntry>
+  cooldowns: Record<string, number>
+}
+
+export async function fetchClineKeyQuota(env: Env, refreshToken: string): Promise<ClineKeyQuota> {
+  const hash = await clineKeyHash16(refreshToken)
+  const [status, usageRaw, coolRaw] = await Promise.all([
+    fetchClineAccountStatus(env, refreshToken),
+    getKV(env).get(USAGE_PREFIX + hash).catch(() => null),
+    getKV(env).get(COOL_PREFIX + hash).catch(() => null),
+  ])
+  let usage: Record<string, ClineUsageEntry> = {}
+  try {
+    const u = JSON.parse(usageRaw || 'null') as { date?: string; models?: Record<string, ClineUsageEntry> }
+    if (u && u.date === clineDateKey() && u.models) usage = u.models
+  } catch { /* ignore */ }
+  let cooldowns: Record<string, number> = {}
+  try {
+    cooldowns = (JSON.parse(coolRaw || '{}') as Record<string, number>) || {}
+  } catch { /* ignore */ }
+  return {
+    keyPreview: status.keyPreview,
+    ok: status.ok,
+    email: status.email,
+    balance: status.balance,
+    error: status.error,
+    usage,
+    cooldowns,
   }
 }
 

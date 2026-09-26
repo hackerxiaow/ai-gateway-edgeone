@@ -39,6 +39,7 @@ import {
   handleCodebuddyCheckin,
   handleCronCheckin,
   handleClineStatus,
+  handleClineQuota,
 } from './admin'
 import { renderHomePage, renderLoginPage, renderAdminPage } from './pages'
 import { probeDeepSeek, probeDeepSeekLogin } from './deepseek-auth-probe'
@@ -142,6 +143,9 @@ app.post('/admin/api/codebuddy/status', handleCodebuddyStatus)
 
 // Cline 账号状态（邮箱/Credit 余额）
 app.post('/admin/api/cline/status', handleClineStatus)
+
+// Cline 额度页（全部渠道各凭据的余额 + 各模型今日用量/冷却状态）
+app.post('/admin/api/cline/quota', handleClineQuota)
 
 // CodeBuddy 每日签到（单账号；body.all=true 时遍历全部 codebuddy 渠道，供定时任务）
 app.post('/admin/api/codebuddy/checkin', handleCodebuddyCheckin)

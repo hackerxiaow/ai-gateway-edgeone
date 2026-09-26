@@ -9585,6 +9585,7 @@ var cline_exports = {};
 __export(cline_exports, {
   CLINE_DEFAULT_MODEL: () => CLINE_DEFAULT_MODEL,
   fetchClineAccountStatus: () => fetchClineAccountStatus,
+  fetchClineKeyQuota: () => fetchClineKeyQuota,
   fetchClineModels: () => fetchClineModels,
   handleClineRequest: () => handleClineRequest,
   pollClineDeviceFlow: () => pollClineDeviceFlow,
@@ -9619,8 +9620,51 @@ function getClineAccess(env, refreshToken) {
     return { accessToken, expiresIn };
   });
 }
-function cooldownKey(refreshToken, modelId) {
-  return sha256Hex(refreshToken).then((h) => h.slice(0, 16) + "|" + modelId);
+async function clineKeyHash16(refreshToken) {
+  return (await sha256Hex(refreshToken)).slice(0, 16);
+}
+function clineDateKey() {
+  return (/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "Asia/Shanghai" }).slice(0, 10);
+}
+async function loadCoolIntoMemory(env, hash) {
+  if (coolLoaded.has(hash)) return;
+  coolLoaded.add(hash);
+  try {
+    const raw2 = await getKV(env).get(COOL_PREFIX + hash);
+    if (!raw2) return;
+    const map = JSON.parse(raw2);
+    for (const [model, until] of Object.entries(map)) {
+      const k = hash + "|" + model;
+      if (!cooldowns.has(k) || (cooldowns.get(k) || 0) < until) cooldowns.set(k, until);
+    }
+  } catch {
+  }
+}
+async function persistCooldown(env, hash, modelId, until) {
+  try {
+    const raw2 = await getKV(env).get(COOL_PREFIX + hash);
+    const map = raw2 ? JSON.parse(raw2) : {};
+    map[modelId] = until;
+    await getKV(env).put(COOL_PREFIX + hash, JSON.stringify(map)).catch(() => {
+    });
+  } catch {
+  }
+}
+async function recordClineUsage(env, hash, modelId, u) {
+  try {
+    const date = clineDateKey();
+    const raw2 = await getKV(env).get(USAGE_PREFIX + hash);
+    const prev = raw2 ? JSON.parse(raw2) : null;
+    const models = prev && prev.date === date && prev.models ? prev.models : {};
+    const cur = models[modelId] || { requests: 0, promptTokens: 0, completionTokens: 0 };
+    cur.requests += 1;
+    cur.promptTokens += u.promptTokens;
+    cur.completionTokens += u.completionTokens;
+    models[modelId] = cur;
+    await getKV(env).put(USAGE_PREFIX + hash, JSON.stringify({ date, models })).catch(() => {
+    });
+  } catch {
+  }
 }
 function parseCooldownMs(text, status) {
   const m = (text || "").match(/try again in (?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?/i);
@@ -9788,10 +9832,12 @@ async function handleClineRequest(p) {
   }
   const wantStream = p.body?.stream === true;
   const upstreamBody = rewriteClinePayload(p.body, p.modelId, wantStream);
+  const hashByKey = /* @__PURE__ */ new Map();
+  for (const t of tokens) hashByKey.set(t, await clineKeyHash16(t));
+  for (const t of tokens) await loadCoolIntoMemory(p.env, hashByKey.get(t));
   const ordered = [];
   for (const t of tokens) {
-    const key = await cooldownKey(t, p.modelId);
-    const until = cooldowns.get(key) || 0;
+    const until = cooldowns.get(hashByKey.get(t) + "|" + p.modelId) || 0;
     if (until <= Date.now()) ordered.push(t);
   }
   for (const t of tokens) {
@@ -9800,7 +9846,8 @@ async function handleClineRequest(p) {
   let lastError = "";
   let lastStatus = 502;
   for (const refreshToken of ordered) {
-    const key = await cooldownKey(refreshToken, p.modelId);
+    const hash = hashByKey.get(refreshToken);
+    const key = hash + "|" + p.modelId;
     try {
       const { accessToken } = await getClineAccess(p.env, refreshToken);
       const upstream = await enqueue(() => fetch(CLINE_API_BASE + "/chat/completions", {
@@ -9814,11 +9861,15 @@ async function handleClineRequest(p) {
         lastStatus = upstream.status;
         lastError = `HTTP ${upstream.status}: ${errText2.slice(0, 300)}`;
         if (upstream.status === 401 || upstream.status === 403) {
-          cooldowns.set(key, Date.now() + 60 * 1e3);
+          const until401 = Date.now() + 60 * 1e3;
+          cooldowns.set(key, until401);
+          void persistCooldown(p.env, hash, p.modelId, until401);
           continue;
         }
         if (upstream.status === 429 || upstream.status >= 500 || errText2.includes("empty response content")) {
-          cooldowns.set(key, Date.now() + parseCooldownMs(errText2, upstream.status));
+          const untilCool = Date.now() + parseCooldownMs(errText2, upstream.status);
+          cooldowns.set(key, untilCool);
+          void persistCooldown(p.env, hash, p.modelId, untilCool);
           continue;
         }
         return oauthErrorResponse(lastError, upstream.status, "upstream_error");
@@ -9830,7 +9881,10 @@ async function handleClineRequest(p) {
       }
       if (wantStream) {
         const { stream, done } = normalizeClineStream(upstream.body);
-        defer(p, done.then((u2) => recordOAuthUsage(p, u2, true, 200)));
+        defer(p, done.then((u2) => Promise.all([
+          recordOAuthUsage(p, u2, true, 200),
+          recordClineUsage(p.env, hash, p.modelId, u2)
+        ])));
         return new Response(stream, {
           status: 200,
           headers: {
@@ -9843,7 +9897,7 @@ async function handleClineRequest(p) {
       const contentType = upstream.headers.get("content-type") || "";
       if (contentType.includes("text/event-stream")) {
         const agg = await aggregateClineStream(upstream.body, p.modelId);
-        defer(p, recordOAuthUsage(p, agg.usage, true, 200));
+        defer(p, recordOAuthUsage(p, agg.usage, true, 200).then(() => recordClineUsage(p.env, hash, p.modelId, agg.usage)));
         return new Response(JSON.stringify(agg.response), {
           status: 200,
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
@@ -9857,10 +9911,11 @@ async function handleClineRequest(p) {
       }
       const normalized = unwrapData(raw2);
       const u = normalized?.usage;
-      defer(p, recordOAuthUsage(p, {
+      const parsedUsage = {
         promptTokens: Number(u?.prompt_tokens ?? 0) || 0,
         completionTokens: Number(u?.completion_tokens ?? 0) || 0
-      }, true, 200));
+      };
+      defer(p, recordOAuthUsage(p, parsedUsage, true, 200).then(() => recordClineUsage(p.env, hash, p.modelId, parsedUsage)));
       return new Response(JSON.stringify(normalized), {
         status: 200,
         headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
@@ -9904,6 +9959,34 @@ async function fetchClineAccountStatus(env, refreshToken) {
   } catch (err) {
     return { keyPreview, ok: false, error: err.message || "\u67E5\u8BE2\u5931\u8D25" };
   }
+}
+async function fetchClineKeyQuota(env, refreshToken) {
+  const hash = await clineKeyHash16(refreshToken);
+  const [status, usageRaw, coolRaw] = await Promise.all([
+    fetchClineAccountStatus(env, refreshToken),
+    getKV(env).get(USAGE_PREFIX + hash).catch(() => null),
+    getKV(env).get(COOL_PREFIX + hash).catch(() => null)
+  ]);
+  let usage = {};
+  try {
+    const u = JSON.parse(usageRaw || "null");
+    if (u && u.date === clineDateKey() && u.models) usage = u.models;
+  } catch {
+  }
+  let cooldowns2 = {};
+  try {
+    cooldowns2 = JSON.parse(coolRaw || "{}") || {};
+  } catch {
+  }
+  return {
+    keyPreview: status.keyPreview,
+    ok: status.ok,
+    email: status.email,
+    balance: status.balance,
+    error: status.error,
+    usage,
+    cooldowns: cooldowns2
+  };
 }
 async function testCline(env, refreshToken, modelId) {
   if (!refreshToken) return { success: false, message: "\u672A\u586B\u5199 refreshToken", statusCode: 0 };
@@ -10028,7 +10111,7 @@ async function pollClineDeviceFlow(env, state) {
   });
   return { status: "ok", refreshToken: rt, email };
 }
-var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, FREE_CHANNEL_PREFIXES, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, queueTail, MIN_GAP_MS;
+var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, FREE_CHANNEL_PREFIXES, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, COOL_PREFIX, USAGE_PREFIX, coolLoaded, queueTail, MIN_GAP_MS;
 var init_cline = __esm({
   "src/cline.ts"() {
     "use strict";
@@ -10060,6 +10143,9 @@ var init_cline = __esm({
       "poolside/laguna-s-2.1:free"
     ];
     cooldowns = /* @__PURE__ */ new Map();
+    COOL_PREFIX = "cline:cool:";
+    USAGE_PREFIX = "cline:usage:";
+    coolLoaded = /* @__PURE__ */ new Set();
     queueTail = Promise.resolve();
     MIN_GAP_MS = 800;
   }
@@ -14644,6 +14730,15 @@ async function testOAuthProviderRotating(env, provider, refreshTokens, modelId, 
   }
   return last;
 }
+async function handleClineQuota(c) {
+  const providers = (await getProviders(c.env)).filter((p) => p.type === "cline");
+  const channels = await Promise.all(providers.map(async (p) => {
+    const keys = p.apiKeys.filter((k) => k.enabled).map((k) => k.key);
+    const accounts = await Promise.all(keys.map((k) => fetchClineKeyQuota(c.env, k)));
+    return { id: p.id, name: p.name, accounts };
+  }));
+  return c.json({ success: true, data: { channels } });
+}
 async function handleClineStatus(c) {
   const { keys } = await c.req.json();
   const list = (keys || []).map((k) => String(k).trim()).filter(Boolean);
@@ -16060,6 +16155,8 @@ ${H("\u7BA1\u7406")}
       <section id="quota" class="workspace-section" aria-labelledby="quota-title">
         <div class="section-heading section-heading--admin"><div><h2 id="quota-title">\u989D\u5EA6</h2><p>Antigravity \u5404\u8D26\u53F7\u7684\u6A21\u578B\u5269\u4F59\u989D\u5EA6\u4E0E\u91CD\u7F6E\u65F6\u95F4\uFF0C\u5171 ${agAccountCount} \u4E2A\u8D26\u53F7\u3002\u8D26\u53F7\u5361\u7247\u91CC\u7684\u90AE\u7BB1\u4E0E\u8BA2\u9605\u5C42\uFF08Google AI Pro \u7B49\uFF09\u6765\u81EA Google\uFF0C\u53EF\u7528\u6765\u786E\u8BA4\u67D0\u4E2A token \u5C5E\u4E8E\u54EA\u4E2A\u8D26\u53F7\u3001\u5957\u9910\u662F\u5426\u771F\u7684\u751F\u6548\u3002</p></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="queryAllAgQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>\u67E5\u8BE2\u5168\u90E8\u989D\u5EA6</button><button class="btn btn-s" onclick="refreshAgAccounts()"><i class="fas fa-sync-alt" aria-hidden="true"></i>\u5237\u65B0\u8D26\u53F7</button></div></div>
         <div id="quotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u53F3\u4E0A\u89D2\u300C\u5237\u65B0\u8D26\u53F7\u300D\u91CD\u65B0\u8BFB\u53D6\u8D26\u53F7\uFF1B\u70B9\u8D26\u53F7\u53F3\u4FA7\u300C\u67E5\u8BE2\u300D\u83B7\u53D6\u8BE5\u8D26\u53F7\u989D\u5EA6\u3002</div></div>
+        <div class="section-heading" style="margin-top:28px"><div><h3 style="margin:0">Cline \u8D26\u53F7</h3><p>\u6BCF\u4E2A\u51ED\u636E\u7684\u8D26\u53F7\u90AE\u7BB1\u4E0E\u5B98\u65B9 Credit \u4F59\u989D\uFF0C\u4EE5\u53CA\u5404\u6A21\u578B\u7684\u4ECA\u65E5\u7528\u91CF\uFF08\u7F51\u5173\u8BB0\u8D26\uFF0C\u5317\u4EAC\u65F6\u95F4\u81EA\u7136\u65E5\uFF09\u4E0E 429 \u51B7\u5374\u72B6\u6001\u3002Cline \u514D\u8D39\u989D\u5EA6\u6309\u300C\u8D26\u53F7 \xD7 \u6A21\u578B\u300D\u72EC\u7ACB\u8BA1\u989D\u4E14\u4E0A\u6E38\u4E0D\u63D0\u4F9B\u5269\u4F59\u91CF\u67E5\u8BE2\uFF0C\u7528\u91CF\u4EE5\u7F51\u5173\u5B9E\u9645\u8F6C\u53D1\u4E3A\u51C6\u3002</p></div><button class="btn btn-p" onclick="queryAllClineQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>\u67E5\u8BE2 Cline \u8D26\u53F7</button></div>
+        <div id="clineQuotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u300C\u67E5\u8BE2 Cline \u8D26\u53F7\u300D\u83B7\u53D6\u5168\u90E8\u8D26\u53F7\u7684\u4F59\u989D\u4E0E\u5404\u6A21\u578B\u7528\u91CF/\u51B7\u5374\u72B6\u6001\u3002</div></div>
       </section>
 
       <section id="proxy-keys" class="workspace-section" aria-labelledby="proxy-keys-title">
@@ -17159,6 +17256,83 @@ async function agAccountQuery(chId, idx) {
     }
     el.innerHTML = renderAgQuota(d.data.accounts[0], chId)
   } catch (e) { el.innerHTML = '<div class="al al-e">\u8BF7\u6C42\u5931\u8D25</div>' }
+}
+
+// ===== Cline \u989D\u5EA6\u9875\uFF08\u8D26\u53F7\u4F59\u989D + \u5404\u6A21\u578B\u4ECA\u65E5\u7528\u91CF/\u51B7\u5374\u72B6\u6001\uFF0C\u5361\u7247\u6837\u5F0F\u4E0E Antigravity \u4E00\u81F4\uFF09 =====
+async function queryAllClineQuota() {
+  const box = document.getElementById('clineQuotaBody')
+  if (!box) return
+  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u6B63\u5728\u67E5\u8BE2\u5168\u90E8 Cline \u8D26\u53F7\uFF08\u90AE\u7BB1 + \u5B98\u65B9\u4F59\u989D + \u4ECA\u65E5\u7528\u91CF\uFF09\u2026</div>'
+  try {
+    const r = await fetch('/admin/api/cline/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    const d = await r.json()
+    if (!d.success || !d.data || !Array.isArray(d.data.channels)) {
+      box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">' + escapeHtml(d.message || '\u67E5\u8BE2\u5931\u8D25') + '</div>'
+      return
+    }
+    const hasAny = d.data.channels.some(function (ch) { return ch.accounts && ch.accounts.length })
+    box.innerHTML = hasAny
+      ? renderClineQuotaCards(d.data.channels)
+      : '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-id-card" aria-hidden="true"></i><h3>\u6682\u65E0 Cline \u6E20\u9053</h3><p>\u6DFB\u52A0\u4E00\u4E2A Cline \u53CD\u4EE3\u6E20\u9053\u5E76\u586B\u5165 refreshToken \u540E\u5373\u53EF\u67E5\u770B\u3002</p></div>'
+    toast('\u5DF2\u5237\u65B0 Cline \u8D26\u53F7\u989D\u5EA6', 'success')
+  } catch (e) {
+    box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">\u8BF7\u6C42\u5931\u8D25</div>'
+  }
+}
+
+function fmtTokens(n) {
+  if (!n) return '0'
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+  return String(n)
+}
+
+function fmtCoolUntil(ts) {
+  const ms = Number(ts) - Date.now()
+  if (ms <= 0) return ''
+  const mins = Math.round(ms / 60000)
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return (h > 0 ? h + '\u5C0F\u65F6' + m + '\u5206' : Math.max(1, m) + '\u5206\u949F') + '\u540E\u6062\u590D'
+}
+
+function renderClineQuotaCard(a, idx) {
+  const mail = a.email ? '<code style="font-size:11px;font-weight:400">' + escapeHtml(a.email) + '</code>' : ''
+  const bal = (a.ok && a.balance !== undefined && a.balance !== null)
+    ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">' + a.balance.toFixed(4) + ' Credits</span>'
+    : ''
+  const head = '<div class="fc" style="gap:8px;align-items:center;flex-wrap:wrap"><strong>\u8D26\u53F7 #' + (idx + 1) + '</strong>' + mail + bal + '</div>'
+  if (!a.ok) {
+    return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.08)">' + head + '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.error || '\u67E5\u8BE2\u5931\u8D25') + '</div></div>'
+  }
+  const allModels = []
+  Object.keys(a.usage || {}).forEach(function (m) { if (allModels.indexOf(m) === -1) allModels.push(m) })
+  Object.keys(a.cooldowns || {}).forEach(function (m) { if (allModels.indexOf(m) === -1) allModels.push(m) })
+  const rows = allModels.map(function (m) {
+    const u = (a.usage || {})[m] || { requests: 0, promptTokens: 0, completionTokens: 0 }
+    const until = Number((a.cooldowns || {})[m] || 0)
+    const pill = until > Date.now()
+      ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(217,119,6,.14);color:#d97706;white-space:nowrap">\u51B7\u5374 \xB7 ' + escapeHtml(fmtCoolUntil(until)) + '</span>'
+      : '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">\u53EF\u7528</span>'
+    return '<div class="fc" style="justify-content:space-between;gap:8px;padding:2px 0;font-size:12px"><code style="font-size:11px">' + escapeHtml(m) + '</code><span class="fc" style="gap:6px;align-items:center">' + pill + '<span class="form-helper" style="white-space:nowrap">\u4ECA\u65E5 ' + u.requests + ' \u6B21 \xB7 ' + fmtTokens(u.promptTokens) + '\u5165 / ' + fmtTokens(u.completionTokens) + '\u51FA</span></span></div>'
+  }).join('')
+  const body = allModels.length
+    ? '<div class="quota-models">' + rows + '</div>'
+    : '<div class="form-helper" style="margin-top:4px">\u4ECA\u65E5\u6682\u65E0\u8C03\u7528\u8BB0\u5F55\uFF08\u7528\u91CF\u6309\u5317\u4EAC\u65F6\u95F4\u81EA\u7136\u65E5\u7EDF\u8BA1\uFF09\u3002</div>'
+  return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08)">' + head + body + '</div>'
+}
+
+function renderClineQuotaCards(channels) {
+  return channels.map(function (ch) {
+    const head = '<div class="fc" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">' + escapeHtml(ch.name) + ' <code style="font-size:11px;font-weight:400">' + escapeHtml(ch.id) + '</code></h3></div>'
+    let accts = ''
+    if (ch.accounts && ch.accounts.length) {
+      ch.accounts.forEach(function (a, i) { accts += '<div class="ag-acct">' + renderClineQuotaCard(a, i) + '</div>' })
+    } else {
+      accts = '<div class="form-helper" style="padding:8px 0">\u8BE5\u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E</div>'
+    }
+    return '<article class="quota-card">' + head + accts + '</article>'
+  }).join('')
 }
 
 // \u4E00\u952E\u6DFB\u52A0\u5168\u90E8 Azure TTS \u97F3\u8272\u4E3A\u6A21\u578B (\u97F3\u8272 id \u5373\u6A21\u578B id, \u8C03\u7528\u65F6\u76F4\u63A5\u7528\u97F3\u8272\u540D)
@@ -18322,6 +18496,7 @@ app.post("/admin/api/oauth/:provider/poll", handleOAuthPoll);
 app.post("/admin/api/oauth/:provider/models", handleOAuthModels);
 app.post("/admin/api/codebuddy/status", handleCodebuddyStatus);
 app.post("/admin/api/cline/status", handleClineStatus);
+app.post("/admin/api/cline/quota", handleClineQuota);
 app.post("/admin/api/codebuddy/checkin", handleCodebuddyCheckin);
 app.get("/cron/checkin", handleCronCheckin);
 app.on("HEAD", "/cron/checkin", handleCronCheckin);
