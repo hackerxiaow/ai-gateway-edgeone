@@ -1,4 +1,4 @@
-import { onRequest } from './cloud-functions/[[default]].js'
+import { onRequest } from '../cloud-functions/[[default]].js'
 
 async function runTests() {
   console.log('--- 1. 测试 /admin/login 页面 ---')

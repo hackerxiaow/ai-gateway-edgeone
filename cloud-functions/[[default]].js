@@ -9580,6 +9580,447 @@ var init_codebuddy = __esm({
   }
 });
 
+// src/cline.ts
+var cline_exports = {};
+__export(cline_exports, {
+  CLINE_DEFAULT_MODEL: () => CLINE_DEFAULT_MODEL,
+  fetchClineModels: () => fetchClineModels,
+  handleClineRequest: () => handleClineRequest,
+  pollClineDeviceFlow: () => pollClineDeviceFlow,
+  startClineDeviceFlow: () => startClineDeviceFlow,
+  testCline: () => testCline
+});
+async function refreshClineToken(refreshToken) {
+  const res = await fetch(CLINE_API_BASE + "/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken, grantType: "refresh_token" }),
+    signal: AbortSignal.timeout(3e4)
+  });
+  if (!res.ok) {
+    throw new Error(`refresh HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`);
+  }
+  const json = await res.json().catch(() => null);
+  const accessToken = json?.data?.accessToken;
+  if (!accessToken) throw new Error("refresh \u54CD\u5E94\u672A\u5305\u542B accessToken");
+  let expiresIn = 600;
+  const exp = json?.data?.expiresAt;
+  if (typeof exp === "number" && exp > Date.now()) expiresIn = Math.floor((exp - Date.now()) / 1e3);
+  else if (typeof exp === "string") {
+    const t = Date.parse(exp);
+    if (!Number.isNaN(t) && t > Date.now()) expiresIn = Math.floor((t - Date.now()) / 1e3);
+  }
+  return { accessToken, expiresIn: Math.max(60, expiresIn - 60) };
+}
+function getClineAccess(env, refreshToken) {
+  return resolveAccessToken(env, CLINE_AT_PREFIX, refreshToken, async () => {
+    const { accessToken, expiresIn } = await refreshClineToken(refreshToken);
+    return { accessToken, expiresIn };
+  });
+}
+function cooldownKey(refreshToken, modelId) {
+  return sha256Hex(refreshToken).then((h) => h.slice(0, 16) + "|" + modelId);
+}
+function parseCooldownMs(text, status) {
+  const m = (text || "").match(/try again in (?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?/i);
+  if (m) {
+    const ms = (parseInt(m[1] || "0", 10) * 3600 + parseInt(m[2] || "0", 10) * 60 + parseInt(m[3] || "0", 10)) * 1e3;
+    if (ms > 0) return Math.min(ms, 6 * 3600 * 1e3);
+  }
+  if (status === 429) return 5 * 60 * 1e3;
+  return 60 * 1e3;
+}
+function rewriteClinePayload(body, modelId, wantStream) {
+  const upstream = {
+    model: modelId,
+    session_id: "sess_" + Date.now(),
+    reasoning_effort: body.reasoning_effort || body.reasoningEffort || "high",
+    messages: body.messages || []
+  };
+  const forceStream = FREE_CHANNEL_PREFIXES.some((p) => modelId.startsWith(p));
+  if (wantStream || forceStream) upstream.stream = true;
+  for (const k of ["temperature", "top_p", "tools", "tool_choice", "stop", "presence_penalty", "frequency_penalty", "response_format", "user", "n", "seed"]) {
+    if (body[k] !== void 0) upstream[k] = body[k];
+  }
+  return upstream;
+}
+function clineChatHeaders(accessToken, sessionId) {
+  return {
+    Authorization: "Bearer workos:" + accessToken,
+    "Content-Type": "application/json",
+    ...CLINE_FINGERPRINT_HEADERS,
+    "X-Task-ID": sessionId
+  };
+}
+function enqueue(fn) {
+  const run = queueTail.then(() => new Promise((r) => setTimeout(r, MIN_GAP_MS))).then(fn);
+  queueTail = run.catch(() => {
+  });
+  return run;
+}
+function unwrapData(obj) {
+  if (obj && typeof obj === "object" && obj.data && typeof obj.data === "object") {
+    const d = obj.data;
+    if (d.choices || d.id || d.usage || d.model) return d;
+  }
+  return obj;
+}
+function normalizeClineStream(src) {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const usage = { promptTokens: 0, completionTokens: 0 };
+  let resolveDone;
+  const done = new Promise((r) => {
+    resolveDone = r;
+  });
+  const stream = src.pipeThrough(new TransformStream({
+    transform(chunk, controller) {
+      const text = decoder.decode(chunk, { stream: true });
+      for (const rawLine of text.split("\n")) {
+        const line = rawLine.trimEnd();
+        if (!line.startsWith("data:")) {
+          if (line) controller.enqueue(encoder.encode(line + "\n"));
+          continue;
+        }
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") {
+          controller.enqueue(encoder.encode(line + "\n\n"));
+          continue;
+        }
+        try {
+          const obj = unwrapData(JSON.parse(payload));
+          const u = obj?.usage;
+          if (u) {
+            usage.promptTokens = Number(u.prompt_tokens ?? 0) || 0;
+            usage.completionTokens = Number(u.completion_tokens ?? 0) || 0;
+          }
+          controller.enqueue(encoder.encode("data: " + JSON.stringify(obj) + "\n\n"));
+        } catch {
+          controller.enqueue(encoder.encode(line + "\n"));
+        }
+      }
+    },
+    flush() {
+      resolveDone(usage);
+    }
+  }));
+  return { stream, done };
+}
+async function aggregateClineStream(body, fallbackModel) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let content = "";
+  let reasoning = "";
+  let finishReason = null;
+  let id = "";
+  let model = "";
+  let usage = null;
+  for (; ; ) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, idx);
+      buf = buf.slice(idx + 1);
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const obj = unwrapData(JSON.parse(payload));
+        const choice = obj?.choices?.[0];
+        if (!choice) {
+          if (obj?.usage) usage = obj.usage;
+          continue;
+        }
+        const delta = choice.delta || {};
+        if (delta.content) content += delta.content;
+        if (delta.reasoning) reasoning += delta.reasoning;
+        if (choice.finish_reason) finishReason = choice.finish_reason;
+        if (obj.id) id = obj.id;
+        if (obj.model) model = obj.model;
+        if (obj.usage) usage = obj.usage;
+      } catch {
+      }
+    }
+  }
+  const message = { role: "assistant", content };
+  if (reasoning) message.reasoning = reasoning;
+  return {
+    response: {
+      id: id || "gen_" + Date.now(),
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1e3),
+      model: model || fallbackModel,
+      choices: [{
+        index: 0,
+        message,
+        finish_reason: finishReason || "stop",
+        logprobs: null,
+        native_finish_reason: finishReason || "stop"
+      }],
+      usage: usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    },
+    usage: {
+      promptTokens: Number(usage?.prompt_tokens ?? 0) || 0,
+      completionTokens: Number(usage?.completion_tokens ?? 0) || 0
+    }
+  };
+}
+async function handleClineRequest(p) {
+  const tokens = (p.refreshTokens || []).filter((t) => t && t.trim());
+  if (tokens.length === 0) {
+    return oauthErrorResponse(
+      "\u8BE5 cline \u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E\uFF1A\u8BF7\u5728\u300CAPI Keys\u300D\u91CC\u6BCF\u884C\u586B\u5165\u4E00\u4E2A Cline refreshToken\uFF08\u53EF\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u81EA\u52A8\u83B7\u53D6\uFF09",
+      400,
+      "configuration_error"
+    );
+  }
+  const wantStream = p.body?.stream === true;
+  const upstreamBody = rewriteClinePayload(p.body, p.modelId, wantStream);
+  const ordered = [];
+  for (const t of tokens) {
+    const key = await cooldownKey(t, p.modelId);
+    const until = cooldowns.get(key) || 0;
+    if (until <= Date.now()) ordered.push(t);
+  }
+  for (const t of tokens) {
+    if (!ordered.includes(t)) ordered.push(t);
+  }
+  let lastError = "";
+  let lastStatus = 502;
+  for (const refreshToken of ordered) {
+    const key = await cooldownKey(refreshToken, p.modelId);
+    try {
+      const { accessToken } = await getClineAccess(p.env, refreshToken);
+      const upstream = await enqueue(() => fetch(CLINE_API_BASE + "/chat/completions", {
+        method: "POST",
+        headers: clineChatHeaders(accessToken, upstreamBody.session_id),
+        body: JSON.stringify(upstreamBody),
+        signal: AbortSignal.timeout(6e5)
+      }));
+      if (!upstream.ok) {
+        const errText2 = await readErrorBody(upstream);
+        lastStatus = upstream.status;
+        lastError = `HTTP ${upstream.status}: ${errText2.slice(0, 300)}`;
+        if (upstream.status === 401 || upstream.status === 403) {
+          cooldowns.set(key, Date.now() + 60 * 1e3);
+          continue;
+        }
+        if (upstream.status === 429 || upstream.status >= 500 || errText2.includes("empty response content")) {
+          cooldowns.set(key, Date.now() + parseCooldownMs(errText2, upstream.status));
+          continue;
+        }
+        return oauthErrorResponse(lastError, upstream.status, "upstream_error");
+      }
+      if (!upstream.body) {
+        lastError = "\u4E0A\u6E38\u672A\u8FD4\u56DE\u54CD\u5E94\u4F53";
+        lastStatus = 502;
+        continue;
+      }
+      if (wantStream) {
+        const { stream, done } = normalizeClineStream(upstream.body);
+        defer(p, done.then((u2) => recordOAuthUsage(p, u2, true, 200)));
+        return new Response(stream, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-store",
+            Connection: "keep-alive"
+          }
+        });
+      }
+      const contentType = upstream.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream")) {
+        const agg = await aggregateClineStream(upstream.body, p.modelId);
+        defer(p, recordOAuthUsage(p, agg.usage, true, 200));
+        return new Response(JSON.stringify(agg.response), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+        });
+      }
+      const raw2 = await upstream.json().catch(() => null);
+      if (!raw2) {
+        lastError = "\u4E0A\u6E38\u8FD4\u56DE\u975E JSON \u54CD\u5E94";
+        lastStatus = 502;
+        continue;
+      }
+      const normalized = unwrapData(raw2);
+      const u = normalized?.usage;
+      defer(p, recordOAuthUsage(p, {
+        promptTokens: Number(u?.prompt_tokens ?? 0) || 0,
+        completionTokens: Number(u?.completion_tokens ?? 0) || 0
+      }, true, 200));
+      return new Response(JSON.stringify(normalized), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+      });
+    } catch (err) {
+      lastError = err.message || "\u672A\u77E5\u9519\u8BEF";
+      lastStatus = 502;
+      continue;
+    }
+  }
+  return oauthErrorResponse(`\u6240\u6709 Cline \u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError || "\u672A\u77E5"}`, lastStatus, "key_exhausted");
+}
+async function testCline(env, refreshToken, modelId) {
+  if (!refreshToken) return { success: false, message: "\u672A\u586B\u5199 refreshToken", statusCode: 0 };
+  try {
+    const { accessToken } = await getClineAccess(env, refreshToken);
+    const sessionId = "sess_" + Date.now();
+    const res = await fetch(CLINE_API_BASE + "/chat/completions", {
+      method: "POST",
+      headers: clineChatHeaders(accessToken, sessionId),
+      body: JSON.stringify({
+        model: modelId || CLINE_DEFAULT_MODEL,
+        session_id: sessionId,
+        reasoning_effort: "high",
+        messages: [{ role: "user", content: "hi" }],
+        stream: true
+      }),
+      signal: AbortSignal.timeout(6e4)
+    });
+    if (res.ok) {
+      await res.text().catch(() => "");
+      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    }
+    return { success: false, message: `HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`, statusCode: res.status };
+  } catch (err) {
+    return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
+  }
+}
+function fetchClineModels() {
+  return { success: true, models: CLINE_BUILTIN_MODELS.slice() };
+}
+async function startClineDeviceFlow(env) {
+  const form = new URLSearchParams({ client_id: WORKOS_CLIENT_ID });
+  const res = await fetch(WORKOS_DEVICE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+    signal: AbortSignal.timeout(3e4)
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`\u8BBE\u5907\u7801\u8BF7\u6C42\u8FD4\u56DE\u975E JSON: ${text.slice(0, 200)}`);
+  }
+  if (!res.ok || !json.device_code) throw new Error(`\u8BBE\u5907\u7801\u8BF7\u6C42\u5931\u8D25 HTTP ${res.status}: ${text.slice(0, 300)}`);
+  const state = randomId();
+  try {
+    await getKV(env).put(CLINE_DEVICE_PREFIX + state, JSON.stringify({
+      deviceCode: json.device_code
+    }), { expirationTtl: Math.max(300, Number(json.expires_in) || 600) });
+  } catch (e) {
+    console.error("[cline] start store failed", state.slice(0, 8), String(e));
+    throw new Error("\u8BBE\u5907\u7801\u4F1A\u8BDD\u5199\u5165\u5931\u8D25(\u5B58\u50A8\u5F02\u5E38)\uFF0C\u8BF7\u91CD\u8BD5");
+  }
+  return {
+    state,
+    verificationUri: String(json.verification_uri || "https://cline.bot"),
+    verificationUriComplete: json.verification_uri_complete ? String(json.verification_uri_complete) : void 0,
+    userCode: String(json.user_code || ""),
+    expiresIn: Number(json.expires_in) || 600,
+    interval: Math.max(5, Number(json.interval) || 5)
+  };
+}
+async function pollClineDeviceFlow(env, state) {
+  const raw2 = await getKV(env).get(CLINE_DEVICE_PREFIX + state);
+  if (!raw2) return { status: "error", message: "\u8BBE\u5907\u7801\u4F1A\u8BDD\u4E0D\u5B58\u5728\u6216\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u6388\u6743" };
+  const session = JSON.parse(raw2);
+  if (session.done && session.refreshToken) {
+    return { status: "ok", refreshToken: session.refreshToken };
+  }
+  const form = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+    device_code: session.deviceCode,
+    client_id: WORKOS_CLIENT_ID
+  });
+  const res = await fetch(WORKOS_AUTH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+    signal: AbortSignal.timeout(3e4)
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return { status: "error", message: `\u8F6E\u8BE2\u8FD4\u56DE\u975E JSON: ${text.slice(0, 200)}` };
+  }
+  if (json.error) {
+    if (json.error === "authorization_pending" || json.error === "slow_down") return { status: "pending" };
+    await getKV(env).delete(CLINE_DEVICE_PREFIX + state).catch(() => {
+    });
+    if (json.error === "access_denied") return { status: "error", message: "\u7528\u6237\u62D2\u7EDD\u4E86\u6388\u6743" };
+    if (json.error === "expired_token" || json.error === "invalid_grant") return { status: "error", message: "\u8BBE\u5907\u7801\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u53D1\u8D77\u6388\u6743" };
+    return { status: "error", message: `WorkOS \u9519\u8BEF: ${json.error} ${json.error_description || ""}`.trim() };
+  }
+  if (!json.access_token) return { status: "error", message: "WorkOS \u672A\u8FD4\u56DE access_token" };
+  const regRes = await fetch(CLINE_API_BASE + "/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken: json.access_token, refreshToken: json.refresh_token }),
+    signal: AbortSignal.timeout(3e4)
+  });
+  const regText = await regRes.text();
+  let reg;
+  try {
+    reg = JSON.parse(regText);
+  } catch {
+    return { status: "error", message: `Cline \u6CE8\u518C\u8FD4\u56DE\u975E JSON: ${regText.slice(0, 200)}` };
+  }
+  const rt = reg?.data?.refreshToken;
+  if (!rt) return { status: "error", message: `Cline \u6CE8\u518C\u5931\u8D25: ${regText.slice(0, 200)}` };
+  await getKV(env).put(CLINE_DEVICE_PREFIX + state, JSON.stringify({
+    deviceCode: session.deviceCode,
+    done: true,
+    refreshToken: rt
+  }), { expirationTtl: 3600 }).catch(() => {
+  });
+  return { status: "ok", refreshToken: rt };
+}
+var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, FREE_CHANNEL_PREFIXES, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, queueTail, MIN_GAP_MS;
+var init_cline = __esm({
+  "src/cline.ts"() {
+    "use strict";
+    init_storage_adapter();
+    init_oauth_common();
+    CLINE_API_BASE = "https://api.cline.bot/api/v1";
+    WORKOS_DEVICE_URL = "https://api.workos.com/user_management/authorize/device";
+    WORKOS_AUTH_URL = "https://api.workos.com/user_management/authenticate";
+    WORKOS_CLIENT_ID = "client_01K3A541FN8TA3EPPHTD2325AR";
+    CLINE_FINGERPRINT_HEADERS = {
+      "User-Agent": "Cline/3.0.47",
+      "HTTP-Referer": "https://cline.bot",
+      "X-Title": "Cline",
+      "X-IS-MULTIROOT": "false",
+      "X-CLIENT-TYPE": "cline-sdk",
+      "X-CLIENT-VERSION": "3.0.47",
+      "X-PLATFORM": "terminal",
+      "X-PLATFORM-VERSION": "3.0.47",
+      "X-CORE-VERSION": "0.0.66"
+    };
+    CLINE_AT_PREFIX = "cline:at:";
+    CLINE_DEVICE_PREFIX = "cline:dev:";
+    FREE_CHANNEL_PREFIXES = ["deepseek/", "cline-free/", "cline-pass/"];
+    CLINE_DEFAULT_MODEL = "cline-free/deepseek-v4.1-flash";
+    CLINE_BUILTIN_MODELS = [
+      CLINE_DEFAULT_MODEL,
+      "deepseek/deepseek-v4-flash",
+      "z-ai/glm-5.3-flash",
+      "poolside/laguna-s-2.1:free"
+    ];
+    cooldowns = /* @__PURE__ */ new Map();
+    queueTail = Promise.resolve();
+    MIN_GAP_MS = 800;
+  }
+});
+
 // src/grok.ts
 var grok_exports = {};
 __export(grok_exports, {
@@ -12689,9 +13130,9 @@ async function handleProxy(c) {
         }
       });
     }
-    const OAUTH_TYPES = ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy"];
+    const OAUTH_TYPES = ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"];
     if (OAUTH_TYPES.includes(providerType)) {
-      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" ? ["chat/completions"] : ["chat/completions", "responses"];
+      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
       if (!supported.includes(subPath)) {
         return c.json({
           error: { message: `${providerType} \u6E20\u9053\u6682\u4E0D\u652F\u6301\u7AEF\u70B9 /v1/${subPath}\uFF08\u652F\u6301: ${supported.map((s) => `/v1/${s}`).join("\u3001")}\uFF09`, type: "invalid_request_error" }
@@ -12737,6 +13178,10 @@ async function handleProxy(c) {
       if (providerType === "codebuddy") {
         const { handleCodebuddyRequest: handleCodebuddyRequest2 } = await Promise.resolve().then(() => (init_codebuddy(), codebuddy_exports));
         return handleCodebuddyRequest2(oauthParams, provider.baseUrl, provider.region);
+      }
+      if (providerType === "cline") {
+        const { handleClineRequest: handleClineRequest2 } = await Promise.resolve().then(() => (init_cline(), cline_exports));
+        return handleClineRequest2(oauthParams);
       }
       const { handleGrokRequest: handleGrokRequest2 } = await Promise.resolve().then(() => (init_grok(), grok_exports));
       return handleGrokRequest2({ ...oauthParams, body: subPath === "responses" ? nativeBody : body }, subPath === "responses" ? "responses-passthrough" : "translate");
@@ -13470,6 +13915,7 @@ init_grok();
 init_qwen();
 init_deepseek();
 init_codebuddy();
+init_cline();
 
 // src/zai.ts
 var ZAI_DEFAULT_MODELS = [
@@ -13767,7 +14213,7 @@ async function handleTestModel(c) {
   }
   const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
   const ptype = provider.type || "openai";
-  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
+  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
   return c.json({
     success: true,
     data: result
@@ -13791,7 +14237,7 @@ async function handleTestKeyNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model || OAUTH_DEFAULT_MODELS[providerType], url, providerId);
     return c.json({
       success: true,
@@ -13880,7 +14326,7 @@ async function handleTestModelNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model, url, providerId);
     return c.json({
       success: true,
@@ -14008,7 +14454,7 @@ async function handleAntigravityQuotaAll(c) {
   }
   return c.json({ success: true, data: { channels } });
 }
-var OAUTH_PROVIDERS = /* @__PURE__ */ new Set(["claude", "codex", "kimi", "grok", "qwen", "codebuddy"]);
+var OAUTH_PROVIDERS = /* @__PURE__ */ new Set(["claude", "codex", "kimi", "grok", "qwen", "codebuddy", "cline"]);
 var OAUTH_DEFAULT_MODELS = {
   claude: "claude-sonnet-4-5-20250929",
   codex: "gpt-5.5",
@@ -14016,7 +14462,8 @@ var OAUTH_DEFAULT_MODELS = {
   grok: "grok-4.6",
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
-  codebuddy: "deepseek-v4.1-flash"
+  codebuddy: "deepseek-v4.1-flash",
+  cline: "cline-free/deepseek-v4.1-flash"
 };
 async function handleOAuthStart(c) {
   const provider = c.req.param("provider") || "";
@@ -14040,7 +14487,7 @@ async function handleOAuthStart(c) {
         data: { mode: "redirect-poll", url: flow2.authUrl, state: flow2.state, realm: flow2.realm }
       });
     }
-    const flow = provider === "kimi" ? await startKimiDeviceFlow(c.env, body.baseUrl) : provider === "qwen" ? await startQwenDeviceFlow(c.env) : await startGrokDeviceFlow(c.env);
+    const flow = provider === "kimi" ? await startKimiDeviceFlow(c.env, body.baseUrl) : provider === "qwen" ? await startQwenDeviceFlow(c.env) : provider === "cline" ? await startClineDeviceFlow(c.env) : await startGrokDeviceFlow(c.env);
     return c.json({
       success: true,
       data: { mode: "device", state: flow.state, verification_uri: flow.verificationUri, verification_uri_complete: flow.verificationUriComplete, user_code: flow.userCode, interval: flow.interval }
@@ -14081,6 +14528,7 @@ async function handleOAuthPoll(c) {
     else if (provider === "qwen") r = await pollQwenDeviceFlow(c.env, state);
     else if (provider === "grok") r = await pollGrokDeviceFlow(c.env, state);
     else if (provider === "codebuddy") r = await pollCodebuddyDeviceFlow(c.env, state);
+    else if (provider === "cline") r = await pollClineDeviceFlow(c.env, state);
     if (!r) {
       return c.json({ success: false, message: `${provider} \u6E20\u9053\u4F7F\u7528\u6388\u6743\u94FE\u63A5\uFF0C\u8BF7\u7528 complete \u63A5\u53E3` }, 400);
     }
@@ -14116,6 +14564,10 @@ async function handleOAuthModels(c) {
     const r = await fetchCodebuddyModels(c.env, apiKey, baseUrl, region);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
+  if (provider === "cline") {
+    const r = fetchClineModels();
+    return c.json({ success: true, data: { models: r.models } });
+  }
   return c.json({ success: false, message: `${provider} \u6E20\u9053\u8BF7\u624B\u52A8\u586B\u5199\u6A21\u578B\u5217\u8868` }, 400);
 }
 async function testOAuthProvider(env, provider, refreshToken, modelId, baseUrl, providerId, region) {
@@ -14126,6 +14578,7 @@ async function testOAuthProvider(env, provider, refreshToken, modelId, baseUrl, 
   if (provider === "qwen") return testQwen(env, refreshToken, modelId);
   if (provider === "deepseek") return testDeepSeek(env, refreshToken, modelId);
   if (provider === "codebuddy") return testCodebuddy(env, refreshToken, modelId, baseUrl, region);
+  if (provider === "cline") return testCline(env, refreshToken, modelId);
   return { success: false, message: `\u672A\u77E5 OAuth \u6E20\u9053\u7C7B\u578B: ${provider}` };
 }
 async function testOAuthProviderRotating(env, provider, refreshTokens, modelId, baseUrl, providerId, region) {
@@ -15503,10 +15956,10 @@ ${H("\u7BA1\u7406")}
             </div>
             <div class="fg"><label for="aurl">API \u5730\u5740</label><input type="url" id="aurl" placeholder="https://api.deepseek.com"></div>
             <div class="fg" data-hide-ag><label for="amirror">\u955C\u50CF\u5730\u5740</label><textarea id="amirror" rows="3" placeholder="https://opencode.ai.cmliussss.net/zen/v1&#10;\u6BCF\u884C\u4E00\u4E2A, \u7559\u7A7A\u4F7F\u7528 OPENCODE_MIRRORS_URL \u73AF\u5883\u53D8\u91CF"></textarea><span class="form-helper">\u5B98\u65B9\u5730\u5740\u5931\u8D25\u540E\u81EA\u52A8\u6545\u969C\u8F6C\u79FB\u5230\u7684\u955C\u50CF\u5730\u5740\uFF0C\u6BCF\u884C\u4E00\u4E2A URL\u3002</span></div>
-            <div class="fg"><label for="apt">\u6E20\u9053\u7C7B\u578B</label><select id="apt" class="select-sm" onchange="onTypeChange(this, 'new')"><option value="openai">OpenAI \u517C\u5BB9</option><option value="anthropic">Anthropic \u517C\u5BB9</option><option value="openai-video">OpenAI \u89C6\u9891</option><option value="agnes-video">Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts">Azure TTS \u8BED\u97F3</option><option value="antigravity">Antigravity \u53CD\u4EE3</option><option value="claude">Claude OAuth \u53CD\u4EE3</option><option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi">Kimi OAuth \u53CD\u4EE3</option><option value="grok">Grok OAuth \u53CD\u4EE3</option><option value="qwen">Qwen OAuth \u53CD\u4EE3</option><option value="deepseek">DeepSeek \u53CD\u4EE3</option><option value="vertex">Vertex AI \u53CD\u4EE3</option><option value="devin">Devin \u53CD\u4EE3</option><option value="zai">Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy">CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option></select><span class="form-helper" id="apt-hint-new">Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002</span></div>
+            <div class="fg"><label for="apt">\u6E20\u9053\u7C7B\u578B</label><select id="apt" class="select-sm" onchange="onTypeChange(this, 'new')"><option value="openai">OpenAI \u517C\u5BB9</option><option value="anthropic">Anthropic \u517C\u5BB9</option><option value="openai-video">OpenAI \u89C6\u9891</option><option value="agnes-video">Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts">Azure TTS \u8BED\u97F3</option><option value="antigravity">Antigravity \u53CD\u4EE3</option><option value="claude">Claude OAuth \u53CD\u4EE3</option><option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi">Kimi OAuth \u53CD\u4EE3</option><option value="grok">Grok OAuth \u53CD\u4EE3</option><option value="qwen">Qwen OAuth \u53CD\u4EE3</option><option value="deepseek">DeepSeek \u53CD\u4EE3</option><option value="vertex">Vertex AI \u53CD\u4EE3</option><option value="devin">Devin \u53CD\u4EE3</option><option value="zai">Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy">CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option><option value="cline">Cline \u53CD\u4EE3</option></select><span class="form-helper" id="apt-hint-new">Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002</span></div>
             <div class="ag-config" id="ag-new" style="display:none"><div class="fg"><label>\u83B7\u53D6 refresh_token</label><button class="btn btn-s" type="button" onclick="antigravityOAuth('new')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Google \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u70B9\u5F00\u6388\u6743\uFF1AGoogle \u767B\u5F55\u5E76\u540C\u610F\u540E\u6D4F\u89C8\u5668\u4F1A\u8DF3\u5230 localhost:51121 \u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\uFF08\u6B63\u5E38\uFF09\uFF0C\u628A\u5730\u5740\u680F code= \u540E\u9762\u90A3\u6BB5\u7C98\u56DE\u5F39\u7A97\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 refresh_token \u5E76\u586B\u5165\u4E0B\u65B9 API Keys\u3002\u591A\u8D26\u53F7\uFF1A\u4E00\u884C\u4E00\u4E2A refresh_token\uFF1B\u82E5\u67D0\u4E2A\u8D26\u53F7\u9700\u8981\u7528\u522B\u7684\u9879\u76EE ID\uFF0C\u5199\u6210 refresh_token|\u9879\u76EEID\uFF08\u6CA1\u5199 project \u7684\u8D26\u53F7\u7EDF\u4E00\u7528\u6E20\u9053\u7EA7 project\uFF09\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchAgModels('new')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button><span class="form-helper">\u7528 refresh_token \u62C9\u53D6 Antigravity \u53EF\u7528\u6A21\u578B\u540D\uFF0C\u8FFD\u52A0\u5230\u4E0B\u65B9\u6A21\u578B\u5217\u8868\u3002</span></div></div>
             <div class="ag-config" id="ds-new" style="display:none"><div class="fg"><label>\u83B7\u53D6 userToken</label><div class="fc field-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('new')"><i class="fas fa-key" aria-hidden="true"></i>\u7C98\u8D34 userToken</button><button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('new')"><i class="fas fa-user-shield" aria-hidden="true"></i>\u8D26\u53F7\u4EE3\u767B\u5F55</button><button class="btn btn-s" type="button" onclick="verifyDeepseek('new')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button></div><span class="form-helper">\u4E24\u6761\u8DEF\u4EFB\u9009\uFF1A<b>\u2460 \u7C98\u8D34 userToken</b> \u2014\u2014 \u81EA\u5DF1\u4ECE\u6D4F\u89C8\u5668\u62A0\uFF0C\u7F51\u5173\u4E0D\u7ECF\u624B\u5BC6\u7801\uFF08\u66F4\u5B89\u5168\uFF0C\u4F46\u7EA6 24h \u540E\u8981\u91CD\u8D34\uFF09\uFF1B<b>\u2461 \u8D26\u53F7\u4EE3\u767B\u5F55</b> \u2014\u2014 \u586B\u90AE\u7BB1/\u624B\u673A\u53F7+\u5BC6\u7801\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 userToken\uFF0C\u5BC6\u7801 AES-GCM \u52A0\u5BC6\u5B58\u50A8\uFF08\u66F4\u7701\u4E8B\uFF0C\u4F46\u5BC6\u7801\u6258\u7BA1\u5728\u7F51\u5173\uFF09\u3002\u4E24\u79CD\u51ED\u636E\u5F62\u6001\uFF1A<code>sk-</code> \u5B98\u65B9 API Key \u76F4\u8FDE\u3001<code>eyJ</code> \u7F51\u9875 userToken \u8D70\u53CD\u4EE3\uFF08PoW \u7EA6 0.3~0.7s CPU\uFF0C\u9700 Workers Paid\uFF09\u3002</span></div></div>
-            <div class="ag-config" id="oa-new" style="display:none"><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('new')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\uFF1BCodeBuddy \u6253\u5F00\u6240\u9009\u533A\u57DF(\u56FD\u5185\u7248/\u56FD\u9645\u7248)\u7684\u767B\u5F55\u9875\uFF0C\u767B\u5F55\u5B8C\u6210\u540E\u7F51\u5173\u81EA\u52A8\u8F6E\u8BE2\u6362\u53D6\u51ED\u636E\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('new')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button><span class="form-helper">Claude/Kimi/CodeBuddy \u652F\u6301\u81EA\u52A8\u62C9\u53D6\u6A21\u578B\uFF1BCodex/Grok \u8BF7\u624B\u52A8\u586B\u5199\uFF08\u5982 gpt-5.5\u3001grok-4.6\uFF09\u3002</span></div></div>
+            <div class="ag-config" id="oa-new" style="display:none"><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('new')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok/Cline \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\uFF1BCodeBuddy \u6253\u5F00\u6240\u9009\u533A\u57DF(\u56FD\u5185\u7248/\u56FD\u9645\u7248)\u7684\u767B\u5F55\u9875\uFF0C\u767B\u5F55\u5B8C\u6210\u540E\u7F51\u5173\u81EA\u52A8\u8F6E\u8BE2\u6362\u53D6\u51ED\u636E\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('new')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button><span class="form-helper">Claude/Kimi/CodeBuddy \u652F\u6301\u81EA\u52A8\u62C9\u53D6\u6A21\u578B\uFF1BCodex/Grok \u8BF7\u624B\u52A8\u586B\u5199\uFF08\u5982 gpt-5.5\u3001grok-4.6\uFF09\u3002</span></div></div>
             <div class="cb-config" id="cb-new" style="display:none"><div class="fg"><label for="cbr-new">\u7248\u672C / \u533A\u57DF</label><select id="cbr-new" class="select-sm" onchange="cbRegionChange('new')"><option value="cn">\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option><option value="global">\u56FD\u9645\u7248 \xB7 workbuddy.ai</option></select><span class="form-helper">\u56FD\u5185\u7248\u4E0E\u56FD\u9645\u7248\u662F\u4E24\u5957\u4E92\u76F8\u72EC\u7ACB\u7684\u8D26\u53F7\u4F53\u7CFB\uFF0C\u51ED\u636E\u4E0D\u53EF\u6DF7\u7528\uFF1B\u5207\u6362\u540E\u4E0A\u65B9\u300CAPI \u5730\u5740\u300D\u4F1A\u81EA\u52A8\u6539\u6210\u5BF9\u5E94\u57DF\u540D\uFF0C\u6388\u6743\u4E0E\u8F6C\u53D1\u90FD\u6309\u6B64\u533A\u57DF\u8D70\u3002</span></div><div class="fg"><label>\u8D26\u53F7\u72B6\u6001</label><button class="btn btn-s" type="button" onclick="codebuddyStatus('new')"><i class="fas fa-coins" aria-hidden="true"></i>\u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button><button class="btn btn-s" type="button" style="margin-left:6px" onclick="codebuddyCheckin('new')"><i class="fas fa-calendar-check" aria-hidden="true"></i>\u7B7E\u5230</button><span class="form-helper">\u300C\u67E5\u8BE2\u79EF\u5206/\u5957\u9910\u300D\u8BFB\u53D6\u5269\u4F59\u79EF\u5206\u4E0E\u5957\u9910\u660E\u7EC6\uFF1B\u300C\u7B7E\u5230\u300D\u6267\u884C\u6BCF\u65E5\u7B7E\u5230\uFF08\u91CD\u590D\u7B7E\u5230\u4E0A\u6E38\u4F1A\u8FD4\u56DE\u300C\u4ECA\u65E5\u5DF2\u7B7E\u5230\u300D\uFF0C\u6309\u6210\u529F\u5904\u7406\uFF09\u3002\u4E24\u8005\u90FD\u53D6\u8BE5\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u51ED\u636E\uFF0C\u9700\u5148\u5728\u4E0B\u65B9 API Keys \u586B\u5165 refresh_token\uFF0C\u6216\u70B9\u4E0A\u65B9\u300C\u6388\u6743\u767B\u5F55\u300D\u81EA\u52A8\u83B7\u53D6\u3002</span></div><div class="mt-1" id="cbst-new" aria-live="polite"></div></div>
             <div class="tts-config" id="tts-new" style="display:none"><fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u914D\u7F6E\uFF08\u8BF7\u6C42\u4F53\u53EF\u4E34\u65F6\u8986\u76D6\uFF09</legend><div class="fr"><div class="fg"><label>\u97F3\u8272 Voice</label><div class="tts-voice-row"><select id="av" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${AZURE_VOICE_OPTIONS}</select><button class="btn btn-s" type="button" onclick="previewTts('new')" title="\u8BD5\u542C\u5F53\u524D\u97F3\u8272"><i class="fas fa-play" aria-hidden="true"></i>\u8BD5\u542C</button></div></div><div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="ar" value="+0%" placeholder="+0%"></div></div><div class="fr"><div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="avol" value="+0%" placeholder="+0%"></div><div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="ap" value="+0Hz" placeholder="+0Hz"></div></div><div class="tts-preview" id="ttp-new"></div><button class="btn btn-s" type="button" onclick="addAllTtsModels('new')"><i class="fas fa-microphone" aria-hidden="true"></i>\u6DFB\u52A0\u5168\u90E8\u97F3\u8272\u4E3A\u6A21\u578B</button></fieldset></div>
             <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend><div id="akeys"><div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="\u4E0A\u6E38 API Key"><label class="tg" title="\u542F\u7528 Key"><input type="checkbox" checked class="ake" aria-label="\u542F\u7528 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236 Key" aria-label="\u590D\u5236 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="\u6D4B\u8BD5 Key" aria-label="\u6D4B\u8BD5 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664 Key" aria-label="\u79FB\u9664 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s" onclick="addAKeyRow()"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0 Key</button><button class="btn btn-s" onclick="batchAddKeys()"><i class="fas fa-list" aria-hidden="true"></i>\u6279\u91CF\u6DFB\u52A0</button><button class="btn btn-s" onclick="batchTestKeys()"><i class="fas fa-plug" aria-hidden="true"></i>\u6279\u91CF\u6D4B\u8BD5</button></div></fieldset>
@@ -15525,19 +15978,19 @@ ${H("\u7BA1\u7406")}
           ${providers.length ? providers.map((p) => `
           <article class="pi" data-id="${escapePageHtml(p.id)}">
             <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
-              <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || "A")}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${p.type === "antigravity" ? "Antigravity" : p.type === "claude" ? "Claude" : p.type === "codex" ? "Codex" : p.type === "kimi" ? "Kimi" : p.type === "grok" ? "Grok" : p.type === "qwen" ? "Qwen" : p.type === "deepseek" ? "DeepSeek" : p.type === "vertex" ? "Vertex" : p.type === "devin" ? "Devin" : p.type === "codebuddy" ? "CodeBuddy" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "Anthropic" : "OpenAI"}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} \u6A21\u578B</span></div></div></div>
+              <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || "A")}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${p.type === "antigravity" ? "Antigravity" : p.type === "claude" ? "Claude" : p.type === "codex" ? "Codex" : p.type === "kimi" ? "Kimi" : p.type === "grok" ? "Grok" : p.type === "qwen" ? "Qwen" : p.type === "deepseek" ? "DeepSeek" : p.type === "vertex" ? "Vertex" : p.type === "devin" ? "Devin" : p.type === "codebuddy" ? "CodeBuddy" : p.type === "cline" ? "Cline" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "Anthropic" : "OpenAI"}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} \u6A21\u578B</span></div></div></div>
               <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled ? "checked" : ""} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="\u542F\u7528 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled ? "bd-on" : "bd-off"}">${p.enabled ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"}</span>${(p.type || "") === "codex" && codexRelayHost ? `<span class="bd bd-info" title="\u8BF7\u6C42\u7ECF ${escapePageHtml(codexRelayHost)} \u4E2D\u7EE7\u8F6C\u53D1\uFF0C\u672A\u76F4\u8FDE chatgpt.com">\u7ECF\u4E2D\u7EE7</span>` : ""}</div>
             </div>
             <div class="pd" id="dt-${escapePageHtml(p.id)}">
-              <div class="detail-heading"><div><h3>\u7F16\u8F91 ${escapePageHtml(p.name)}</h3><p>\u4FDD\u5B58\u540E\uFF0C\u65B0\u914D\u7F6E\u4F1A\u7528\u4E8E\u540E\u7EED\u8F6C\u53D1\u8BF7\u6C42\u3002${(p.type || "") === "codex" && codexRelayHost ? `\u8BE5\u6E20\u9053\u7ECF <code>${escapePageHtml(codexRelayHost)}</code> \u4E2D\u7EE7\u8F6C\u53D1\uFF08\u672C\u673A\u51FA\u53E3\u65E0\u6CD5\u76F4\u8FDE chatgpt.com\uFF09\u3002` : ""}</p></div><span class="protocol-chip">${p.type === "antigravity" ? "ANTIGRAVITY" : p.type === "claude" ? "CLAUDE" : p.type === "codex" ? "CODEX" : p.type === "kimi" ? "KIMI" : p.type === "grok" ? "GROK" : p.type === "qwen" ? "QWEN" : p.type === "deepseek" ? "DEEPSEEK" : p.type === "vertex" ? "VERTEX" : p.type === "devin" ? "DEVIN" : p.type === "codebuddy" ? "CODEBUDDY" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "ANTHROPIC" : "OPENAI"}</span></div>
+              <div class="detail-heading"><div><h3>\u7F16\u8F91 ${escapePageHtml(p.name)}</h3><p>\u4FDD\u5B58\u540E\uFF0C\u65B0\u914D\u7F6E\u4F1A\u7528\u4E8E\u540E\u7EED\u8F6C\u53D1\u8BF7\u6C42\u3002${(p.type || "") === "codex" && codexRelayHost ? `\u8BE5\u6E20\u9053\u7ECF <code>${escapePageHtml(codexRelayHost)}</code> \u4E2D\u7EE7\u8F6C\u53D1\uFF08\u672C\u673A\u51FA\u53E3\u65E0\u6CD5\u76F4\u8FDE chatgpt.com\uFF09\u3002` : ""}</p></div><span class="protocol-chip">${p.type === "antigravity" ? "ANTIGRAVITY" : p.type === "claude" ? "CLAUDE" : p.type === "codex" ? "CODEX" : p.type === "kimi" ? "KIMI" : p.type === "grok" ? "GROK" : p.type === "qwen" ? "QWEN" : p.type === "deepseek" ? "DEEPSEEK" : p.type === "vertex" ? "VERTEX" : p.type === "devin" ? "DEVIN" : p.type === "codebuddy" ? "CODEBUDDY" : p.type === "cline" ? "CLINE" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "ANTHROPIC" : "OPENAI"}</span></div>
               <div class="fr"><div class="fg"><label>\u540D\u79F0</label><input type="text" id="nm-${escapePageHtml(p.id)}" value="${escapePageHtml(p.name)}"></div><div class="fg"><label>ID</label><input type="text" id="pid-${escapePageHtml(p.id)}" value="${escapePageHtml(p.id)}" title="\u6E20\u9053\u552F\u4E00\u6807\u8BC6, \u4FEE\u6539\u540E\u65E7 ID \u5931\u6548"></div></div>
               <div class="fg"><label>API \u5730\u5740</label><input type="url" id="url-${escapePageHtml(p.id)}" value="${escapePageHtml(p.baseUrl)}" ${(p.type || "openai") === "azure-tts" ? 'disabled placeholder="Azure TTS \u4E3A\u5185\u7F6E\u670D\u52A1\uFF0C\u65E0\u9700 API \u5730\u5740"' : ""}></div>
-              <div class="fr"><div class="fg"><label>\u6E20\u9053\u7C7B\u578B</label><select id="pt-${escapePageHtml(p.id)}" class="select-sm" onchange="onTypeChange(this, '${escapePageHtml(p.id)}')"><option value="openai" ${(p.type || "openai") === "openai" ? "selected" : ""}>OpenAI \u517C\u5BB9</option><option value="anthropic" ${p.type === "anthropic" ? "selected" : ""}>Anthropic \u517C\u5BB9</option><option value="openai-video" ${p.type === "openai-video" ? "selected" : ""}>OpenAI \u89C6\u9891</option><option value="agnes-video" ${p.type === "agnes-video" ? "selected" : ""}>Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts" ${p.type === "azure-tts" ? "selected" : ""}>Azure TTS \u8BED\u97F3</option><option value="antigravity" ${p.type === "antigravity" ? "selected" : ""}>Antigravity \u53CD\u4EE3</option><option value="claude" ${p.type === "claude" ? "selected" : ""}>Claude OAuth \u53CD\u4EE3</option><option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi OAuth \u53CD\u4EE3</option><option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option><option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option><option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option><option value="vertex" ${p.type === "vertex" ? "selected" : ""}>Vertex AI \u53CD\u4EE3</option><option value="devin" ${p.type === "devin" ? "selected" : ""}>Devin \u53CD\u4EE3</option><option value="zai" ${p.type === "zai" ? "selected" : ""}>Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option></select></div></div>
+              <div class="fr"><div class="fg"><label>\u6E20\u9053\u7C7B\u578B</label><select id="pt-${escapePageHtml(p.id)}" class="select-sm" onchange="onTypeChange(this, '${escapePageHtml(p.id)}')"><option value="openai" ${(p.type || "openai") === "openai" ? "selected" : ""}>OpenAI \u517C\u5BB9</option><option value="anthropic" ${p.type === "anthropic" ? "selected" : ""}>Anthropic \u517C\u5BB9</option><option value="openai-video" ${p.type === "openai-video" ? "selected" : ""}>OpenAI \u89C6\u9891</option><option value="agnes-video" ${p.type === "agnes-video" ? "selected" : ""}>Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts" ${p.type === "azure-tts" ? "selected" : ""}>Azure TTS \u8BED\u97F3</option><option value="antigravity" ${p.type === "antigravity" ? "selected" : ""}>Antigravity \u53CD\u4EE3</option><option value="claude" ${p.type === "claude" ? "selected" : ""}>Claude OAuth \u53CD\u4EE3</option><option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi OAuth \u53CD\u4EE3</option><option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option><option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option><option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option><option value="vertex" ${p.type === "vertex" ? "selected" : ""}>Vertex AI \u53CD\u4EE3</option><option value="devin" ${p.type === "devin" ? "selected" : ""}>Devin \u53CD\u4EE3</option><option value="zai" ${p.type === "zai" ? "selected" : ""}>Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option><option value="cline" ${p.type === "cline" ? "selected" : ""}>Cline \u53CD\u4EE3</option></select></div></div>
               <div class="ag-config" id="ag-${escapePageHtml(p.id)}" ${p.type === "antigravity" ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6 refresh_token</label><button class="btn btn-s" type="button" onclick="antigravityOAuth('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Google \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u6388\u6743\u540E\u6D4F\u89C8\u5668\u8DF3\u8F6C localhost:51121 \u663E\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code= \u540E\u9762\u90A3\u4E00\u6BB5\u56DE\u6765\uFF0Crefresh_token \u4F1A\u81EA\u52A8\u8FFD\u52A0\u5230\u4E0B\u65B9 API Keys\u3002\u591A\u8D26\u53F7\uFF1A\u4E00\u884C\u4E00\u4E2A refresh_token\uFF1B\u82E5\u67D0\u4E2A\u8D26\u53F7\u9700\u8981\u7528\u522B\u7684\u9879\u76EE ID\uFF0C\u5199\u6210 refresh_token|\u9879\u76EEID\uFF08\u6CA1\u5199 project \u7684\u8D26\u53F7\u7EDF\u4E00\u7528\u6E20\u9053\u7EA7 project\uFF09\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchAgModels('${escapePageHtml(p.id)}')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button></div></div><div class="vx-config" id="vx-${escapePageHtml(p.id)}" style="display:none"><div class="fg"><label>\u670D\u52A1\u8D26\u53F7 JSON</label><textarea id="vxs-${escapePageHtml(p.id)}" rows="4" class="fx1">${escapePageHtml((p.apiKeys || []).map((k) => k.key).join("\n\n"))}</textarea><span class="form-helper">\u4FDD\u5B58\u65F6\u4EE5\u672C\u6846\u5185\u5BB9\u4E3A\u51C6\uFF08\u591A\u4E2A\u8D26\u53F7\u7A7A\u884C\u5206\u9694\uFF09\uFF1B\u4E5F\u53EF\u586B Express API Key\u3002</span></div><div class="fr"><div class="fg"><label>\u533A\u57DF Location</label><input type="text" id="vxl-${escapePageHtml(p.id)}" value="${escapePageHtml(p.location || "")}" placeholder="us-central1"></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyVertex('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div></div><div class="dv-config" id="dv-${escapePageHtml(p.id)}" style="display:none"><div class="fg"><label>\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="devinOAuth('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Devin \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u6388\u6743\u6210\u529F\u4F1A\u81EA\u52A8\u628A session token \u8FFD\u52A0\u5230\u4E0B\u65B9\u51ED\u636E\u6846\u3002</span></div><div class="fg"><label>Session Token</label><textarea id="dvt-${escapePageHtml(p.id)}" rows="3" class="fx1">${escapePageHtml((p.apiKeys || []).map((k) => k.key).join("\n"))}</textarea><span class="form-helper">\u4FDD\u5B58\u65F6\u4EE5\u672C\u6846\u5185\u5BB9\u4E3A\u51C6\uFF08\u6BCF\u884C\u4E00\u4E2A session token\uFF09\u3002</span></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyDevin('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div>
             
             
               <div class="ag-config" id="ds-${escapePageHtml(p.id)}" ${p.type === "deepseek" ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6 userToken</label><div class="fc field-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7C98\u8D34 userToken</button><button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('${escapePageHtml(p.id)}')"><i class="fas fa-user-shield" aria-hidden="true"></i>\u8D26\u53F7\u4EE3\u767B\u5F55</button><button class="btn btn-s" type="button" onclick="verifyDeepseek('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button></div><span class="form-helper">\u4E24\u6761\u8DEF\u4EFB\u9009\uFF1A<b>\u2460 \u7C98\u8D34 userToken</b> \u2014\u2014 \u81EA\u5DF1\u4ECE\u6D4F\u89C8\u5668\u62A0\uFF0C\u7F51\u5173\u4E0D\u7ECF\u624B\u5BC6\u7801\uFF1B<b>\u2461 \u8D26\u53F7\u4EE3\u767B\u5F55</b> \u2014\u2014 \u586B\u90AE\u7BB1/\u624B\u673A\u53F7+\u5BC6\u7801\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 userToken\uFF0C\u5BC6\u7801\u52A0\u5BC6\u5B58\u50A8\u3002${p.dsAccount && (p.dsAccount.email || p.dsAccount.mobile) ? '<br><b class="c-s">\u5F53\u524D\u5DF2\u6258\u7BA1\u8D26\u53F7\uFF1A' + escapePageHtml(p.dsAccount.mobile || p.dsAccount.email || "") + (p.dsAccount.hasPassword ? "\uFF08\u542B\u5BC6\u7801\uFF09" : "\uFF08\u65E0\u5BC6\u7801\uFF09") + (p.dsAccount.tokenSet ? " \xB7 \u6301\u6709 token " + escapePageHtml(p.dsAccount.tokenPreview || "") : "") + (p.dsAccount.lastLoginAt ? " \xB7 \u4E0A\u6B21\u767B\u5F55 " + escapePageHtml(String(p.dsAccount.lastLoginAt).slice(0, 16).replace("T", " ")) : "") + "</b>" : ""}</span><script type="application/json" id="dsacc-${escapePageHtml(p.id)}">${JSON.stringify(p.dsAccount || {}).replace(/</g, "\\u003c")}</script></div></div>
-              <div class="ag-config" id="oa-${escapePageHtml(p.id)}" ${["claude", "codex", "kimi", "grok", "qwen", "codebuddy"].includes(p.type || "") ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\u3002refresh_token \u4F1A\u8FFD\u52A0\u5230\u4E0B\u65B9 API Keys\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('${escapePageHtml(p.id)}')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button></div></div>
+              <div class="ag-config" id="oa-${escapePageHtml(p.id)}" ${["claude", "codex", "kimi", "grok", "qwen", "codebuddy", "cline"].includes(p.type || "") ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok/Cline \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\u3002refresh_token \u4F1A\u8FFD\u52A0\u5230\u4E0B\u65B9 API Keys\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('${escapePageHtml(p.id)}')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button></div></div>
               <div class="cb-config" id="cb-${escapePageHtml(p.id)}" ${p.type === "codebuddy" ? "" : 'style="display:none"'}><div class="fg"><label for="cbr-${escapePageHtml(p.id)}">\u7248\u672C / \u533A\u57DF</label><select id="cbr-${escapePageHtml(p.id)}" class="select-sm" onchange="cbRegionChange('${escapePageHtml(p.id)}')"><option value="cn" ${cbRealmOf(p) === "cn" ? "selected" : ""}>\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option><option value="global" ${cbRealmOf(p) === "global" ? "selected" : ""}>\u56FD\u9645\u7248 \xB7 workbuddy.ai</option></select><span class="form-helper">\u56FD\u5185\u7248\u4E0E\u56FD\u9645\u7248\u662F\u4E24\u5957\u4E92\u76F8\u72EC\u7ACB\u7684\u8D26\u53F7\u4F53\u7CFB\uFF0C\u51ED\u636E\u4E0D\u53EF\u6DF7\u7528\uFF1B\u5207\u6362\u540E\u4E0A\u65B9\u300CAPI \u5730\u5740\u300D\u4F1A\u81EA\u52A8\u6539\u6210\u5BF9\u5E94\u57DF\u540D\u3002\u82E5\u5DF2\u6709\u51ED\u636E\u5C5E\u4E8E\u53E6\u4E00\u533A\u57DF\uFF0C\u9700\u91CD\u65B0\u6388\u6743\u3002</span></div><div class="fg"><label>\u8D26\u53F7\u72B6\u6001</label><button class="btn btn-s" type="button" onclick="codebuddyStatus('${escapePageHtml(p.id)}')"><i class="fas fa-coins" aria-hidden="true"></i>\u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button><button class="btn btn-s" type="button" style="margin-left:6px" onclick="codebuddyCheckin('${escapePageHtml(p.id)}')"><i class="fas fa-calendar-check" aria-hidden="true"></i>\u7B7E\u5230</button><span class="form-helper">\u300C\u67E5\u8BE2\u79EF\u5206/\u5957\u9910\u300D\u8BFB\u53D6\u5269\u4F59\u79EF\u5206\u4E0E\u5957\u9910\u660E\u7EC6\uFF1B\u300C\u7B7E\u5230\u300D\u6267\u884C\u6BCF\u65E5\u7B7E\u5230\uFF08\u91CD\u590D\u7B7E\u5230\u6309\u300C\u4ECA\u65E5\u5DF2\u7B7E\u5230\u300D\u5904\u7406\uFF0C\u4E0D\u7B97\u5931\u8D25\uFF09\u3002\u4E24\u8005\u90FD\u53D6\u8BE5\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u7684\u51ED\u636E\u3002</span></div><div class="mt-1" id="cbst-${escapePageHtml(p.id)}" aria-live="polite"></div></div>
               <div class="tts-config" id="tts-${escapePageHtml(p.id)}" ${(p.type || "openai") === "azure-tts" ? "" : 'style="display:none"'}><fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u914D\u7F6E\uFF08\u8BF7\u6C42\u4F53\u53EF\u4E34\u65F6\u8986\u76D6\uFF09</legend><div class="fr"><div class="fg"><label>\u97F3\u8272 Voice</label><div class="tts-voice-row"><select id="pv-${escapePageHtml(p.id)}" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${azureVoiceOptions(p.voice || "zh-CN-XiaoxiaoNeural")}</select><button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml(p.id)}')" title="\u8BD5\u542C\u5F53\u524D\u97F3\u8272"><i class="fas fa-play" aria-hidden="true"></i>\u8BD5\u542C</button></div></div><div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="pr-${escapePageHtml(p.id)}" value="${escapePageHtml(p.rate || "+0%")}" placeholder="+0%"></div></div><div class="fr"><div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="pvol-${escapePageHtml(p.id)}" value="${escapePageHtml(p.volume || "+0%")}" placeholder="+0%"></div><div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="pp-${escapePageHtml(p.id)}" value="${escapePageHtml(p.pitch || "+0Hz")}" placeholder="+0Hz"></div></div><div class="tts-preview" id="ttp-${escapePageHtml(p.id)}"></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml(p.id)}')" title="\u628A\u5F53\u524D\u9009\u4E2D\u7684\u97F3\u8272\u6DFB\u52A0\u5230\u6A21\u578B\u5217\u8868"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0\u6A21\u578B</button><button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml(p.id)}')"><i class="fas fa-microphone" aria-hidden="true"></i>\u6DFB\u52A0\u5168\u90E8\u97F3\u8272\u4E3A\u6A21\u578B</button></div></fieldset></div>
               <div class="fg" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""}><label>\u955C\u50CF\u5730\u5740</label><textarea id="mir-${escapePageHtml(p.id)}" rows="3" placeholder="\u6BCF\u884C\u4E00\u4E2A, \u7559\u7A7A\u4F7F\u7528 OPENCODE_MIRRORS_URL \u73AF\u5883\u53D8\u91CF">${(p.mirrorUrls || []).map(escapePageHtml).join("\n")}</textarea><span class="form-helper">\u5B98\u65B9\u5730\u5740\u5931\u8D25\u540E\u81EA\u52A8\u6545\u969C\u8F6C\u79FB\u5230\u7684\u955C\u50CF\u5730\u5740\uFF0C\u6BCF\u884C\u4E00\u4E2A URL\u3002</span></div>
@@ -15708,8 +16161,8 @@ function showAdd() { document.getElementById('af').classList.remove('hd') }
 function hideAdd() { document.getElementById('af').classList.add('hd'); document.getElementById('amc').classList.add('hd') }
 
 // OAuth \u53CD\u4EE3\u6E20\u9053\u7684\u9ED8\u8BA4 API \u5730\u5740\uFF08\u7F51\u5173\u4E0D\u5B9E\u9645\u4F7F\u7528\u8BE5\u5730\u5740\u8F6C\u53D1\uFF0C\u4EC5\u4F5C\u5C55\u793A/\u515C\u5E95\uFF09
-const OAUTH_DEFAULT_URLS = { claude: 'https://api.anthropic.com', codex: 'https://chatgpt.com/backend-api/codex', kimi: 'https://api.kimi.ai/coding', grok: 'https://cli-chat-proxy.grok.com/v1', qwen: 'https://portal.qwen.ai/v1', deepseek: 'https://chat.deepseek.com', zai: 'https://api.z.ai/api/coding/paas/v4', codebuddy: 'https://copilot.tencent.com' }
-function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy'].indexOf(t) !== -1 }
+const OAUTH_DEFAULT_URLS = { claude: 'https://api.anthropic.com', codex: 'https://chatgpt.com/backend-api/codex', kimi: 'https://api.kimi.ai/coding', grok: 'https://cli-chat-proxy.grok.com/v1', qwen: 'https://portal.qwen.ai/v1', deepseek: 'https://chat.deepseek.com', zai: 'https://api.z.ai/api/coding/paas/v4', codebuddy: 'https://copilot.tencent.com', cline: 'https://api.cline.bot' }
+function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy', 'cline'].indexOf(t) !== -1 }
 function isDeepseekType(t) { return t === 'deepseek' }
 function isZaiType(t) { return t === 'zai' }
 function isCodebuddyType(t) { return t === 'codebuddy' }
@@ -15766,6 +16219,7 @@ function onTypeChange(sel, id) {
       : sel.value === 'qwen' ? 'Qwen \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, OpenAI \u517C\u5BB9\u76F4\u901A (portal.qwen.ai)\u3002'
       : sel.value === 'deepseek' ? 'DeepSeek \u53CD\u4EE3: \u586B\u5B98\u65B9 API Key(sk-, \u76F4\u8FDE api.deepseek.com) \u6216\u7F51\u9875 userToken(PoW, \u9700 Workers Paid)\u3002'
       : sel.value === 'codebuddy' ? 'CodeBuddy(\u817E\u8BAF) \u53CD\u4EE3: \u5148\u5728\u4E0B\u65B9\u300C\u7248\u672C / \u533A\u57DF\u300D\u9009\u56FD\u5185\u7248\u6216\u56FD\u9645\u7248, \u518D\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u767B\u5F55\u5BF9\u5E94\u533A\u57DF\u7684\u8D26\u53F7\u83B7\u53D6 refresh_token\u3002\u4E0A\u6E38\u5F3A\u5236\u6D41\u5F0F, \u975E\u6D41\u5F0F\u8BF7\u6C42\u7531\u7F51\u5173\u81EA\u52A8\u805A\u5408\u3002'
+      : sel.value === 'cline' ? 'Cline \u53CD\u4EE3: \u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u8D70\u8BBE\u5907\u7801\u6D41\u7A0B\u83B7\u53D6 refreshToken (\u6216\u624B\u52A8\u7C98\u8D34), \u591A\u8D26\u53F7\u4E00\u884C\u4E00\u4E2A\u8F6E\u6362\u3002\u514D\u8D39\u901A\u9053\u81EA\u52A8\u5265 max_tokens + \u5F3A\u5236\u6D41\u5F0F, \u975E\u6D41\u5F0F\u7531\u7F51\u5173\u805A\u5408\u3002'
       : sel.value === 'zai' ? 'Z.AI \u9884\u8BBE: \u586B z.ai \u7684 API Key(\u7F16\u7801\u5957\u9910)\u3002/v1/messages \u81EA\u52A8\u8D70 Anthropic \u7AEF\u70B9, \u5176\u4F59\u8D70 OpenAI \u7AEF\u70B9\u3002'
       : 'Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002'
   }
@@ -16018,7 +16472,7 @@ async function oauthChannel(id) {
       const complete = d.data.verification_uri_complete
         || (d.data.verification_uri ? d.data.verification_uri + '?user_code=' + encodeURIComponent(d.data.user_code || '') : '')
       window.open(complete, '_blank')
-      const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : 'Grok'
+      const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : provider === 'cline' ? 'Cline' : 'Grok'
       showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' \u8BBE\u5907\u7801\u6388\u6743</h3>'
         + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5C1D\u8BD5\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u6388\u6743\u9875\u9762\uFF08\u94FE\u63A5\u5DF2\u81EA\u52A8\u5E26\u4E0A\u9A8C\u8BC1\u7801\uFF09\u3002\u82E5\u6D4F\u89C8\u5668\u62E6\u622A\u4E86\u5F39\u7A97\uFF0C\u8BF7\u70B9\u51FB\u4E0B\u9762\u7684\u6309\u94AE\u6253\u5F00\u2014\u2014<b>\u5FC5\u987B\u4F7F\u7528\u5E26 user_code \u7684\u5B8C\u6574\u94FE\u63A5</b>\uFF0C\u76F4\u63A5\u6253\u5F00\u9A8C\u8BC1\u5730\u5740\u4F1A\u63D0\u793A\u300C\u7F3A\u5C11 user_code \u53C2\u6570\u300D\u3002</p>'
         + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> \u6253\u5F00\u6388\u6743\u9875\u9762</a></p>'
