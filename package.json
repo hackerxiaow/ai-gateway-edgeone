@@ -5,7 +5,7 @@
   "main": "cloud-functions/[[default]].js",
   "scripts": {
     "build": "npm run build:bundle",
-    "build:bundle": "mkdir -p cloud-functions/api .edgeone && esbuild src/edgeone-entry.ts --bundle --format=esm --platform=node --target=node20 --external:@edgeone/pages-blob --outfile=cloud-functions/[[default]].js && echo \"export { onRequest, default } from '../[[default]].js';\" > cloud-functions/api/[[default]].js && node scripts/write-routes.mjs",
+    "build:bundle": "node scripts/prebuild.mjs && esbuild src/edgeone-entry.ts --bundle --format=esm --platform=node --target=node20 --external:@edgeone/pages-blob --outfile=cloud-functions/[[default]].js && node scripts/write-routes.mjs",
     "dev": "PAGES_SOURCE=skills npx edgeone makers dev",
     "deploy": "npm run build && PAGES_SOURCE=skills npx edgeone makers deploy --json"
   },
