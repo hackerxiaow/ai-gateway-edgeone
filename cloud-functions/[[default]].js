@@ -14177,6 +14177,7 @@ function fetchZaiModels() {
 
 // src/admin.ts
 init_config();
+init_azure_voices();
 function normalizeArray(items, mapFn) {
   if (!Array.isArray(items)) return [];
   if (items.length === 0 || typeof items[0] === "string") {
@@ -14194,7 +14195,7 @@ function normalizeRegion(value) {
   return value === "cn" || value === "global" ? value : void 0;
 }
 function defaultModelAlias(id) {
-  return id.replace(/:(free)$/i, "").replace(/\/(free)$/i, "").replace(/-(free)$/i, "");
+  return id.replace(/[:\/_-]free$/i, "").replace(/:free(?=[:\/_-]|$)/gi, "");
 }
 function normalizeModels(value) {
   if (!Array.isArray(value)) return [];
@@ -14202,11 +14203,14 @@ function normalizeModels(value) {
   if (typeof value[0] === "string") {
     return value.map((id) => ({ id, enabled: true, alias: defaultModelAlias(id) }));
   }
-  return value.filter((m) => m && m.id).map((m) => ({
-    id: m.id,
-    enabled: m.enabled !== void 0 ? m.enabled : true,
-    alias: m.alias !== void 0 && m.alias !== "" ? m.alias : defaultModelAlias(m.id)
-  }));
+  return value.filter((m) => m && m.id).map((m) => {
+    const alias = m.alias !== void 0 && m.alias !== "" ? m.alias.trim() : defaultModelAlias(m.id);
+    return {
+      id: m.id,
+      enabled: m.enabled !== void 0 ? m.enabled : true,
+      alias: defaultModelAlias(alias)
+    };
+  });
 }
 async function handleStatus(c) {
   const providers = await getProviders(c.env);
@@ -14383,6 +14387,7 @@ async function handleCreateProvider(c) {
     volume: body.volume,
     pitch: body.pitch,
     enabled: body.enabled !== void 0 ? body.enabled : true,
+    autoSyncModels: body.autoSyncModels !== void 0 ? Boolean(body.autoSyncModels) : false,
     createdAt: now,
     updatedAt: now
   };
@@ -14409,6 +14414,7 @@ async function handleUpdateProvider(c) {
   if (body.apiKeys !== void 0) {
     updates.apiKeys = normalizeArray(body.apiKeys, (k) => ({ key: k, enabled: true }));
   }
+  if (body.autoSyncModels !== void 0) updates.autoSyncModels = Boolean(body.autoSyncModels);
   if (body.enabled !== void 0) updates.enabled = body.enabled;
   if (body.models !== void 0) {
     updates.models = normalizeModels(body.models);
@@ -15007,6 +15013,198 @@ async function handleCodebuddyCheckin(c) {
   }
   const r = await checkinCodebuddy(c.env, refreshToken, baseUrl, region);
   return c.json({ success: r.ok, data: r, message: r.message });
+}
+var CRON_MODELS_STATE_KEY = "cron:models:state";
+async function syncProviderModelsInternal(env, provider, freeOnly = false) {
+  const type = provider.type || "openai";
+  const manualOnlyTypes = ["codex", "grok", "deepseek", "devin", "vertex"];
+  if (manualOnlyTypes.includes(type)) {
+    return {
+      success: false,
+      providerId: provider.id,
+      newModels: [],
+      totalModels: provider.models.length,
+      message: `\u6E20\u9053\u7C7B\u578B "${type}" \u4E0D\u652F\u6301\u5728\u7EBF\u81EA\u52A8\u62C9\u53D6\u6A21\u578B\uFF0C\u5DF2\u8DF3\u8FC7`
+    };
+  }
+  const activeKeys = (provider.apiKeys || []).filter((k) => k.enabled && k.key && k.key.trim());
+  const firstKey = activeKeys.length > 0 ? activeKeys[0].key : "";
+  let fetchedModelIds = [];
+  try {
+    if (type === "azure-tts") {
+      fetchedModelIds = AZURE_TTS_VOICES.map((v) => v.id);
+    } else if (type === "antigravity") {
+      if (!firstKey) {
+        return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u7F3A\u5C11\u53EF\u7528 refresh_token" };
+      }
+      const r = await fetchAntigravityModels(env, firstKey);
+      if (!r.success || !r.models || r.models.length === 0) {
+        return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: r.message || "\u83B7\u53D6 Antigravity \u6A21\u578B\u5931\u8D25" };
+      }
+      fetchedModelIds = r.models;
+    } else if (type === "zai") {
+      const models = fetchZaiModels().models;
+      fetchedModelIds = freeOnly ? models.filter((m) => /flash|air/i.test(m)) : models;
+    } else if (type === "claude") {
+      if (!firstKey) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u7F3A\u5C11\u53EF\u7528 refresh_token" };
+      const r = await fetchClaudeModels(env, firstKey);
+      if (!r.success || !r.models || r.models.length === 0) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: r.message || "\u83B7\u53D6 Claude \u6A21\u578B\u5931\u8D25" };
+      fetchedModelIds = r.models;
+    } else if (type === "kimi") {
+      if (!firstKey) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u7F3A\u5C11\u53EF\u7528 refresh_token" };
+      const r = await fetchKimiModels(env, firstKey, provider.baseUrl);
+      if (!r.success || !r.models || r.models.length === 0) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: r.message || "\u83B7\u53D6 Kimi \u6A21\u578B\u5931\u8D25" };
+      fetchedModelIds = r.models;
+    } else if (type === "codebuddy") {
+      if (!firstKey) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u7F3A\u5C11\u53EF\u7528 refresh_token" };
+      const r = await fetchCodebuddyModels(env, firstKey, provider.baseUrl, provider.region);
+      if (!r.success || !r.models || r.models.length === 0) return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: r.message || "\u83B7\u53D6 CodeBuddy \u6A21\u578B\u5931\u8D25" };
+      fetchedModelIds = r.models;
+    } else if (type === "cline") {
+      fetchedModelIds = fetchClineModels().models;
+    } else if (type === "qwen") {
+      fetchedModelIds = fetchQwenModels().models;
+    } else {
+      if (!provider.baseUrl) {
+        return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u7F3A\u5C11 API \u5730\u5740" };
+      }
+      const apiType = provider.apiType || "openai";
+      const headers = buildAuthHeaders(firstKey, apiType);
+      const cleanBase = provider.baseUrl.replace(/\/$/, "");
+      let url = cleanBase + (apiType === "anthropic" ? "/v1/models" : "/models");
+      let res = await fetch(url, { method: "GET", headers, signal: AbortSignal.timeout(15e3) });
+      if (!res.ok && res.status === 404 && !url.includes("/v1/")) {
+        url = cleanBase + "/v1/models";
+        res = await fetch(url, { method: "GET", headers, signal: AbortSignal.timeout(15e3) });
+      }
+      if (!res.ok) {
+        return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: `\u4E0A\u6E38\u8FD4\u56DE HTTP ${res.status}` };
+      }
+      const data = await res.json().catch(() => null);
+      const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const filtered = freeOnly ? filterFreeModels({ data: rawList })?.data || [] : rawList;
+      fetchedModelIds = filtered.map((m) => String(m.id || m.name || "")).filter(Boolean);
+    }
+  } catch (err) {
+    return { success: false, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: err.message || "\u7F51\u7EDC\u8FDE\u63A5\u5931\u8D25" };
+  }
+  if (fetchedModelIds.length === 0) {
+    return { success: true, providerId: provider.id, newModels: [], totalModels: provider.models.length, message: "\u672A\u68C0\u6D4B\u5230\u65B0\u6A21\u578B" };
+  }
+  const existingMap = /* @__PURE__ */ new Map();
+  for (const m of provider.models) {
+    existingMap.set(m.id, m);
+  }
+  const newAdded = [];
+  const mergedModels = [...provider.models];
+  for (const mid of fetchedModelIds) {
+    if (!existingMap.has(mid)) {
+      const newModel = {
+        id: mid,
+        enabled: true,
+        alias: defaultModelAlias(mid)
+      };
+      existingMap.set(mid, newModel);
+      mergedModels.push(newModel);
+      newAdded.push(mid);
+    }
+  }
+  if (newAdded.length > 0) {
+    await updateProvider(env, provider.id, { models: mergedModels });
+  }
+  return {
+    success: true,
+    providerId: provider.id,
+    newModels: newAdded,
+    totalModels: mergedModels.length,
+    message: newAdded.length > 0 ? `\u65B0\u589E ${newAdded.length} \u4E2A\u6A21\u578B` : "\u6A21\u578B\u5217\u8868\u5DF2\u662F\u6700\u65B0\uFF0C\u65E0\u65B0\u589E\u9879"
+  };
+}
+async function handleSyncProviderModels(c) {
+  const id = c.req.param("id");
+  if (!id) return c.json({ success: false, message: "\u7F3A\u5C11\u6E20\u9053 id" }, 400);
+  const provider = await getProvider(c.env, id);
+  if (!provider) return c.json({ success: false, message: "\u6E20\u9053\u4E0D\u5B58\u5728" }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  const res = await syncProviderModelsInternal(c.env, provider, body.freeOnly || false);
+  return c.json({ success: res.success, data: res, message: res.message });
+}
+async function handleSyncAllModels(c) {
+  const body = await c.req.json().catch(() => ({}));
+  const providers = await getProviders(c.env);
+  const targets = body.channelIds && body.channelIds.length > 0 ? providers.filter((p) => body.channelIds.includes(p.id)) : providers.filter((p) => p.enabled && p.autoSyncModels);
+  if (targets.length === 0) {
+    return c.json({
+      success: false,
+      message: "\u6CA1\u6709\u5F00\u542F\u300C\u81EA\u52A8\u540C\u6B65\u6A21\u578B\u300D\u7684\u6E20\u9053\u3002\u8BF7\u5728\u9700\u8981\u81EA\u52A8\u540C\u6B65\u7684\u6E20\u9053\u8BBE\u7F6E\u4E2D\u52FE\u9009\u8BE5\u5F00\u5173\u3002"
+    }, 400);
+  }
+  const results = [];
+  let totalNew = 0;
+  for (const p of targets) {
+    const r = await syncProviderModelsInternal(c.env, p, body.freeOnly || false);
+    results.push(r);
+    totalNew += r.newModels.length;
+  }
+  return c.json({
+    success: true,
+    data: { syncedCount: targets.length, totalNew, results },
+    message: `\u5DF2\u540C\u6B65 ${targets.length} \u4E2A\u6E20\u9053\uFF0C\u5171\u65B0\u589E ${totalNew} \u4E2A\u6A21\u578B\uFF01`
+  });
+}
+async function handleCronModels(c) {
+  const expected = await codebuddyCronToken(c.env);
+  if (!expected) {
+    return c.json({ success: false, message: "\u7F51\u5173\u672A\u914D\u7F6E ADMIN_PASSWORD\uFF0C\u5B9A\u65F6\u4EFB\u52A1\u4E0D\u53EF\u7528" }, 503);
+  }
+  const body = await c.req.json().catch(() => ({}));
+  const provided = (c.req.header("X-Cron-Token") || c.req.query("token") || body.token || "").trim();
+  if (!provided || !timingSafeEqual(provided, expected)) {
+    return c.json({ success: false, message: "\u4EE4\u724C\u65E0\u6548" }, 401);
+  }
+  const today = shanghaiDate();
+  const force = c.req.query("force") === "1";
+  if (!force) {
+    try {
+      const raw2 = await getKV(c.env).get(CRON_MODELS_STATE_KEY);
+      if (raw2) {
+        const state = JSON.parse(raw2);
+        if (state.date === today) {
+          return c.json({
+            success: true,
+            data: state,
+            message: `\u4ECA\u65E5\uFF08${today}\uFF09\u5DF2\u6267\u884C\u8FC7\u6A21\u578B\u540C\u6B65\uFF0C\u8DF3\u8FC7\u3002\u540C\u6B65 ${state.syncedChannels} \u4E2A\u6E20\u9053\uFF0C\u65B0\u589E ${state.newModelsAdded} \u4E2A\u6A21\u578B\u3002`
+          });
+        }
+      }
+    } catch {
+    }
+  }
+  const providers = await getProviders(c.env);
+  const targets = providers.filter((p) => p.enabled && p.autoSyncModels);
+  let totalNew = 0;
+  const results = [];
+  for (const p of targets) {
+    const r = await syncProviderModelsInternal(c.env, p, false);
+    results.push(r);
+    totalNew += r.newModels.length;
+  }
+  const newState = {
+    date: today,
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    totalChannels: providers.length,
+    syncedChannels: targets.length,
+    newModelsAdded: totalNew
+  };
+  try {
+    await getKV(c.env).put(CRON_MODELS_STATE_KEY, JSON.stringify(newState));
+  } catch {
+  }
+  return c.json({
+    success: true,
+    data: { state: newState, results },
+    message: `\u6A21\u578B\u540C\u6B65\u5B8C\u6210\uFF1A\u5171\u68C0\u67E5 ${providers.length} \u4E2A\u6E20\u9053\uFF0C\u540C\u6B65 ${targets.length} \u4E2A\u5F00\u542F\u81EA\u52A8\u540C\u6B65\u7684\u6E20\u9053\uFF0C\u65B0\u589E ${totalNew} \u4E2A\u6A21\u578B\uFF01`
+  });
 }
 async function handleGetProxyKeys(c) {
   const keys = await getProxyKeys(c.env);
@@ -19125,6 +19323,12 @@ async function batchTestKeys() {
   showResult(tr, ok > 0, '\u6D4B\u8BD5\u5B8C\u6210: ' + ok + ' / ' + rows.length + ' \u4E2A Key \u8FDE\u63A5\u6B63\u5E38')
 }
 
+function cleanModelAlias(id) {
+  return String(id || '')
+    .replace(/[:/_-]free$/i, '')
+    .replace(/:free(?=[:/_-]|$)/gi, '')
+}
+
 function addMdlRow() {
   const c = document.getElementById('amodels')
   const d = document.createElement('div')
@@ -19136,11 +19340,19 @@ function addMdlRow() {
 function addMdlToForm(mid) {
   const rows = document.querySelectorAll('#amodels .ami')
   for (let i = 0; i < rows.length; i++) {
-    if (!rows[i].value.trim()) { rows[i].value = mid; return }
+    if (!rows[i].value.trim()) {
+      rows[i].value = mid
+      const al = rows[i].parentElement.querySelector('.amal')
+      if (al && !al.value) al.value = cleanModelAlias(mid)
+      return
+    }
   }
   addMdlRow()
   const all = document.querySelectorAll('#amodels .ami')
-  all[all.length - 1].value = mid
+  const last = all[all.length - 1]
+  last.value = mid
+  const al = last.parentElement.querySelector('.amal')
+  if (al && !al.value) al.value = cleanModelAlias(mid)
 }
 
 function testNewMdl(btn) {
@@ -19203,6 +19415,7 @@ async function createProv() {
   }).filter(Boolean)
 
   const enabled = document.getElementById('aen').checked
+  const autoSyncModels = document.getElementById('async-new') ? document.getElementById('async-new').checked : false
   const mirrorUrls = document.getElementById('amirror').value
   const ttsConf = isTts ? {
     voice: document.getElementById('av').value.trim() || 'zh-CN-XiaoxiaoNeural',
@@ -19214,7 +19427,7 @@ async function createProv() {
   const r = await fetch('/admin/api/providers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id, name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue('new') : undefined, apiKeys: keys, models, mirrorUrls, enabled, project: provProject('new') || undefined, location: provVertexLocation('new') || undefined, ...ttsConf })
+    body: JSON.stringify({ id, name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue('new') : undefined, apiKeys: keys, models, mirrorUrls, enabled, autoSyncModels, project: provProject('new') || undefined, location: provVertexLocation('new') || undefined, ...ttsConf })
   })
   const d = await r.json()
   if (d.success) { toast('\u6E20\u9053\u521B\u5EFA\u6210\u529F', 'success'); location.reload() }
@@ -19296,6 +19509,8 @@ function showEditModelsList(id, models, freeOnly) {
 
 function addMdlToEdit(id, mid) {
   document.getElementById('nmid-' + id).value = mid
+  const al = document.getElementById('nmal-' + id)
+  if (al) al.value = cleanModelAlias(mid)
   addMdl(id)
 }
 
@@ -19305,7 +19520,8 @@ function getMdl(id) {
     const idx = parseInt(item.dataset.idx), mid = document.getElementById('mid-' + id + '-' + idx).value.trim()
     const en = document.getElementById('men-' + id + '-' + idx).checked
     const alEl = document.getElementById('mal-' + id + '-' + idx)
-    const alias = alEl ? alEl.value.trim() : ''
+    let alias = alEl ? alEl.value.trim() : ''
+    if (!alias && mid) alias = cleanModelAlias(mid)
     if (!mid) return null
     return alias ? { id: mid, enabled: en, alias: alias } : { id: mid, enabled: en }
   }).filter(Boolean)
@@ -19331,6 +19547,7 @@ async function save(id) {
   const dvKeys = type === 'devin' ? provDevinKeys(id) : null
   if (dvKeys && dvKeys.length) keys = dvKeys.map(k => ({ key: k, enabled: true }))
   const models = getMdl(id), enabled = document.getElementById('en-' + id).checked
+  const autoSyncModels = document.getElementById('sync-' + id) ? document.getElementById('sync-' + id).checked : false
   const mirEl = document.getElementById('mir-' + id)
   const mirrorUrls = mirEl ? mirEl.value : undefined
   const ttsConf = isTts ? {
@@ -19343,7 +19560,7 @@ async function save(id) {
   const r = await fetch('/admin/api/providers/' + encodeURIComponent(id), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue(id) : undefined, apiKeys: keys, models, mirrorUrls, enabled, newId, project: provProject(id) || undefined, location: provVertexLocation(id) || undefined, ...ttsConf })
+    body: JSON.stringify({ name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue(id) : undefined, apiKeys: keys, models, mirrorUrls, enabled, autoSyncModels, newId, project: provProject(id) || undefined, location: provVertexLocation(id) || undefined, ...ttsConf })
   })
   const d = await r.json()
   if (d.success) { toast('\u5DF2\u4FDD\u5B58', 'success'); location.reload() }
@@ -19358,9 +19575,51 @@ async function del(id) {
   else toast(d.message || '\u5220\u9664\u5931\u8D25', 'error')
 }
 
+async function autoUpdateProviderModels(id) {
+  toast('\u6B63\u5728\u62C9\u53D6\u4E0A\u6E38\u6700\u65B0\u6A21\u578B\u5E76\u81EA\u52A8\u53BB -free \u589E\u91CF\u5165\u5E93\u2026', 'success')
+  try {
+    const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/sync-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ freeOnly: false }),
+    })
+    const d = await r.json()
+    if (d.success) {
+      toast(d.message || '\u6A21\u578B\u5DF2\u66F4\u65B0\u5E76\u4FDD\u5B58\u5165\u5E93', 'success')
+      setTimeout(() => location.reload(), 1200)
+    } else {
+      toast(d.message || '\u66F4\u65B0\u5931\u8D25', 'error')
+    }
+  } catch (e) {
+    toast('\u7F51\u7EDC\u8BF7\u6C42\u5931\u8D25: ' + e.message, 'error')
+  }
+}
+
+async function syncAllEnabledModels() {
+  toast('\u6B63\u5728\u540C\u6B65\u6240\u6709\u5F00\u542F\u4E86\u300C\u81EA\u52A8\u540C\u6B65\u300D\u7684\u6E20\u9053\u2026', 'success')
+  try {
+    const r = await fetch('/admin/api/sync-models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ freeOnly: false }),
+    })
+    const d = await r.json()
+    if (d.success) {
+      toast(d.message || '\u5168\u6E20\u9053\u540C\u6B65\u5B8C\u6210', 'success')
+      setTimeout(() => location.reload(), 1500)
+    } else {
+      toast(d.message || '\u540C\u6B65\u5931\u8D25', 'error')
+    }
+  } catch (e) {
+    toast('\u7F51\u7EDC\u8BF7\u6C42\u5931\u8D25: ' + e.message, 'error')
+  }
+}
+
 function addMdl(id) {
   const inp = document.getElementById('nmid-' + id), mid = inp.value.trim()
-  const alInp = document.getElementById('nmal-' + id), alias = alInp ? alInp.value.trim() : ''
+  const alInp = document.getElementById('nmal-' + id)
+  let alias = alInp ? alInp.value.trim() : ''
+  if (!alias && mid) alias = cleanModelAlias(mid)
   if (!mid) { toast('\u8BF7\u8F93\u5165\u6A21\u578B ID', 'error'); return }
   const c = document.getElementById('ml-' + id), idx = c.querySelectorAll('[data-idx]').length
   const d = document.createElement('div')
@@ -20177,7 +20436,10 @@ ${H3("\u63A7\u5236\u53F0")}
       <section id="providers" class="workspace-section" aria-labelledby="providers-title">
         <div class="section-heading">
           <div><h2 id="providers-title">\u6E20\u9053\u7BA1\u7406</h2><p>\u914D\u7F6E\u4E0A\u6E38 API \u5730\u5740\u3001\u8BF7\u6C42\u534F\u8BAE\u3001\u8BBF\u95EE\u5BC6\u94A5\u4E0E\u6A21\u578B\u6620\u5C04\u3002</p></div>
-          <button class="btn btn-p" onclick="showAdd()">${icon("plus", "", 14)}\u6DFB\u52A0\u6E20\u9053</button>
+          <div class="fc" style="gap:8px;flex-wrap:wrap">
+            <button class="btn btn-s" onclick="syncAllEnabledModels()">${icon("refresh", "", 14)} \u4E00\u952E\u540C\u6B65\u6A21\u578B</button>
+            <button class="btn btn-p" onclick="showAdd()">${icon("plus", "", 14)}\u6DFB\u52A0\u6E20\u9053</button>
+          </div>
         </div>
 
         <div class="af-w">
@@ -20345,10 +20607,16 @@ ${H3("\u63A7\u5236\u53F0")}
             </fieldset>
 
             <div class="panel-actions">
-              <label class="fc" style="gap:8px;cursor:pointer">
-                <span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span>
-                <span style="font-size:13px;font-weight:500">\u521B\u5EFA\u540E\u7ACB\u5373\u542F\u7528</span>
-              </label>
+              <div class="fc" style="gap:16px;flex-wrap:wrap">
+                <label class="fc" style="gap:8px;cursor:pointer">
+                  <span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span>
+                  <span style="font-size:13px;font-weight:500">\u521B\u5EFA\u540E\u7ACB\u5373\u542F\u7528</span>
+                </label>
+                <label class="fc" style="gap:8px;cursor:pointer" title="\u5F00\u542F\u540E\u53C2\u4E0E\u300C\u4E00\u952E\u540C\u6B65\u6A21\u578B\u300D\u4E0E\u6BCF\u65E5\u5B9A\u65F6\u4EFB\u52A1\uFF1B\u65E0\u6CD5\u83B7\u53D6\u6A21\u578B\u7684\u6E20\u9053\u8BF7\u52FF\u52FE\u9009">
+                  <span class="tg"><input type="checkbox" id="async-new"><span class="sl"></span></span>
+                  <span style="font-size:13px;font-weight:500">\u53C2\u4E0E\u4E00\u952E\u4E0E\u5B9A\u65F6\u540C\u6B65\u6A21\u578B</span>
+                </label>
+              </div>
               <div>
                 <button class="btn btn-s" onclick="hideAdd()">\u53D6\u6D88</button>
                 <button class="btn btn-p" onclick="createProv()">${icon("check", "", 14)} \u521B\u5EFA\u6E20\u9053</button>
@@ -20382,6 +20650,7 @@ ${H3("\u63A7\u5236\u53F0")}
                   <span class="sl"></span>
                 </label>
                 <span class="bd ${p.enabled ? "bd-on" : "bd-off"}">${p.enabled ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"}</span>
+                ${p.autoSyncModels ? `<span class="bd bd-info" title="\u5DF2\u5F00\u542F\u81EA\u52A8\u540C\u6B65\u6A21\u578B">\u81EA\u52A8\u540C\u6B65</span>` : ""}
                 ${(p.type || "") === "codex" && codexRelayHost ? `<span class="bd bd-info" title="\u7ECF ${escapePageHtml2(codexRelayHost)} \u4E2D\u7EE7">\u7ECF\u4E2D\u7EE7</span>` : ""}
               </div>
             </div>
@@ -20389,7 +20658,10 @@ ${H3("\u63A7\u5236\u53F0")}
             <div class="pd" id="dt-${escapePageHtml2(p.id)}">
               <div class="detail-heading">
                 <div><h3>\u7F16\u8F91 ${escapePageHtml2(p.name)}</h3><p>\u4FEE\u6539\u914D\u7F6E\u540E\u4FDD\u5B58\u5373\u523B\u751F\u6548\u4E8E\u540E\u7EED\u8BF7\u6C42\u3002</p></div>
-                <span class="protocol-chip">${(p.type || p.apiType || "openai").toUpperCase()}</span>
+                <div class="fc" style="gap:8px">
+                  <button class="btn btn-s" type="button" onclick="autoUpdateProviderModels('${p.id}')">${icon("refresh", "", 14)} \u81EA\u52A8\u66F4\u65B0\u6A21\u578B</button>
+                  <span class="protocol-chip">${(p.type || p.apiType || "openai").toUpperCase()}</span>
+                </div>
               </div>
 
               <div class="fr">
@@ -20415,6 +20687,18 @@ ${H3("\u63A7\u5236\u53F0")}
                     <option value="vertex" ${p.type === "vertex" ? "selected" : ""}>Vertex AI \u53CD\u4EE3</option>
                     <option value="devin" ${p.type === "devin" ? "selected" : ""}>Devin \u53CD\u4EE3</option>
                     <option value="zai" ${p.type === "zai" ? "selected" : ""}>Z.AI (GLM \u56FD\u9645)</option>
+                    <option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option>
+                    <option value="cline" ${p.type === "cline" ? "selected" : ""}>Cline \u53CD\u4EE3</option>
+                  </select>
+                </div>
+              </div>
+              <div class="fg" style="margin-top:6px">
+                <label class="fc" style="gap:8px;cursor:pointer" title="\u5F00\u542F\u540E\u53C2\u4E0E\u300C\u4E00\u952E\u540C\u6B65\u6A21\u578B\u300D\u4E0E\u6BCF\u65E5\u5B9A\u65F6\u4EFB\u52A1\uFF1B\u65E0\u6CD5\u83B7\u53D6\u6A21\u578B\u7684\u6E20\u9053\u8BF7\u4FDD\u6301\u5173\u95ED">
+                  <span class="tg"><input type="checkbox" ${p.autoSyncModels ? "checked" : ""} id="sync-${escapePageHtml2(p.id)}"><span class="sl"></span></span>
+                  <span style="font-size:13px;font-weight:500">\u53C2\u4E0E\u4E00\u952E\u4E0E\u5B9A\u65F6\u540C\u6B65\u6A21\u578B</span>
+                  <span class="form-helper" style="margin-top:0">\uFF08\u5F00\u542F\u540E\uFF0C\u7CFB\u7EDF\u4F1A\u81EA\u52A8\u62C9\u53D6\u6700\u65B0\u6A21\u578B\u5E76\u53BB -free \u522B\u540D\u589E\u91CF\u5165\u5E93\uFF1B\u65E0\u6CD5\u83B7\u53D6\u6A21\u578B\u7684\u6E20\u9053\u4FDD\u6301\u5173\u95ED\u5373\u53EF\uFF09</span>
+                </label>
+              </div>
                     <option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option>
                     <option value="cline" ${p.type === "cline" ? "selected" : ""}>Cline \u53CD\u4EE3</option>
                   </select>
@@ -20708,6 +20992,8 @@ app.post("/admin/api/providers", handleCreateProvider);
 app.put("/admin/api/providers/:id", handleUpdateProvider);
 app.delete("/admin/api/providers/:id", handleDeleteProvider);
 app.post("/admin/api/providers/:id/test-model", handleTestModel);
+app.post("/admin/api/providers/:id/sync-models", handleSyncProviderModels);
+app.post("/admin/api/sync-models", handleSyncAllModels);
 app.put("/admin/api/providers/:id/ds-account", handleSaveDsAccount);
 app.post("/admin/api/providers/:id/ds-login", handleDsLogin);
 app.delete("/admin/api/providers/:id/ds-account", handleClearDsAccount);
@@ -20738,6 +21024,9 @@ app.post("/admin/api/codebuddy/checkin", handleCodebuddyCheckin);
 app.get("/cron/checkin", handleCronCheckin);
 app.on("HEAD", "/cron/checkin", handleCronCheckin);
 app.post("/cron/checkin", handleCronCheckin);
+app.get("/cron/models", handleCronModels);
+app.on("HEAD", "/cron/models", handleCronModels);
+app.post("/cron/models", handleCronModels);
 app.get("/admin/api/backup/export", handleBackupExport);
 app.post("/admin/api/backup/import", handleBackupImport);
 app.post("/admin/api/backup/to-r2", handleBackupToR2);
