@@ -95,6 +95,15 @@ app.get('/admin', async (c) => {
 // 系统状态
 app.get('/admin/api/status', handleStatus)
 
+// 部署后自检: 拉长单次请求, 实测云函数 maxDuration (edgeone.json 配置的 120s) 是否生效
+app.get('/admin/api/selftest/delay', (c) => {
+  const ms = Math.min(Math.max(Number(c.req.query('ms')) || 0, 0), 150_000)
+  const startedAt = Date.now()
+  return new Promise<Response>((resolve) => {
+    setTimeout(() => resolve(c.json({ success: true, data: { requestedMs: ms, actualMs: Date.now() - startedAt } })), ms)
+  })
+})
+
 // 提供商 CRUD
 app.get('/admin/api/providers', handleGetProviders)
 app.post('/admin/api/providers', handleCreateProvider)

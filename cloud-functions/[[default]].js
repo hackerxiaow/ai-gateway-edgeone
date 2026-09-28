@@ -20571,6 +20571,13 @@ app.get("/admin", async (c) => {
   return res;
 });
 app.get("/admin/api/status", handleStatus);
+app.get("/admin/api/selftest/delay", (c) => {
+  const ms = Math.min(Math.max(Number(c.req.query("ms")) || 0, 0), 15e4);
+  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(c.json({ success: true, data: { requestedMs: ms, actualMs: Date.now() - startedAt } })), ms);
+  });
+});
 app.get("/admin/api/providers", handleGetProviders);
 app.post("/admin/api/providers", handleCreateProvider);
 app.put("/admin/api/providers/:id", handleUpdateProvider);
