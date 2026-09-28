@@ -20,6 +20,9 @@ const routes = {
   ],
   conf: {
     rewrites: [{ source: '/', destination: '/home' }],
+    cloudFunctions: {
+      maxDuration: 120,
+    },
   },
 }
 
