@@ -513,7 +513,7 @@ var init_config = __esm({
   "src/config.ts"() {
     "use strict";
     SITE_CONFIG = {
-      title: "AI Gateway",
+      title: "AI GATEWAY",
       subtitle: "\u7EDF\u4E00\u7684 AI \u7BA1\u7406\u5E73\u53F0",
       author: "QingYun",
       authorUrl: "https://github.com/yutian81/ai-gateway",
@@ -15181,573 +15181,2410 @@ async function handleDevinVerify(c) {
   );
 }
 
-// src/pages.ts
+// src/home.page.ts
 init_storage();
-init_codex();
 init_config();
 
 // src/pages.css.ts
 var CSS_CONTENT = `
-/* \u4E2D\u6587\u8BF4\u660E\uFF1A\u65B9\u6848 A\u300CCloud Workbench\u300D\u7EDF\u4E00\u9996\u9875\u3001\u767B\u5F55\u9875\u548C\u7BA1\u7406\u9875\u7684\u8BBE\u8BA1\u8BED\u8A00\uFF1B\u4E0D\u6D89\u53CA\u540E\u7AEF\u903B\u8F91\u3002 */
-/* Hallmark \xB7 genre: modern-minimal \xB7 macrostructure: Workbench \xB7 design-system: design.md \xB7 designed-as-app
- * Hallmark \xB7 pre-emit critique: P5 H5 E4 S5 R5 V5
- */
+/* ==========================================================================
+   AI GATEWAY - Modern Fintech Design System (Linear / Stripe / Vercel Aesthetic)
+   ========================================================================== */
+
 :root {
-  --color-paper: oklch(98.5% 0.004 250);
-  --color-paper-a: oklch(98.5% 0.004 250 / .94);
-  --color-paper-2: oklch(96.7% 0.006 250);
-  --color-paper-3: oklch(94.8% 0.008 250);
-  --color-ink: oklch(22% 0.020 258);
-  --color-ink-2: oklch(34% 0.018 257);
-  --color-muted: oklch(49% 0.016 255);
-  --color-rule: oklch(89% 0.010 252);
-  --color-rule-2: oklch(82% 0.014 252);
-  --color-accent: oklch(52% 0.205 256);
-  --color-accent-hover: oklch(46% 0.195 256);
-  --color-accent-soft: oklch(94% 0.030 256);
-  --color-accent-ink: oklch(99% 0.003 250);
-  --color-focus: oklch(44% 0.180 256);
-  --color-success: oklch(45% 0.120 158);
-  --color-success-soft: oklch(95% 0.025 158);
-  --color-success-ink: oklch(34% 0.092 158);
-  --color-danger: oklch(50% 0.185 25);
-  --color-danger-hover: oklch(45% 0.175 25);
-  --color-danger-soft: oklch(96% 0.022 25);
-  --color-danger-ink: oklch(38% 0.145 25);
-  --color-graphite: oklch(22% 0.016 260);
-  --color-graphite-2: oklch(28% 0.018 260);
-  --color-graphite-rule: oklch(38% 0.020 258);
-  --color-graphite-ink: oklch(92% 0.010 250);
-  --color-overlay: oklch(18% 0.020 258 / .48);
-  --shadow-panel: 0 18px 48px oklch(20% 0.020 258 / .10);
-  --shadow-float: 0 8px 24px oklch(20% 0.020 258 / .12);
+  /* \u57FA\u5E95\u4E0E\u8868\u9762 */
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f1f5f9;
+  --bg-surface-hover: #f8fafc;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-heavy: rgba(255, 255, 255, 0.94);
+  --bg-overlay: rgba(15, 23, 42, 0.45);
 
-  --font-display: 'Space Grotesk', 'SF Pro Display', sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  /* \u7EC8\u7AEF\u4E0E\u6DF1\u8272\u5BF9\u6BD4\u9762\u677F */
+  --bg-terminal: #0f172a;
+  --bg-terminal-subtle: #1e293b;
+  --text-terminal: #f8fafc;
+  --text-terminal-muted: #94a3b8;
+  --border-terminal: #334155;
 
-  --space-3xs: .25rem;
-  --space-2xs: .5rem;
-  --space-xs: .75rem;
-  --space-sm: 1rem;
-  --space-md: 1.5rem;
-  --space-lg: 2rem;
-  --space-xl: 3rem;
-  --space-2xl: 4rem;
-  --space-3xl: 6rem;
-  --space-4xl: 8rem;
+  /* \u6587\u5B57\u6392\u7248 */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --text-inverse: #ffffff;
 
-  --text-xs: .75rem;
-  --text-sm: .875rem;
-  --text-md: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.75rem;
-  --text-2xl: clamp(2.25rem, 5vw, 4.5rem);
+  /* \u8FB9\u6846\u4E0E\u5206\u5272\u7EBF */
+  --border-color: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-hover: #94a3b8;
 
-  --radius-control: .375rem;
-  --radius-panel: .625rem;
-  --radius-round: 999px;
-  --control-h: 2.75rem;
-  --control-h-sm: 2rem;
-  --shell: 74rem;
-  --ease-out: cubic-bezier(.16, 1, .3, 1);
-  --dur-fast: 160ms;
-  --dur-panel: 260ms;
+  /* \u54C1\u724C\u4E0E\u4E3B\u5F3A\u8C03\u8272 (Aurora Blue) */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light: #eff6ff;
+  --primary-border: #bfdbfe;
+  --primary-text: #1d4ed8;
 
-  /* compatibility aliases for existing management scripts */
-  --c-primary: var(--color-accent);
-  --c-primary-hover: var(--color-accent-hover);
-  --c-primary-glow: var(--color-accent-soft);
-  --c-text: var(--color-ink-2);
-  --c-text-dark: var(--color-ink);
-  --c-text-secondary: var(--color-ink-2);
-  --c-text-muted: var(--color-muted);
-  --c-text-light: var(--color-muted);
-  --c-bg: var(--color-paper-2);
-  --c-bg-white: var(--color-paper);
-  --c-bg-light: var(--color-paper-2);
-  --c-bg-alt: var(--color-paper-2);
-  --c-border: var(--color-rule);
-  --c-border-dark: var(--color-rule-2);
-  --c-success: var(--color-success);
-  --c-success-bg: var(--color-success-soft);
-  --c-success-text: var(--color-success-ink);
-  --c-danger: var(--color-danger);
-  --c-danger-bg: var(--color-danger-soft);
-  --c-danger-text: var(--color-danger-ink);
-  --c-info-bg: var(--color-accent-soft);
-  --c-info-text: var(--color-focus);
-  --c-overlay: var(--color-overlay);
+  /* \u72B6\u6001\u8272\uFF1A\u6210\u529F (Emerald) */
+  --success: #10b981;
+  --success-light: #ecfdf5;
+  --success-text: #065f46;
+  --success-border: #a7f3d0;
+
+  /* \u72B6\u6001\u8272\uFF1A\u8B66\u793A / \u7425\u73C0\u91D1 (Amber) */
+  --warning: #f59e0b;
+  --warning-light: #fffbeb;
+  --warning-text: #92400e;
+  --warning-border: #fde68a;
+
+  /* \u72B6\u6001\u8272\uFF1A\u5371\u9669 (Ruby / Rose) */
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-light: #fef2f2;
+  --danger-text: #991b1b;
+  --danger-border: #fecaca;
+
+  /* \u9634\u5F71\u4F53\u7CFB */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 10px 25px -5px rgba(37, 99, 235, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+
+  /* \u5706\u89D2 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* \u5B57\u4F53\u4F53\u7CFB */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, Monaco, monospace;
+
+  /* \u5E03\u5C40\u5BB9\u5668 */
+  --shell-max: 1200px;
+  --rail-width: 250px;
+  --rail-width-collapsed: 72px;
+  --topbar-height: 60px;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* \u811A\u672C\u517C\u5BB9\u522B\u540D */
+  --c-primary: var(--primary);
+  --c-primary-hover: var(--primary-hover);
+  --c-primary-glow: var(--primary-light);
+  --c-text: var(--text-secondary);
+  --c-text-dark: var(--text-primary);
+  --c-text-muted: var(--text-muted);
+  --c-bg: var(--bg-page);
+  --c-bg-white: var(--bg-surface);
+  --c-border: var(--border-color);
+  --c-success: var(--success);
+  --c-success-bg: var(--success-light);
+  --c-success-text: var(--success-text);
+  --c-danger: var(--danger);
+  --c-danger-bg: var(--danger-light);
+  --c-danger-text: var(--danger-text);
+  --c-overlay: var(--bg-overlay);
 }
 
-*, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; min-width: 0; overflow-x: clip; scroll-behavior: smooth; }
-body {
-  min-height: 100dvh;
-  background: var(--color-paper-2);
-  color: var(--color-ink-2);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  text-rendering: optimizeLegibility;
+/* ==========================================================================
+   CSS Reset & Base
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background-color: var(--bg-page);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
-button, input, textarea, select { font: inherit; }
-button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
-a { color: inherit; }
-h1, h2, h3, p, figure, dl, dd { margin: 0; }
-h1, h2, h3 { color: var(--color-ink); font-family: var(--font-display); font-style: normal; font-weight: 600; letter-spacing: -.025em; line-height: 1.12; overflow-wrap: anywhere; min-width: 0; }
-code, pre { font-family: var(--font-mono); }
-fieldset { min-width: 0; }
-html:focus-within { scroll-behavior: smooth; }
-:target { scroll-margin-top: var(--space-lg); }
-:focus { outline: 0; }
-:focus-visible { outline: .125rem solid var(--color-focus); outline-offset: .125rem; }
-::selection { background: var(--color-accent-soft); color: var(--color-ink); }
 
-.shell { width: min(100% - calc(var(--space-sm) * 2), var(--shell)); margin-inline: auto; }
-.site-page { display: flex; min-height: 100dvh; flex-direction: column; }
-.site-page > main { flex: 1; }
-.hd { display: none !important; }
-.sr-only { position: absolute; width: .0625rem; height: .0625rem; padding: 0; margin: -.0625rem; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background-color: var(--bg-page);
+}
 
-/* shared navigation */
-.topbar { position: sticky; inset-block-start: 0; z-index: 100; min-height: 4rem; border-block-end: .0625rem solid var(--color-rule); background: var(--color-paper-a); color: var(--color-ink); backdrop-filter: blur(.75rem); }
-.topbar__inner { min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-.brand { min-width: 0; display: inline-flex; align-items: center; gap: var(--space-2xs); color: var(--color-ink); text-decoration: none; white-space: nowrap; }
-.brand__mark { width: 2rem; height: 2rem; flex: 0 0 auto; display: grid; place-items: center; border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-accent); }
-.brand__name, .brand strong { font-family: var(--font-display); font-size: var(--text-md); font-weight: 600; letter-spacing: -.02em; }
-.brand__descriptor, .brand small { color: var(--color-muted); font-family: var(--font-mono); font-size: .625rem; font-weight: 500; letter-spacing: .08em; }
-.topbar__actions { display: flex; align-items: center; gap: var(--space-2xs); }
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
 
-/* buttons and controls */
-.btn, .icon-btn, .model-token, .password-toggle, .admin-nav__link, .ps {
-  border: .0625rem solid transparent;
-  border-radius: var(--radius-control);
-  cursor: pointer;
+a {
+  color: inherit;
   text-decoration: none;
+}
+
+code, pre {
+  font-family: var(--font-mono);
+}
+
+.hd {
+  display: none !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.svg-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.svg-icon svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: block !important;
+}
+
+.shell {
+  width: 100%;
+  max-width: var(--shell-max);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding-inline: 16px;
+  }
+}
+
+/* ==========================================================================
+   Typography & Helpers
+   ========================================================================== */
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary);
+}
+
+.c-p { color: var(--primary) !important; }
+.c-s { color: var(--success) !important; }
+.c-d { color: var(--danger) !important; }
+.mu { color: var(--text-muted); font-size: 13px; }
+
+/* ==========================================================================
+   Buttons & Controls
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
   white-space: nowrap;
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-fast) ease;
-}
-.btn { min-height: var(--control-h-sm); padding-inline: var(--space-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2xs); font-size: var(--text-sm); font-weight: 600; line-height: 1; }
-.btn-p { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-accent-ink); }
-.btn-s { border-color: var(--color-rule-2); background: var(--color-paper); color: var(--color-ink-2); }
-.btn-gh { border-color: transparent; background: transparent; color: var(--color-muted); }
-.btn-g { border-color: var(--color-success-soft); background: var(--color-success-soft); color: var(--color-success-ink); }
-.btn-d { border-color: var(--color-danger-soft); background: var(--color-danger-soft); color: var(--color-danger-ink); }
-.icon-btn, .password-toggle { width: var(--control-h-sm); height: var(--control-h-sm); flex: 0 0 var(--control-h-sm); display: inline-grid; place-items: center; border-color: transparent; background: transparent; color: var(--color-muted); }
-.icon-btn span { font-family: var(--font-body); font-size: var(--text-xs); }
-.copy-control[data-state='success'] { border-color: var(--color-success); color: var(--color-success-ink); }
-.copy-control[data-state='error'] { border-color: var(--color-danger); color: var(--color-danger-ink); }
-.btn:active, .icon-btn:active, .model-token:active, .password-toggle:active, .ps:active { transform: translateY(.0625rem); }
-.btn:disabled, .btn[aria-disabled='true'], .icon-btn:disabled, input:disabled, select:disabled { opacity: .55; cursor: not-allowed; }
-.btn[data-state='loading'] .button-label { display: none; }
-.btn:not([data-state='loading']) .button-loading { display: none; }
-.btn[data-state='success'] { border-color: var(--color-success); background: var(--color-success); color: var(--color-paper); }
-.button-loading { display: inline-flex; align-items: center; gap: var(--space-2xs); }
-
-/* form controls */
-input, textarea, select {
-  width: 100%; height: var(--control-h); padding-inline: var(--space-xs); border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); outline: .125rem solid transparent; outline-offset: .0625rem; background: var(--color-paper); color: var(--color-ink); transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
-}
-input::placeholder, textarea::placeholder { color: var(--color-muted); opacity: .82; }
-input:focus-visible, textarea:focus-visible, select:focus-visible { border-color: var(--color-ink-2); outline: .125rem solid var(--color-focus); outline-offset: .0625rem; }
-input[aria-invalid='true'], textarea[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--color-danger); background: var(--color-danger-soft); }
-textarea { min-height: 6rem; padding-block: var(--space-xs); resize: vertical; }
-label, legend { color: var(--color-ink-2); font-size: var(--text-xs); font-weight: 600; }
-.fg { min-width: 0; margin-block-end: var(--space-sm); }
-.fg > label { display: block; margin-block-end: var(--space-2xs); }
-.form-helper { min-height: 1lh; margin-block-start: var(--space-3xs); color: var(--color-muted); font-size: var(--text-xs); }
-.fg-tag { color: var(--color-accent); font-size: var(--text-2xs); border: .0625rem solid color-mix(in srgb, var(--color-accent) 35%, transparent); border-radius: 999px; padding: .0625rem .4rem; margin-inline-start: .4rem; vertical-align: middle; white-space: nowrap; }
-.input-wrap { position: relative; }
-.input-wrap > i { position: absolute; inset-inline-start: var(--space-xs); inset-block-start: 50%; z-index: 1; color: var(--color-muted); transform: translateY(-50%); }
-.input-wrap input { padding-inline-start: var(--space-xl); padding-inline-end: var(--space-xl); }
-.password-toggle { position: absolute; inset-inline-end: 0; inset-block-start: 0; }
-.select-sm { height: var(--control-h); }
-.tts-voice-row { display: flex; gap: var(--space-2xs); align-items: center; }
-.tts-voice-row .select-sm { flex: 1; min-width: 0; }
-.tts-voice-row .btn { white-space: nowrap; }
-.fr, .fr3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 var(--space-sm); }
-.form-group { margin: 0 0 var(--space-md); padding: var(--space-sm); border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); }
-.form-group legend { padding-inline: var(--space-2xs); }
-.field-row { min-width: 0; flex-wrap: nowrap; }
-.field-row input { min-width: 0; }
-/* \u7EAF\u56FE\u6807\u6309\u94AE\u76F8\u90BB\u65F6\u6536\u7D27\u95F4\u8DDD\uFF08\u8D1F\u5916\u8FB9\u8DDD\u62B5\u6D88 .fc \u7684 gap\uFF09 */
-.fc > .icon-btn + .icon-btn { margin-inline-start: calc(var(--space-3xs) - var(--space-2xs)); }
-
-/* switch */
-.tg { position: relative; display: inline-block; width: 2.5rem; height: var(--control-h); flex: 0 0 2.5rem; margin: 0; }
-.tg input { position: absolute; opacity: 0; width: .0625rem; height: .0625rem; }
-.tg .sl { position: absolute; inset-inline: 0; inset-block-start: .8125rem; height: 1.125rem; border-radius: var(--radius-round); background: var(--color-rule-2); cursor: pointer; transition: background-color var(--dur-fast) ease; }
-.tg .sl::before { content: ''; position: absolute; width: .75rem; height: .75rem; inset-inline-start: .1875rem; inset-block-start: .1875rem; border-radius: 50%; background: var(--color-paper); box-shadow: 0 .0625rem .125rem var(--color-overlay); transition: transform var(--dur-fast) var(--ease-out); }
-.tg input:checked + .sl { background: var(--color-accent); }
-.tg input:checked + .sl::before { transform: translateX(1.375rem); }
-.tg input:focus-visible + .sl { outline: .125rem solid var(--color-focus); outline-offset: .125rem; }
-.tg input:disabled + .sl { opacity: .55; cursor: not-allowed; }
-
-/* home workbench */
-.home-page { background: var(--color-paper); }
-.home-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); padding-block: var(--space-2xl); }
-.home-hero__copy { align-self: center; min-width: 0; }
-.eyebrow { margin-block-end: var(--space-sm); display: flex; align-items: center; gap: var(--space-2xs); color: var(--color-muted); font-family: var(--font-mono); font-size: .6875rem; font-weight: 600; letter-spacing: .08em; }
-.eyebrow > span { width: .75rem; height: .125rem; background: var(--color-accent); }
-.home-hero h1 { max-width: 12ch; font-size: var(--text-2xl); }
-.home-hero__lede { max-width: 60ch; margin-block-start: var(--space-md); color: var(--color-muted); font-size: var(--text-md); }
-.endpoint-box { max-width: 40rem; margin-block-start: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper-2); }
-.endpoint-box__label { grid-column: 1 / -1; padding: var(--space-2xs) var(--space-xs) 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .625rem; font-weight: 600; letter-spacing: .08em; }
-.endpoint-box code { min-width: 0; padding: var(--space-2xs) var(--space-xs) var(--space-xs); overflow: hidden; color: var(--color-ink); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.endpoint-box .icon-btn { width: auto; padding-inline: var(--space-sm); display: flex; gap: var(--space-2xs); border-inline-start-color: var(--color-rule); border-radius: 0; }
-.endpoint-box--list { max-width: none; grid-column: 1 / -1; grid-template-columns: 1fr; }
-.endpoint-box--list .endpoint-box__label { padding-block-end: var(--space-2xs); }
-.endpoint-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); padding: 0 var(--space-xs) var(--space-xs); }
-@media (min-width: 40rem) {
-  .endpoint-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2xs) var(--space-sm); }
-}
-.ep-item { display: flex; align-items: baseline; gap: var(--space-2xs); min-width: 0; padding: var(--space-2xs); overflow: hidden; border-radius: var(--radius-control); background: var(--color-paper); }
-.ep-item code { display: inline; padding: 0; overflow: hidden; color: var(--color-ink); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.ep-item small { flex-shrink: 0; color: var(--color-muted); font-size: .6875rem; white-space: nowrap; }
-.endpoint-method { flex-shrink: 0; color: var(--color-accent); font-weight: 600; }
-.request-panel { min-width: 0; overflow: clip; border: .0625rem solid var(--color-graphite-rule); border-radius: var(--radius-panel); background: var(--color-graphite); color: var(--color-graphite-ink); box-shadow: var(--shadow-panel); }
-.request-panel figcaption, .request-panel__foot { min-height: 3rem; padding-inline: var(--space-sm); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); border-block-end: .0625rem solid var(--color-graphite-rule); color: var(--color-graphite-ink); font-family: var(--font-mono); font-size: .625rem; letter-spacing: .04em; }
-.protocol-state { display: inline-flex; align-items: center; gap: var(--space-2xs); color: var(--color-graphite-ink); white-space: nowrap; }
-.protocol-state i { width: .4375rem; height: .4375rem; border-radius: 50%; background: var(--color-success); }
-.request-panel pre { margin: 0; min-height: 18rem; padding: var(--space-md); overflow: auto; background: var(--color-graphite); color: var(--color-graphite-ink); font-size: clamp(.6875rem, 2vw, .8125rem); line-height: 1.8; }
-.request-panel pre code { white-space: pre; }
-.syntax-command, .syntax-key { color: oklch(75% 0.130 256); }
-.syntax-string { color: oklch(83% 0.060 154); }
-.request-panel__foot { border-block-start: .0625rem solid var(--color-graphite-rule); border-block-end: 0; color: oklch(72% 0.012 250); }
-.request-panel__foot code { color: var(--color-graphite-ink); }
-.metrics-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block: .0625rem solid var(--color-rule); }
-.metric { min-width: 0; padding-block: var(--space-md); display: flex; flex-direction: column; gap: var(--space-3xs); border-inline-end: .0625rem solid var(--color-rule); }
-.metric:nth-child(even) { border-inline-end: 0; }
-.metric:nth-child(n+3) { border-block-start: .0625rem solid var(--color-rule); }
-.metric__value { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; line-height: 1; }
-.metric__label { color: var(--color-muted); font-size: var(--text-xs); }
-.directory { padding-block: var(--space-2xl) var(--space-3xl); }
-.section-heading { margin-block-end: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); align-items: end; }
-.section-heading h2 { font-size: var(--text-xl); }
-.section-heading p { max-width: 65ch; margin-block-start: var(--space-2xs); color: var(--color-muted); }
-.search-field { position: relative; width: 100%; }
-.search-field > i { position: absolute; inset-inline-start: var(--space-xs); inset-block-start: 50%; color: var(--color-muted); transform: translateY(-50%); }
-.search-field input { padding-inline-start: var(--space-lg); }
-.provider-index { border-block-start: .0625rem solid var(--color-rule-2); }
-.provider-row { min-width: 0; padding-block: var(--space-md); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); align-items: start; border-block-end: .0625rem solid var(--color-rule); }
-.provider-row__identity { min-width: 0; display: flex; align-items: center; gap: var(--space-xs); }
-.provider-row__mark, .provider-avatar { width: 2.5rem; height: 2.5rem; flex: 0 0 auto; display: grid; place-items: center; border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-display); font-weight: 600; }
-.provider-row h3 { font-size: var(--text-md); }
-.provider-row__identity p { margin-block-start: var(--space-3xs); display: flex; flex-wrap: wrap; gap: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
-.provider-row__identity code { color: var(--color-ink-2); }
-.provider-row__models { min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
-.model-token { max-width: 100%; min-height: var(--control-h-sm); padding-inline: var(--space-xs); display: inline-flex; align-items: center; gap: var(--space-2xs); border-color: var(--color-rule); background: var(--color-paper-2); color: var(--color-ink-2); }
-.model-token code { overflow: hidden; font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.model-token i { color: var(--color-muted); }
-.status-badge, .bd, .protocol-chip, .status-dot { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2xs); width: max-content; min-height: 1.75rem; padding-inline: var(--space-xs); border-radius: var(--radius-round); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
-.status-badge i, .status-dot i { width: .4375rem; height: .4375rem; border-radius: 50%; background: currentColor; }
-.status-badge--on, .bd-on, .status-dot--online { background: var(--color-success-soft); color: var(--color-success-ink); }
-.bd-off { background: var(--color-paper-3); color: var(--color-muted); }
-.bd-info, .protocol-chip { background: var(--color-accent-soft); color: var(--color-focus); }
-/* \u5220\u9664\u7C7B\u5FBD\u6807\u6309\u94AE\uFF1A\u5F62\u72B6\u540C .bd \u80F6\u56CA\uFF0C\u989C\u8272\u4FDD\u6301\u5371\u9669\u6001 */
-.bd-del { border: .0625rem solid transparent; background: var(--color-danger-soft); color: var(--color-danger-ink); font-family: inherit; cursor: pointer; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
-.bd-del:hover { background: var(--color-danger); color: var(--color-paper); }
-.empty-inline { color: var(--color-muted); font-size: var(--text-xs); }
-.empty-state { padding: var(--space-xl) var(--space-sm); display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); border: .0625rem dashed var(--color-rule-2); border-radius: var(--radius-panel); background: var(--color-paper-2); color: var(--color-muted); text-align: center; }
-.empty-state > i { font-size: var(--text-lg); color: var(--color-muted); }
-.empty-state h3 { font-size: var(--text-md); }
-.empty-state p { max-width: 55ch; }
-.site-footer { border-block-start: .0625rem solid var(--color-rule); background: var(--color-paper-2); color: var(--color-muted); }
-.admin-main > .site-footer { margin-block-start: auto; }
-.site-footer__inner { padding-block: var(--space-md); display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2xs); font-size: var(--text-xs); }
-.site-footer a { text-underline-offset: .125rem; }
-.site-footer__link { color: inherit; text-decoration: none; }
-
-/* authentication split */
-.auth-page { background: var(--color-paper); }
-.auth-shell { width: min(100%, var(--shell)); min-height: calc(100dvh - 4rem); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); }
-.auth-context, .auth-form-wrap { min-width: 0; padding: var(--space-xl) var(--space-sm); }
-.auth-context { display: flex; flex-direction: column; justify-content: center; border-block-end: .0625rem solid var(--color-rule); background: var(--color-paper-2); color: var(--color-ink-2); }
-.auth-context h1 { max-width: 11ch; font-size: clamp(2.25rem, 6vw, 4rem); }
-.auth-context > p:not(.eyebrow) { max-width: 58ch; margin-block-start: var(--space-md); color: var(--color-muted); font-size: var(--text-md); }
-.auth-facts { margin-block-start: var(--space-xl); border-block-start: .0625rem solid var(--color-rule); }
-.auth-facts > div { padding-block: var(--space-sm); display: grid; grid-template-columns: minmax(7rem, .7fr) minmax(0, 1.3fr); gap: var(--space-sm); border-block-end: .0625rem solid var(--color-rule); }
-.auth-facts dt { color: var(--color-muted); font-size: var(--text-xs); }
-.auth-facts dd { min-width: 0; color: var(--color-ink); font-size: var(--text-xs); overflow-wrap: anywhere; }
-.auth-form-wrap { display: grid; place-items: center; background: var(--color-paper); color: var(--color-ink-2); }
-.auth-form { width: min(100%, 27rem); }
-.auth-form__heading { margin-block-end: var(--space-lg); display: flex; align-items: center; gap: var(--space-sm); }
-.auth-form__icon, .panel-heading__mark { width: 2.75rem; height: 2.75rem; flex: 0 0 auto; display: grid; place-items: center; border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-accent); }
-.auth-form h2 { font-size: var(--text-xl); }
-.auth-form__heading p { margin-block-start: var(--space-3xs); color: var(--color-muted); }
-.auth-form .al { margin-block-end: var(--space-sm); }
-.btn-submit { width: 100%; margin-block-start: var(--space-sm); }
-
-/* admin control plane */
-.admin-page { background: var(--color-paper-2); }
-.admin-shell { min-height: 100dvh; }
-.admin-rail { display: none; }
-.admin-main { min-width: 0; min-height: 100dvh; display: flex; flex-direction: column; }
-.admin-topbar { position: sticky; inset-block-start: 0; z-index: 90; min-height: 4rem; padding-inline: var(--space-sm); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2xs); border-block-end: .0625rem solid var(--color-rule); background: var(--color-paper-a); backdrop-filter: blur(.75rem); }
-.admin-topbar nav { min-width: 0; display: flex; align-items: center; gap: var(--space-3xs); overflow-x: auto; }
-.admin-topbar nav a { min-height: var(--control-h); padding-inline: var(--space-xs); display: inline-flex; align-items: center; color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; text-decoration: none; white-space: nowrap; }
-.admin-content { width: 100%; max-width: 82rem; margin-inline: auto; padding: var(--space-lg) var(--space-sm) var(--space-3xl); }
-.admin-overview { margin-block-end: var(--space-xl); }
-.admin-heading { margin-block-end: var(--space-lg); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); align-items: end; }
-.admin-heading h1 { font-size: clamp(2rem, 5vw, 3rem); }
-.admin-heading > div > p:not(.eyebrow) { max-width: 65ch; margin-block-start: var(--space-2xs); color: var(--color-muted); }
-.admin-heading__actions { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
-.admin-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: .0625rem solid var(--color-rule); border-radius: var(--radius-panel); background: var(--color-paper); }
-.admin-metrics > div { min-width: 0; padding: var(--space-sm); border-inline-end: .0625rem solid var(--color-rule); border-block-end: .0625rem solid var(--color-rule); }
-.admin-metrics > div:nth-child(even) { border-inline-end: 0; }
-.admin-metrics > div:nth-child(n+3) { border-block-end: 0; }
-.admin-metrics > div > span:not(.status-dot) { color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; line-height: 1; }
-.admin-metrics p { margin-block-start: var(--space-xs); color: var(--color-ink); font-weight: 600; }
-.admin-metrics small { color: var(--color-muted); font-size: var(--text-xs); }
-.workspace-section { margin-block-start: var(--space-xl); }
-.section-heading--admin { padding-block-end: var(--space-md); border-block-end: .0625rem solid var(--color-rule); }
-.section-heading--admin code { font-size: var(--text-xs); }
-.af-w { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); margin-block-end: var(--space-md); }
-.add-form-panel, .mdl-list-panel { min-width: 0; padding: var(--space-md); border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-panel); background: var(--color-paper-2); }
-.panel-heading { margin-block-end: var(--space-md); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-sm); }
-.panel-heading > div { min-width: 0; display: flex; align-items: center; gap: var(--space-xs); }
-.panel-heading h3 { font-size: var(--text-md); }
-.panel-heading p { color: var(--color-muted); font-size: var(--text-xs); }
-.mdl-list-panel { max-height: 36rem; overflow-y: auto; margin-bottom: 20px;}
-.panel-actions, .detail-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-sm); }
-.panel-actions > div, .detail-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2xs); }
-.switch-label { min-height: var(--control-h); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-.gp, .provider-list, .key-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
-.quota-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
-.quota-models { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 var(--space-lg); margin-block-start: var(--space-2xs); }
-.quota-card { padding: var(--space-sm); border: .0625rem solid var(--color-rule); border-radius: var(--radius-panel); background: var(--color-paper); min-width: 0; }
-.pi, .ki { min-width: 0; border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); }
-.ps { min-height: 4.75rem; padding: var(--space-xs); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); cursor: pointer; }
-.ps .l { min-width: 0; display: flex; align-items: center; gap: var(--space-xs); }
-.ps .l > div { min-width: 0; }
-.ps h3 { font-size: var(--text-md); }
-.provider-chevron { width: 1rem; flex: 0 0 auto; color: var(--color-muted); transition: transform var(--dur-fast) var(--ease-out); }
-.pu { margin-block-start: var(--space-3xs); display: flex; flex-wrap: wrap; gap: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
-.pu > *:not(:last-child)::after { content: '\xB7'; margin-inline-start: var(--space-2xs); color: var(--color-rule-2); }
-.pd { display: none; padding: var(--space-md); border-block-start: .0625rem solid var(--color-rule); background: var(--color-paper-2); }
-.pd.open { display: block; }
-.detail-heading { margin-block-end: var(--space-md); display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
-.detail-heading h3 { font-size: var(--text-lg); }
-.detail-heading p { margin-block-start: var(--space-3xs); color: var(--color-muted); font-size: var(--text-xs); }
-.detail-actions { padding-block-start: var(--space-sm); border-block-start: .0625rem solid var(--color-rule); }
-.detail-actions > div:first-child { flex: 1; justify-content: flex-start; }
-.ki { padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-sm); }
-.key-main { min-width: 0; display: flex; align-items: flex-start; gap: var(--space-xs); }
-.key-main > div { min-width: 0; }
-.key-icon { width: 2.5rem; height: 2.5rem; flex: 0 0 auto; display: grid; place-items: center; border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-accent); }
-.kv { min-width: 0; display: flex; align-items: center; gap: var(--space-3xs); color: var(--color-ink-2); font-family: var(--font-mono); font-size: var(--text-xs); }
-.kv > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kv .icon-btn { width: var(--control-h-sm); }
-.key-main h3 { margin-block-start: var(--space-3xs); font-size: var(--text-sm); }
-.key-main p { color: var(--color-muted); font-size: var(--text-xs); }
-/* Key \u540D\u79F0\u4E0E\u521B\u5EFA\u65F6\u95F4\u4E00\u884C\u663E\u793A */
-.key-meta { min-width: 0; display: flex; align-items: baseline; gap: var(--space-2xs); }
-.key-meta h3 { margin-block-start: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.key-meta p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.key-meta__sep { color: var(--color-muted); flex: 0 0 auto; }
-.key-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2xs); }
-
-/* feedback, model list and modal */
-.al { min-height: var(--control-h); padding: var(--space-xs); display: flex; align-items: center; gap: var(--space-2xs); border: .0625rem solid transparent; border-radius: var(--radius-control); font-size: var(--text-xs); }
-.al-s { border-color: var(--color-success); background: var(--color-success-soft); color: var(--color-success-ink); margin-top: 20px; }
-.al-e { border-color: var(--color-danger); background: var(--color-danger-soft); color: var(--color-danger-ink); }
-.al-i { border-color: var(--color-accent); background: var(--color-accent-soft); color: var(--color-focus); }
-.toast { position: fixed; inset-block-start: var(--space-sm); inset-inline-end: var(--space-sm); z-index: 9998; width: min(calc(100% - calc(var(--space-sm) * 2)), 24rem); box-shadow: var(--shadow-float); }
-.modal-o { position: fixed; inset: 0; z-index: 9999; padding: var(--space-sm); display: grid; place-items: center; background: var(--color-overlay); color: var(--color-ink-2); }
-.modal { width: min(100%, 27rem); max-height: min(80dvh, 40rem); overflow-y: auto; padding: var(--space-md); border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-panel); background: var(--color-paper); color: var(--color-ink-2); box-shadow: var(--shadow-panel); animation: modal-in var(--dur-panel) var(--ease-out); }
-.modal h3 { margin-block-end: var(--space-xs); font-size: var(--text-lg); }
-.modal p { margin-block-end: var(--space-sm); color: var(--color-muted); }
-.modal .fa { margin-block-start: var(--space-sm); display: flex; justify-content: flex-end; gap: var(--space-2xs); }
-/* DeepSeek \u53D6 userToken \u7684\u5206\u6B65\u5F15\u5BFC\uFF08\u5F39\u7A97\u5185\uFF09 */
-.ds-steps { margin: 0 0 var(--space-sm); padding-inline-start: 1.25em; color: var(--color-ink-2); font-size: var(--text-sm); line-height: 1.7; }
-.ds-steps li { margin-block-end: var(--space-3xs); }
-.ds-steps a { color: var(--color-focus); text-decoration: underline; }
-.ds-steps code { padding: .1em .35em; border-radius: var(--radius-control); background: var(--color-paper-2); font-family: var(--font-mono); font-size: .92em; }
-.ds-steps kbd { padding: .1em .4em; border: .0625rem solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper-2); font-family: var(--font-mono); font-size: .88em; }
-.ds-alt { margin-block-end: var(--space-2xs); border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); }
-.ds-alt > summary { padding: var(--space-2xs) var(--space-xs); cursor: pointer; color: var(--color-muted); font-size: var(--text-xs); }
-.ds-alt > summary:hover { color: var(--color-ink-2); }
-.ds-alt > p { margin-inline: var(--space-xs); }
-.ds-code { display: block; margin: 0 var(--space-xs) var(--space-xs); padding: var(--space-2xs) var(--space-xs); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; user-select: all; }
-.ds-warn { margin-block-end: var(--space-xs); padding: var(--space-2xs) var(--space-xs); display: flex; gap: var(--space-2xs); align-items: flex-start; border: .0625rem solid var(--color-danger-soft); border-inline-start: .1875rem solid var(--color-danger); border-radius: var(--radius-control); background: var(--color-danger-soft); color: var(--color-danger-ink); font-size: var(--text-xs); line-height: 1.6; }
-.ds-warn i { margin-block-start: .15em; flex: 0 0 auto; }
-.ds-warn code { padding: .1em .35em; border-radius: var(--radius-control); background: var(--color-paper); font-family: var(--font-mono); }
-.mk { margin-block: var(--space-xs); padding: var(--space-sm); border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; user-select: all; }
-.mdl-item { min-width: 0; min-height: var(--control-h-sm); padding-inline: var(--space-2xs); display: flex; align-items: center; gap: var(--space-2xs); border: .0625rem solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-ink-2); font-size: var(--text-xs); }
-.mdl-item .fx1 { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
-.mdl-item i:first-child { color: var(--color-muted); }
-.mdl-add-btn { flex-shrink: 0; width: var(--control-h-sm); min-height: 0; font-size: var(--text-md); line-height: 2; }
-.grid-2-gap6 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); }
-@keyframes modal-in { from { opacity: 0; transform: translateY(var(--space-xs)); } to { opacity: 1; transform: none; } }
-
-/* compatibility utilities used by existing interaction code */
-.fc { display: flex; align-items: center; gap: var(--space-2xs); }
-.fx1 { flex: 1; min-width: 0; }
-.fx-s0 { flex-shrink: 0; }
-.flex-col { display: flex; flex-direction: column; }
-.jc-c { justify-content: center; }
-.gap-8, .gp8 { gap: var(--space-2xs); }
-.gp3, .gp4 { gap: var(--space-3xs); }
-.gp6 { gap: var(--space-2xs); }
-.mt-1 { margin-block-start: var(--space-3xs); }
-.mt-2, .mt-8 { margin-block-start: var(--space-2xs); }
-.mt-3, .mt-6 { margin-block-start: var(--space-2xs); }
-.mb-2, .mb-10 { margin-block-end: var(--space-2xs); }
-.mb-3, .mb-4 { margin-block-end: var(--space-3xs); }
-.m-16-0 { margin-block: var(--space-sm); }
-.input-mt-6 { margin-block-start: var(--space-2xs); }
-.p-14, .p-10-12 { padding: var(--space-xs); }
-.fw { width: 100%; }
-.fw-4 { font-weight: 400; }
-.fw-6 { font-weight: 600; }
-.fw-7 { font-weight: 700; }
-.fs-xs, .fs-65, .fs-77 { font-size: var(--text-xs); }
-.fs-sm, .fs-s, .fs-88 { font-size: var(--text-sm); }
-.fs-1 { font-size: var(--text-md); }
-.fs-xxs { font-size: .625rem; }
-.w12, .w14, .w16 { width: 1rem; }
-.c-p { color: var(--color-accent); }
-.c-l, .c-muted, .mu { color: var(--color-muted); }
-.c-s { color: var(--color-success); }
-
-/* \u590D\u5236\u6210\u529F\u6001\u9700\u538B\u8FC7 .model-token i / .mdl-item i:first-child \u7684 muted \u8272\uFF080,2,0 > 0,1,1\uFF09 */
-.model-token i.c-s, .mdl-item i.c-s, .mdl-item i:first-child.c-s { color: var(--color-success); }
-.c-d { color: var(--color-danger); }
-.mu { font-size: var(--text-xs); }
-.tc { text-align: center; }
-.va-m { vertical-align: middle; }
-.ov { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cp { cursor: pointer; user-select: none; }
-.cd { padding: var(--space-3xs) var(--space-2xs); border-radius: var(--radius-control); background: var(--color-paper-2); color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-xs); }
-.copy-icon { color: var(--color-muted); font-size: var(--text-xs); }
-
-@media (hover: hover) and (pointer: fine) {
-  .btn-p:hover { border-color: var(--color-accent-hover); background: var(--color-accent-hover); }
-  .btn-s:hover, .btn-gh:hover, .icon-btn:hover, .password-toggle:hover { border-color: var(--color-rule-2); background: var(--color-paper-2); color: var(--color-ink); }
-  .btn-g:hover { border-color: var(--color-success); }
-  .btn-d:hover { border-color: var(--color-danger); background: var(--color-danger); color: var(--color-paper); }
-  input:hover, textarea:hover, select:hover { background: var(--color-paper-2); }
-  .model-token:hover { border-color: var(--color-accent); color: var(--color-focus); }
-  .provider-row:hover, .pi:hover, .ki:hover { border-color: var(--color-rule-2); }
-  .ps:hover { background: var(--color-paper-2); }
-  .admin-nav__link:hover { background: var(--color-paper-2); color: var(--color-ink); }
+  user-select: none;
+  background-color: transparent;
 }
 
-@media (min-width: 40rem) {
-  .shell { width: min(100% - calc(var(--space-lg) * 2), var(--shell)); }
-  .home-hero { padding-block: var(--space-3xl); }
-  .metrics-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .metric { padding-inline: var(--space-md); }
-  .metric:first-child { padding-inline-start: 0; }
-  .metric:last-child { border-inline-end: 0; }
-  .metric:nth-child(even) { border-inline-end: .0625rem solid var(--color-rule); }
-  .metric:nth-child(n+3) { border-block-start: 0; }
-  .section-heading { grid-template-columns: minmax(0, 1fr) minmax(16rem, .45fr); }
-  .provider-row { grid-template-columns: minmax(13rem, .7fr) minmax(0, 1.5fr) auto; align-items: center; }
-  .site-footer__inner { flex-direction: row; align-items: center; justify-content: space-between; }
-  .auth-context, .auth-form-wrap { padding: var(--space-2xl); }
-  .fr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .fr3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .admin-content { padding-inline: var(--space-lg); }
-  .admin-heading, .section-heading--admin { grid-template-columns: minmax(0, 1fr) auto; }
-  .admin-heading__actions { justify-content: flex-end; }
-  .admin-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .admin-metrics > div { border-block-end: 0; }
-  .admin-metrics > div:nth-child(even) { border-inline-end: .0625rem solid var(--color-rule); }
-  .admin-metrics > div:last-child { border-inline-end: 0; }
-  .panel-actions, .detail-actions { flex-direction: row; align-items: center; justify-content: space-between; }
-  .ki { flex-direction: row; align-items: center; justify-content: space-between; }
-  .grid-2-gap6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .quota-models { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.btn:active {
+  transform: translateY(1px);
 }
 
-@media (min-width: 60rem) {
-  .home-hero { grid-template-columns: minmax(0, .9fr) minmax(28rem, 1.1fr); align-items: center; gap: var(--space-2xl); }
-  .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(25rem, .95fr); }
-  .auth-context { border-block-end: 0; border-inline-end: .0625rem solid var(--color-rule); }
-  .admin-shell { display: grid; grid-template-columns: 15rem minmax(0, 1fr); transition: grid-template-columns .18s ease; }
-  .admin-rail { position: sticky; inset-block-start: 0; height: 100dvh; padding: var(--space-md) var(--space-sm); display: flex; flex-direction: column; border-inline-end: .0625rem solid var(--color-rule); background: var(--color-paper); color: var(--color-ink-2); overflow: hidden; transition: padding .18s ease; }
-  .admin-rail__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2xs); }
-  .admin-rail__brand { padding-inline: var(--space-xs); min-width: 0; }
-  .admin-rail__brand > span:last-child { display: flex; flex-direction: column; line-height: 1.2; white-space: nowrap; overflow: hidden; }
-  .rail-toggle { cursor: pointer; background: none; border: 0; font: inherit; text-align: start; }
-  /* \u6536\u7F29\u6001: \u53EA\u5269\u56FE\u6807 */
-  .admin-shell.is-collapsed { grid-template-columns: 4.25rem minmax(0, 1fr); }
-  .admin-shell.is-collapsed .admin-rail { padding-inline: .5rem; }
-  .admin-shell.is-collapsed .admin-rail__head { justify-content: center; }
-  .admin-shell.is-collapsed .admin-rail__brand { width: 100%; justify-content: center; padding-inline: 0; }
-  .admin-shell.is-collapsed .admin-rail__brand > span:last-child,
-  .admin-shell.is-collapsed .admin-nav__link span,
-  .admin-shell.is-collapsed .admin-nav__link b { display: none; }
-  .admin-shell.is-collapsed .admin-nav__link { padding-inline: 0; grid-template-columns: 1fr; justify-items: center; }
-  .admin-shell.is-collapsed .rail-toggle i { transform: rotate(180deg); }
-  .admin-nav { margin-block-start: var(--space-xl); display: grid; gap: var(--space-3xs); }
-  .admin-nav__link { min-height: var(--control-h); padding-inline: var(--space-xs); display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: var(--space-2xs); color: var(--color-muted); font-weight: 600; }
-  .admin-nav__link b { min-width: 1.5rem; padding-inline: var(--space-3xs); border-radius: var(--radius-round); background: var(--color-paper-3); color: var(--color-muted); font-family: var(--font-mono); font-size: .625rem; text-align: center; }
-  .admin-nav__link.is-active { background: var(--color-accent-soft); color: var(--color-focus); }
-  .admin-rail__foot { margin-block-start: auto; display: grid; gap: var(--space-3xs); }
-  .admin-topbar { display: none; }
-  .admin-content { padding-block-start: var(--space-xl); }
-  .grid-2-gap6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .pd { padding: var(--space-lg); }
+.btn-p {
+  background-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(37, 99, 235, 0.2);
 }
 
-@media (min-width: 80rem) {
-  .admin-content { padding-inline: var(--space-xl); }
+.btn-p:hover {
+  background-color: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
-@media (max-width: 24rem) {
-  .brand__descriptor { display: none; }
-  .topbar__actions .btn-gh { display: none; }
-  .topbar__actions .btn, .topbar--auth .btn { padding-inline: var(--space-xs); }
-  .request-panel figcaption { align-items: flex-start; flex-direction: column; justify-content: center; gap: 0; }
-  .protocol-state { font-size: .5625rem; }
-  .workspace-section { padding: 0; }
-  .provider-avatar { display: none; }
-  .ps { align-items: flex-start; }
-  .ps > .fc { flex-direction: column; align-items: flex-end; }
-  .field-row { flex-wrap: wrap; }
-  .field-row input { flex-basis: calc(100% - 3.5rem); }
-  .field-row .btn { flex: 1; }
-  .admin-topbar .brand__name { display: none; }
-  .admin-heading__actions .btn { flex: 1; }
+.btn-s {
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-xs);
 }
 
-@media (pointer: coarse) {
-  .btn, .model-token, .password-toggle, input, select { min-height: var(--control-h); }
-  .icon-btn, .password-toggle { width: var(--control-h); height: var(--control-h); flex-basis: var(--control-h); }
+.btn-s:hover {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html, body { scroll-behavior: auto; }
-  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
-  .modal { transform: none; }
+.btn-d {
+  background-color: var(--danger-light);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
 }
-/* ===== \u7528\u91CF\u7EDF\u8BA1 ===== */
-.rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--space-sm); }
-.rank-card { min-width: 0; border: .0625rem solid var(--color-rule); border-radius: var(--radius-panel); padding: var(--space-sm); background: var(--color-paper); }
-.rank-card .panel-heading { margin-block-end: var(--space-xs); }
-.rank-card code { font-family: var(--font-mono); }
-.trend-fill { transition: width .3s ease; }
+
+.btn-d:hover {
+  background-color: var(--danger);
+  color: #ffffff;
+  border-color: var(--danger);
+}
+
+.btn-gh {
+  color: var(--text-muted);
+}
+
+.btn-gh:hover {
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.icon-btn[data-state="success"] {
+  color: var(--success);
+  border-color: var(--success-border);
+  background-color: var(--success-light);
+}
+
+/* Toggle Switch */
+.tg {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.tg input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sl {
+  position: absolute;
+  inset: 0;
+  background-color: var(--border-strong);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.sl::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.tg input:checked + .sl {
+  background-color: var(--primary);
+}
+
+.tg input:checked + .sl::before {
+  transform: translateX(16px);
+}
+
+/* Badges */
+.bd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  line-height: 1.4;
+}
+
+.bd-on {
+  background-color: var(--success-light);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.bd-off {
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.bd-info {
+  background-color: var(--primary-light);
+  color: var(--primary-text);
+  border: 1px solid var(--primary-border);
+}
+
+.bd-del {
+  background-color: var(--danger-light);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  cursor: pointer;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.status-badge--on {
+  background-color: var(--success-light);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.status-badge--on::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--success);
+}
+
+/* Form inputs */
+.fg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.fg label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.fr {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.fc {
+  display: flex;
+  align-items: center;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fx1 {
+  flex: 1;
+}
+
+.fx-s0 {
+  flex-shrink: 0;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+input[type="search"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.select-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.form-helper {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrap input {
+  padding-left: 36px;
+  padding-right: 44px;
+}
+
+/* \u4EC5\u4F5C\u7528\u4E8E\u8F93\u5165\u6846\u5DE6\u4FA7\u7684\u5B57\u6BB5\u56FE\u6807\uFF1B\u53F3\u4FA7\u5BC6\u7801\u5207\u6362\u6309\u94AE\u5185\u7684\u56FE\u6807\u4E0D\u53D7\u5F71\u54CD */
+.input-wrap > .svg-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 2;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.password-toggle .svg-icon {
+  position: static;
+  left: auto;
+  top: auto;
+  pointer-events: none;
+  color: inherit;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-subtle);
+}
+
+@media (max-width: 640px) {
+  .input-wrap input {
+    padding-right: 48px;
+  }
+  .password-toggle {
+    right: 2px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Alerts */
+.al {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.al-s {
+  background-color: var(--success-light);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.al-e {
+  background-color: var(--danger-light);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+
+/* Modal */
+.modal-o {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn var(--transition-fast);
+}
+
+.modal {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-modal);
+  width: 100%;
+  max-width: 520px;
+  padding: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: scaleUp var(--transition-normal);
+}
+
+.modal h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.modal .fa {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1100;
+  animation: slideInUp var(--transition-normal);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   Header & Topbar
+   ========================================================================== */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--topbar-height);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    height: 52px;
+  }
+  .brand__name {
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  .brand__mark {
+    width: 28px;
+    height: 28px;
+  }
+  .topbar__actions .btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+}
+
+.topbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.brand__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+.brand__name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ==========================================================================
+   Home Page
+   ========================================================================== */
+
+.home-page {
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.04) 0%, transparent 60%), var(--bg-page);
+}
+
+.home-hero {
+  padding-block: 48px 24px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 36px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+    padding-block: 32px 24px;
+  }
+}
+
+.home-hero__copy h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.home-hero__lede {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+  max-width: 560px;
+}
+
+.endpoint-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+
+.endpoint-box__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.endpoint-box code {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* API \u5730\u5740\u76D2\uFF1A\u6807\u7B7E / \u7F51\u5740 / \u590D\u5236\u6309\u94AE\u59CB\u7EC8\u540C\u4E00\u884C\uFF1B\u7F51\u5740\u653E\u4E0D\u4E0B\u65F6\u7531\u811A\u672C\u9690\u85CF */
+.endpoint-box--url {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.endpoint-box--url code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.endpoint-box--url .copy-control {
+  flex-shrink: 0;
+}
+
+/* \u5F39\u7A97\u4E2D\u5C55\u793A\u7684\u65B0\u751F\u6210\u4EE4\u724C\uFF1A\u5B8C\u6574\u6362\u884C\u663E\u793A\uFF0C\u907F\u514D\u88AB\u7701\u7565\u53F7\u622A\u65AD */
+.endpoint-box--key {
+  display: block;
+  flex-wrap: wrap;
+}
+
+.endpoint-box--key code {
+  display: block;
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: visible;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 640px) {
+  .endpoint-box--url {
+    padding: 10px;
+    gap: 8px;
+  }
+  .endpoint-box--url .endpoint-box__label {
+    font-size: 10px;
+    padding: 3px 6px;
+    letter-spacing: 0;
+  }
+  .endpoint-box--url code {
+    font-size: 11px;
+  }
+  .endpoint-box--url .copy-control {
+    padding: 6px 8px;
+    font-size: 12px;
+    gap: 4px;
+  }
+}
+
+.endpoint-box--list {
+  display: block;
+  padding: 18px 20px;
+  margin-bottom: 32px;
+}
+
+.endpoint-box__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.endpoint-box__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.endpoint-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-width: 1080px) {
+  .endpoint-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .endpoint-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ep-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-light);
+}
+
+.ep-item code {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ep-item .endpoint-method {
+  font-weight: 700;
+  color: var(--primary);
+  margin-right: 4px;
+}
+
+.ep-item small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* \u79FB\u52A8\u7AEF\uFF1A\u7AEF\u70B9\u6761\u76EE\u6539\u4E3A\u300C\u534F\u8BAE\u8DEF\u5F84\u5728\u4E0A\u3001\u4E2D\u6587\u8BF4\u660E\u5728\u4E0B\u300D\u7684\u4E24\u884C\u5361\u7247\uFF0C\u907F\u514D\u6362\u884C\u9519\u4F4D */
+@media (max-width: 640px) {
+  .ep-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 12px;
+  }
+  .ep-item small {
+    padding-left: 2px;
+  }
+  .ep-item code {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Request Panel (Dark Terminal style) */
+.request-panel {
+  background-color: var(--bg-terminal);
+  border: 1px solid var(--border-terminal);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.request-panel figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background-color: var(--bg-terminal-subtle);
+  border-bottom: 1px solid var(--border-terminal);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-terminal-muted);
+}
+
+.protocol-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.protocol-state::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--success);
+}
+
+.request-panel pre {
+  padding: 18px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-terminal);
+}
+
+/* \u79FB\u52A8\u7AEF\uFF1A\u7EC8\u7AEF\u793A\u4F8B\u81EA\u52A8\u6298\u884C\uFF0C\u907F\u514D\u957F URL \u6EA2\u51FA\u88AB\u88C1\u5207 */
+@media (max-width: 640px) {
+  .request-panel pre {
+    padding: 14px;
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: hidden;
+  }
+}
+
+.syntax-command { color: #38bdf8; font-weight: 600; }
+.syntax-key { color: #a78bfa; }
+.syntax-string { color: #34d399; }
+
+.request-panel__foot {
+  padding: 10px 18px;
+  background-color: var(--bg-terminal-subtle);
+  border-top: 1px solid var(--border-terminal);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-terminal-muted);
+}
+
+.request-panel__foot code {
+  color: #38bdf8;
+}
+
+/* Metrics Strip */
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.metric {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.metric:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary-border);
+}
+
+.metric__value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.metric__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Directory Section */
+.directory {
+  margin-bottom: 60px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.section-heading h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.section-heading p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 260px;
+}
+
+.search-field input {
+  padding-left: 36px;
+  border-radius: var(--radius-full);
+}
+
+@media (max-width: 640px) {
+  .search-field {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.search-field .svg-icon,
+.search-field i {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.provider-index {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-row {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  min-width: 0;
+}
+
+.provider-row:hover {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-md);
+}
+
+.provider-row__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 180px;
+}
+
+.provider-row__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.provider-row__identity > div {
+  min-width: 0;
+}
+
+.provider-row__identity h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.provider-row__identity p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.provider-row__models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.model-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.model-token code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.model-token .svg-icon {
+  flex-shrink: 0;
+}
+
+/* \u79FB\u52A8\u7AEF\uFF1A\u6E20\u9053\u5361\u7247\u6539\u4E3A\u300C\u8EAB\u4EFD + \u72B6\u6001\u300D\u540C\u4E00\u884C\u3001\u6A21\u578B\u6807\u7B7E\u6574\u884C\u6362\u884C\uFF0C\u675C\u7EDD\u6A2A\u5411\u6EA2\u51FA */
+@media (max-width: 720px) {
+  .provider-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "identity badge" "models models";
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .provider-row__identity {
+    grid-area: identity;
+    min-width: 0;
+  }
+  .provider-row__models {
+    grid-area: models;
+    width: 100%;
+  }
+  .provider-row > .status-badge {
+    grid-area: badge;
+  }
+  .provider-row__mark {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+  .empty-inline {
+    font-size: 12px;
+  }
+}
+
+.model-token:hover {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+
+.model-token[data-state="success"] {
+  background-color: var(--success-light);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  background-color: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.empty-state h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-block: 8px 4px;
+}
+
+/* ==========================================================================
+   Auth / Login Page
+   ========================================================================== */
+
+.auth-page {
+  background: radial-gradient(circle at 50% 30%, rgba(37, 99, 235, 0.05) 0%, transparent 60%), var(--bg-page);
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-shell {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  margin: auto;
+}
+
+.auth-form-wrap {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-form__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.auth-form__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
+.auth-form__heading h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.auth-form__heading p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.btn-submit {
+  width: 100%;
+  padding-block: 10px;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.button-loading {
+  display: none;
+}
+
+.btn-submit[data-state="loading"] .button-label {
+  display: none;
+}
+
+.btn-submit[data-state="loading"] .button-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   Admin Workbench Shell
+   ========================================================================== */
+
+.admin-page {
+  background-color: var(--bg-page);
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Admin Sidebar (Rail) */
+.admin-rail {
+  width: var(--rail-width);
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 90;
+  flex-shrink: 0;
+  transition: width var(--transition-normal);
+}
+
+.admin-rail.collapsed {
+  width: var(--rail-width-collapsed);
+}
+
+.admin-rail__head {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-rail__brand strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.admin-rail__brand small {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.admin-rail.collapsed .admin-rail__brand span:last-child {
+  display: none;
+}
+
+.admin-nav {
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.admin-nav__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.admin-nav__link:hover {
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-primary);
+}
+
+.admin-nav__link.is-active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.admin-nav__link b {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-muted);
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+}
+
+.admin-nav__link.is-active b {
+  background-color: #ffffff;
+  color: var(--primary);
+}
+
+.admin-rail.collapsed .admin-nav__link span,
+.admin-rail.collapsed .admin-nav__link b {
+  display: none;
+}
+
+.admin-rail__foot {
+  padding: 14px 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rail-toggle {
+  background: transparent;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Admin Main Area */
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-topbar {
+  display: none;
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  padding: 10px 16px 8px;
+}
+
+@media (max-width: 860px) {
+  .admin-rail {
+    display: none;
+  }
+  /* \u79FB\u52A8\u7AEF\u9876\u90E8\u680F\uFF1A\u54C1\u724C + \u5BFC\u822A + \u64CD\u4F5C\u4FDD\u6301\u5728\u540C\u4E00\u680F\uFF08\u5BFC\u822A\u53EF\u6A2A\u5411\u6ED1\u52A8\uFF09 */
+  .admin-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .admin-topbar .brand__name {
+    display: none;
+  }
+  .admin-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .admin-topbar__actions .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .admin-topbar__nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0;
+  }
+  .admin-topbar__nav::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-topbar__nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    color: var(--text-secondary);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+  }
+  .admin-topbar__nav a.is-active {
+    background-color: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+  }
+  .admin-topbar__nav a.is-active b {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+  .admin-topbar__nav a b {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-muted);
+  }
+}
+
+.admin-content {
+  padding: 32px 36px;
+  flex: 1;
+  max-width: 1300px;
+  width: 100%;
+  margin-inline: auto;
+}
+
+@media (max-width: 640px) {
+  .admin-content {
+    padding: 16px;
+  }
+}
+
+.admin-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-heading h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.admin-heading p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Admin Overview Stat Cards */
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+  .admin-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.admin-metrics > div {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.admin-metrics > div:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-hover);
+}
+
+.admin-metrics span {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.admin-metrics p {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.admin-metrics small {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status-dot--online {
+  color: var(--success);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot--online::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--success);
+}
+
+/* ==========================================================================
+   Provider Management (Accordion & Panels)
+   ========================================================================== */
+
+.workspace-section {
+  display: none;
+}
+
+.workspace-section.is-active {
+  display: block;
+  animation: fadeIn var(--transition-fast);
+}
+
+.add-form-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.panel-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-heading__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.panel-heading h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panel-heading p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pi {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.pi:hover {
+  border-color: var(--border-strong);
+}
+
+.ps {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--bg-surface);
+  transition: background-color var(--transition-fast);
+}
+
+.ps:hover {
+  background-color: var(--bg-surface-subtle);
+}
+
+.ps .l {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.provider-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-subtle);
+  transition: transform var(--transition-fast);
+}
+
+.provider-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.ps h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.pu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pu code {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* \u6E20\u9053\u5361\u7247\u5934\uFF1A\u53C2\u7167\u8001\u7AD9\u59CB\u7EC8\u4FDD\u6301\u5355\u884C\uFF08\u5DE6\u4FA7\u8EAB\u4EFD + \u53F3\u4FA7\u5F00\u5173/\u72B6\u6001\uFF09\uFF0C\u7A84\u5C4F\u9690\u85CF\u5934\u50CF\u8BA9\u51FA\u7A7A\u95F4 */
+.ps {
+  flex-wrap: nowrap;
+}
+
+.ps .l {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ps > .fc {
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .ps {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .ps .l {
+    gap: 10px;
+  }
+  .provider-avatar {
+    display: none;
+  }
+  .ps h3 {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .pu {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    line-height: 1.5;
+  }
+  .pu > * {
+    white-space: nowrap;
+  }
+  .ps > .fc {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+/* \u8868\u5355\u884C\uFF1A\u53C2\u7167\u8001\u7AD9\u4FDD\u6301\u5355\u884C\u3001\u8F93\u5165\u6846\u53EF\u6536\u7F29 */
+.field-row {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.field-row .fx1 {
+  min-width: 0;
+}
+
+.pd {
+  display: none;
+  padding: 24px;
+  border-top: 1px solid var(--border-light);
+  background-color: #fafbfc;
+}
+
+.pd.open {
+  display: block;
+  animation: fadeIn var(--transition-fast);
+}
+
+.detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.protocol-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background-color: var(--primary-light);
+  color: var(--primary-text);
+  border: 1px solid var(--primary-border);
+}
+
+fieldset.form-group {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: var(--bg-surface);
+}
+
+fieldset.form-group legend {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-inline: 8px;
+}
+
+/* \u5E95\u90E8\u64CD\u4F5C\u533A\uFF1A\u53C2\u7167\u8001\u7AD9\u300C\u72B6\u6001\u5728\u4E0A\u3001\u6309\u94AE\u6362\u884C\u53F3\u5BF9\u9F50\u300D\u7684\u5E03\u5C40 */
+.detail-actions,
+.panel-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.detail-actions > div:last-child,
+.panel-actions > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .detail-actions > div:last-child > .btn,
+  .panel-actions > div:last-child > .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* ==========================================================================
+   Quota & Usage & Backup Grid Styles
+   ========================================================================== */
+
+.rank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+
+/* \u989D\u5EA6\u5361\u7247\u6574\u884C\u94FA\u6EE1\uFF0C\u5185\u90E8\u8D26\u53F7\u6309\u591A\u5217\u94FA\u5F00\uFF0C\u907F\u514D\u53F3\u4FA7\u5927\u7247\u7559\u767D */
+.quota-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .rank-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.quota-card,
+.rank-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* \u8D26\u53F7\u5361\u7247\u5185\u90E8\uFF1APC \u7AEF\u4E24\u5217\u94FA\u6EE1\u6574\u884C\uFF0C\u7A84\u5C4F\u81EA\u9002\u5E94\u4E3A\u5355\u5217 */
+.quota-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+
+@media (max-width: 380px) {
+  .quota-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.quota-card > .quota-card__head {
+  grid-column: 1 / -1;
+}
+
+.quota-card > .ag-acct:only-of-type {
+  grid-column: 1 / -1;
+}
+
+/* \u989D\u5EA6\u6761\u76EE\u5728\u7A84\u5217\u4E2D\u5141\u8BB8\u6362\u884C\uFF0C\u907F\u514D\u6324\u538B\u9519\u4F4D */
+.quota-card .quota-row__info {
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.quota-card .quota-row__info > span:last-child {
+  white-space: nowrap;
+}
+
+.quota-bar {
+  display: inline-block;
+  flex: 1 1 48px;
+  min-width: 32px;
+  max-width: 88px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface-subtle);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.quota-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.quota-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.quota-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quota-card__identity h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quota-card__identity p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.quota-row {
+  margin-bottom: 12px;
+}
+
+.quota-row:last-child {
+  margin-bottom: 0;
+}
+
+.quota-row__info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.quota-row__name {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.quota-row__meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.quota-bar,
+.rank-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface-subtle);
+  overflow: hidden;
+}
+
+.quota-bar__fill,
+.rank-bar__fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  transition: width var(--transition-normal);
+}
+
+/* Key List */
+.key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* \u4EE4\u724C\u5361\u7247\uFF1A\u53C2\u7167\u8001\u7AD9\u300C\u4E0A\u4FE1\u606F / \u4E0B\u64CD\u4F5C\u300D\u7684\u7AD6\u5411\u5E03\u5C40\uFF0C\u6837\u5F0F\u7EF4\u6301\u65B0\u7248\u8D28\u611F */
+.ki {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.ki:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.key-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.key-main > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.key-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}
+
+.kv {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.kv__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.key-meta h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-meta p {
+  min-width: 0;
+}
+
+.key-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   Site Footer
+   ========================================================================== */
+
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  padding-block: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.site-footer__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.site-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.site-footer__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--success);
+  flex-shrink: 0;
+}
+
+/* \u79FB\u52A8\u7AEF\uFF1A\u9875\u811A\u7248\u6743\u4E0E\u5E73\u53F0\u6807\u8BC6\u4FDD\u6301\u540C\u4E00\u884C\uFF0C\u8D85\u957F\u90E8\u5206\u7701\u7565 */
+@media (max-width: 640px) {
+  .site-footer {
+    padding-block: 14px;
+    font-size: 11px;
+  }
+  .site-footer__inner {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .site-footer__copy {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .site-footer__suffix {
+    display: none;
+  }
+  .site-footer__meta {
+    flex-shrink: 0;
+  }
+  .platform-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+.site-footer__link {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.site-footer__link:hover {
+  color: var(--primary);
+}
+
+.platform-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
 `;
 
 // src/shared.js.ts
 var SITE_REPO_URL = "https://github.com/wimdaw/ai-gateway";
+var SVG_ICONS = {
+  cloud: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+  server: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>`,
+  gauge: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>`,
+  key: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-1.5 1.5L16 7l-1.5-1.5-2 2L12 6l-1.5 1.5L9 6 3 12c-.5.5-1 1.5-1 2.5V20c0 1.1.9 2 2 2h5.5c1 0 2-.5 2.5-1l6-6-1.5-1.5 1.5-1.5-1.5-1.5 1.5-1.5 1.5 1.5 2-2L22 5l-1-3Z"/><circle cx="7.5" cy="16.5" r="1.5"/></svg>`,
+  chart: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>`,
+  database: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>`,
+  overview: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
+  copy: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+  check: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  plus: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  times: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  trash: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+  refresh: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>`,
+  plug: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a6 6 0 0 1-12 0V8z"/></svg>`,
+  eye: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  eyeSlash: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-.722-3.25"/><path d="M2 2l20 20"/><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/></svg>`,
+  search: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  chevronRight: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+  chevronDown: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
+  download: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  upload: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+  save: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
+  lock: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  user: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  signOut: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+  signIn: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>`,
+  arrowLeft: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
+  external: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>`,
+  cube: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5v8z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/></svg>`,
+  gift: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect width="20" height="5" x="2" y="7" rx="1"/><line x1="12" x2="12" y1="22" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>`,
+  paperPlane: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+  coins: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>`,
+  calendar: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>`,
+  microphone: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`,
+  play: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>`,
+  spinner: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`,
+  shield: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  info: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+  alert: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
+  anglesLeft: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`
+};
+function icon(name, cls = "", size = 16) {
+  const code = SVG_ICONS[name] || SVG_ICONS.info;
+  return `<span class="svg-icon ${cls}" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;min-width:${size}px;min-height:${size}px;line-height:1;vertical-align:middle;flex-shrink:0;" aria-hidden="true">${code}</span>`;
+}
 function renderSiteFooter(title, platform) {
   return `<footer class="site-footer">
   <div class="shell site-footer__inner">
-    <span>\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} <a class="site-footer__link" href="${SITE_REPO_URL}" target="_blank" rel="noreferrer">${title}</a></span>
-    <span>${platform || "EdgeOne \xB7 Blob"}</span>
+    <div class="site-footer__brand">
+      <span class="site-footer__dot"></span>
+      <span class="site-footer__copy">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} <a class="site-footer__link" href="${SITE_REPO_URL}" target="_blank" rel="noreferrer">${title}</a><span class="site-footer__suffix"> \xB7 \u7EDF\u4E00\u5927\u6A21\u578B\u8DEF\u7531\u7F51\u5173</span></span>
+    </div>
+    <div class="site-footer__meta">
+      <span class="platform-tag">${platform || "Pages \xB7 D1"}</span>
+    </div>
   </div>
 </footer>`;
 }
 var SHARED_JS = `
+// \u2500\u2500 \u5BA2\u6237\u7AEF\u5168\u5C40\u5185\u8054 SVG \u5B57\u5178 \u2500\u2500
+window.SVG_ICONS = ${JSON.stringify(SVG_ICONS)};
+function svgIcon(name, cls, size) {
+  var s = size || 16;
+  var code = window.SVG_ICONS[name] || window.SVG_ICONS['info'];
+  return '<span class="svg-icon ' + (cls||'') + '" style="display:inline-flex;align-items:center;justify-content:center;width:' + s + 'px;height:' + s + 'px;min-width:' + s + 'px;min-height:' + s + 'px;line-height:1;vertical-align:middle;flex-shrink:0;" aria-hidden="true">' + code + '</span>';
+}
+
+// \u2500\u2500 API \u5730\u5740\u76D2\uFF1A\u7F51\u5740\u5360\u6EE1\u4E2D\u95F4\u53EF\u7528\u7A7A\u95F4\uFF08\u8D85\u957F\u663E\u793A\u7701\u7565\u53F7\uFF09\uFF0C\u4EC5\u5F53\u7A7A\u95F4\u8FC7\u7A84\u65F6\u624D\u9690\u85CF \u2500\u2500
+function fitEndpointUrl() {
+  document.querySelectorAll('.endpoint-box--url code').forEach(function (el) {
+    el.style.display = ''
+    // \u53EF\u7528\u5BBD\u5EA6\u4E0D\u8DB3\u7EA6 12 \u4E2A\u5B57\u7B26\u65F6\uFF0C\u663E\u793A\u7701\u7565\u53F7\u5DF2\u65E0\u610F\u4E49\uFF0C\u76F4\u63A5\u9690\u85CF
+    if (el.clientWidth < 80) el.style.display = 'none'
+  })
+}
+window.addEventListener('resize', function () {
+  clearTimeout(window.__fitEndpointUrlTimer)
+  window.__fitEndpointUrlTimer = setTimeout(fitEndpointUrl, 150)
+})
+fitEndpointUrl()
+
 // \u2500\u2500 \u5DE5\u5177\u51FD\u6570 \u2500\u2500
 function normalizeUrl(url) {
-    return url.replace(/\\/$/, '')
-  }
+  return url.replace(/\\/$/, '')
+}
 function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -15764,12 +17601,12 @@ function buildAuthHeaders(apiType, key) {
 
 // \u2500\u2500 UI \u51FD\u6570 \u2500\u2500
 function showSpinner(el) {
-  el.innerHTML = '<span class="mu"><i class="fas fa-spinner fa-spin"></i> \u6D4B\u8BD5\u4E2D...</span>'
+  el.innerHTML = '<span class="loading-state">' + svgIcon('spinner', 'spin', 15) + ' <span>\u6B63\u5728\u6D4B\u8BD5\u8FDE\u63A5...</span></span>'
 }
 function showResult(el, success, msg) {
   el.innerHTML = success
-    ? '<div class="al al-s"><i class="fas fa-check-circle"></i> \u8FDE\u63A5\u6210\u529F</div>'
-    : '<div class="al al-e"><i class="fas fa-times-circle"></i> ' + escapeHtml(msg || '\u8FDE\u63A5\u5931\u8D25') + '</div>'
+    ? '<div class="al al-s">' + svgIcon('check', '', 16) + ' <span>\u8FDE\u63A5\u6210\u529F</span></div>'
+    : '<div class="al al-e">' + svgIcon('alert', '', 16) + ' <span>' + escapeHtml(msg || '\u8FDE\u63A5\u5931\u8D25') + '</span></div>'
 }
 
 // \u2500\u2500 API \u8BF7\u6C42\u51FD\u6570 \u2500\u2500
@@ -15807,55 +17644,27 @@ async function testModelConnection(url, apiType, key, modelId, providerId, mirro
 }
 `;
 
-// src/pages.ts
-init_storage_adapter();
-init_azure_voices();
+// src/home.page.ts
 function getPlatformLabel(_env, _host) {
   return "EdgeOne \xB7 Blob";
 }
-var AZURE_VOICE_OPTIONS = (() => {
-  const groups = /* @__PURE__ */ new Map();
-  for (const v of AZURE_TTS_VOICES) {
-    const g = v.group || voiceGroup(v.id);
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(`<option value="${v.id}">${v.label} (${v.id})</option>`);
-  }
-  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
-})();
-var azureVoiceOptions = (selected) => {
-  const groups = /* @__PURE__ */ new Map();
-  for (const v of AZURE_TTS_VOICES) {
-    const g = v.group || voiceGroup(v.id);
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(`<option value="${v.id}" ${v.id === selected ? "selected" : ""}>${v.label} (${v.id})</option>`);
-  }
-  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
-};
 var escapePageHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-var cbRealmOf = (p) => {
-  if (p.region === "global") return "global";
-  if (p.region === "cn") return "cn";
-  return /workbuddy\.ai/i.test(p.baseUrl || "") ? "global" : "cn";
-};
 var H = (title) => `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="oklch(98.5% 0.004 250)">
+  <meta name="theme-color" content="#f8fafc">
   <title>${title} \u2014 ${SITE_CONFIG.title}</title>
   <link rel="icon" href="${SITE_CONFIG.favicon}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="${SITE_CONFIG.faCdn}">
   <style>${CSS_CONTENT}</style>
 </head>`;
 async function renderHomePage(c, isLoggedIn) {
   const providers = await getProviders(c.env);
   const apiBase = `${getExternalOrigin(c)}/v1`;
-  const enabledProviders = providers.filter((provider) => provider.enabled);
-  const allModelsCount = providers.reduce((total, provider) => total + provider.models.length, 0);
-  const enabledModelsCount = enabledProviders.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0);
+  const enabledProviders = providers.filter((p) => p.enabled);
+  const allModelsCount = providers.reduce((total, p) => total + p.models.length, 0);
+  const enabledModelsCount = enabledProviders.reduce((total, p) => total + p.models.filter((m) => m.enabled).length, 0);
   const sampleProvider = enabledProviders.find((p) => p.models.some((m) => m.enabled));
   const sampleModel = sampleProvider ? `${sampleProvider.id}/${sampleProvider.models.find((m) => m.enabled)?.alias || sampleProvider.models.find((m) => m.enabled)?.id || "model"}` : "provider/model";
   return c.html(`<!DOCTYPE html><html lang="zh-CN">
@@ -15863,13 +17672,12 @@ ${H("\u9996\u9875")}
 <body class="site-page home-page">
 <header class="topbar">
   <div class="shell topbar__inner">
-    <a class="brand" href="/" aria-label="AI Gateway \u9996\u9875">
-      <span class="brand__mark" aria-hidden="true"><i class="fas fa-cloud"></i></span>
-      <span class="brand__name">${SITE_CONFIG.title}</span>
-      <span class="brand__descriptor">API CONTROL PANEL</span>
+    <a class="brand" href="/" aria-label="AI GATEWAY \u9996\u9875">
+      <span class="brand__mark">${icon("cloud", "", 18)}</span>
+      <span class="brand__name">AI GATEWAY</span>
     </a>
     <nav class="topbar__actions" aria-label="\u4E3B\u5BFC\u822A">
-      ${isLoggedIn ? `<a href="/admin" class="btn btn-p"><i class="fas fa-sliders-h" aria-hidden="true"></i>\u7BA1\u7406\u63A7\u5236\u53F0</a><a href="/admin/logout" class="btn btn-gh"><i class="fas fa-sign-out-alt" aria-hidden="true"></i>\u9000\u51FA</a>` : `<a href="/admin/login" class="btn btn-p"><i class="fas fa-sign-in-alt" aria-hidden="true"></i>\u7BA1\u7406\u5458\u767B\u5F55</a>`}
+      ${isLoggedIn ? `<a href="/admin" class="btn btn-p">${icon("overview", "", 14)}\u7BA1\u7406\u63A7\u5236\u53F0</a><a href="/admin/logout" class="btn btn-gh">${icon("signOut", "", 14)}\u9000\u51FA</a>` : `<a href="/admin/login" class="btn btn-p">${icon("signIn", "", 14)}\u7BA1\u7406\u5458\u767B\u5F55</a>`}
     </nav>
   </div>
 </header>
@@ -15877,14 +17685,15 @@ ${H("\u9996\u9875")}
 <main>
   <section class="shell home-hero" aria-labelledby="home-title">
     <div class="home-hero__copy">
-      <p class="eyebrow"><span aria-hidden="true"></span>UNIFIED AI GATEWAY</p>
-      <h1 id="home-title">\u4E00\u4E2A API\uFF0C\u8C03\u7528\u5DF2\u914D\u7F6E\u7684\u6240\u6709\u6A21\u578B\u3002</h1>
-      <p class="home-hero__lede">\u7EDF\u4E00\u7684 OpenAI / Anthropic \u517C\u5BB9\u5165\u53E3\u3002\u6A21\u578B\u6309\u6E20\u9053\u5F52\u6863\uFF0C\u4EE4\u724C\u3001\u542F\u7528\u72B6\u6001\u548C\u6545\u969C\u8F6C\u79FB\u96C6\u4E2D\u7BA1\u7406\u3002</p>
-      <div class="endpoint-box" aria-label="API \u63A5\u5165\u5730\u5740">
-        <span class="endpoint-box__label">BASE URL</span>
+      <p class="eyebrow">${icon("cloud", "", 12)}UNIFIED MODEL ROUTER</p>
+      <h1 id="home-title">\u7EDF\u4E00\u63A5\u53E3\u89C4\u8303\uFF0C\u8C03\u5EA6\u5DF2\u914D\u7F6E\u7684\u6240\u6709\u5927\u6A21\u578B\u3002</h1>
+      <p class="home-hero__lede">\u7EDF\u4E00\u7684 OpenAI / Anthropic \u517C\u5BB9\u7AEF\u70B9\u3002\u805A\u5408\u591A\u6E20\u9053\u4E0A\u6E38\u3001\u6545\u969C\u8F6C\u79FB\u3001\u8D26\u53F7\u8F6E\u8BE2\u4E0E\u7528\u91CF\u8DDF\u8E2A\uFF0C\u8BA9\u5927\u6A21\u578B\u8C03\u7528\u5982\u540C\u57FA\u7840\u8BBE\u65BD\u822C\u7A33\u5B9A\u7B80\u5355\u3002</p>
+      
+      <div class="endpoint-box endpoint-box--url" aria-label="API \u63A5\u5165\u5730\u5740">
+        <span class="endpoint-box__label">API BASE URL</span>
         <code>${escapePageHtml(apiBase)}</code>
-        <button class="icon-btn copy-control" type="button" data-copy="${escapePageHtml(apiBase)}" aria-label="\u590D\u5236 API \u5730\u5740">
-          <i class="far fa-copy" aria-hidden="true"></i><span>\u590D\u5236</span>
+        <button class="btn btn-s copy-control" type="button" data-copy="${escapePageHtml(apiBase)}" aria-label="\u590D\u5236 API \u5730\u5740">
+          ${icon("copy", "", 14)}<span>\u590D\u5236\u5730\u5740</span>
         </button>
       </div>
     </div>
@@ -15892,23 +17701,28 @@ ${H("\u9996\u9875")}
     <figure class="request-panel" aria-labelledby="request-caption">
       <figcaption id="request-caption">
         <span>POST /chat/completions</span>
-        <span class="protocol-state"><i aria-hidden="true"></i>OPENAI COMPATIBLE</span>
+        <span class="protocol-state">OPENAI COMPATIBLE</span>
       </figcaption>
       <pre><code><span class="syntax-command">curl</span> ${escapePageHtml(apiBase)}/chat/completions \\
-  <span class="syntax-key">-H</span> <span class="syntax-string">"Authorization: Bearer ***"</span> \\
+  <span class="syntax-key">-H</span> <span class="syntax-string">"Authorization: Bearer sk-***"</span> \\
   <span class="syntax-key">-H</span> <span class="syntax-string">"Content-Type: application/json"</span> \\
   <span class="syntax-key">-d</span> <span class="syntax-string">'{
     "model": "${escapePageHtml(sampleModel)}",
     "messages": [{ "role": "user", "content": "Hello" }]
   }'</span></code></pre>
       <div class="request-panel__foot">
-        <span>\u6A21\u578B\u683C\u5F0F</span>
+        <span>\u8C03\u7528\u683C\u5F0F\u89C4\u8303</span>
         <code>provider/model</code>
       </div>
     </figure>
+  </section>
 
-    <div class="endpoint-box endpoint-box--list" aria-label="\u652F\u6301\u7684 API \u7AEF\u70B9">
-      <span class="endpoint-box__label">ENDPOINTS \xB7 \u652F\u6301\u4EE5\u4E0B\u63A5\u53E3</span>
+  <section class="shell endpoints-strip" aria-label="\u652F\u6301\u7684 API \u7AEF\u70B9">
+    <div class="endpoint-box endpoint-box--list">
+      <div class="endpoint-box__header">
+        <span class="endpoint-box__label">ENDPOINTS \xB7 \u5B8C\u6574\u534F\u8BAE\u7AEF\u70B9\u4E00\u89C8</span>
+        <span class="endpoint-box__hint">\u7EDF\u4E00\u7F51\u5173\u81EA\u52A8\u8FDB\u884C\u534F\u8BAE\u6620\u5C04\u4E0E\u6545\u969C\u91CD\u8BD5\uFF0C\u652F\u6301\u6807\u51C6\u6D41\u5F0F\u4E0E\u975E\u6D41\u5F0F\u8C03\u7528</span>
+      </div>
       <div class="endpoint-list">
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/chat/completions</code><small>\u5BF9\u8BDD\u8865\u5168</small></div>
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/completions</code><small>\u6587\u672C\u8865\u5168</small></div>
@@ -15920,10 +17734,10 @@ ${H("\u9996\u9875")}
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/images/edits</code><small>\u56FE\u7247\u7F16\u8F91</small></div>
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/images/variations</code><small>\u56FE\u7247\u53D8\u4F53</small></div>
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/videos/generations</code><small>\u6587\u751F\u89C6\u9891</small></div>
-        <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/video/generations</code><small>\u6587\u751F\u89C6\u9891(\u522B\u540D)</small></div>
-        <div class="ep-item"><code><span class="endpoint-method">GET</span> /v1/videos/status</code><small>\u89C6\u9891\u4EFB\u52A1\u72B6\u6001</small></div>
+        <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/video/generations</code><small>\u89C6\u9891(\u522B\u540D)</small></div>
+        <div class="ep-item"><code><span class="endpoint-method">GET</span> /v1/videos/status</code><small>\u4EFB\u52A1\u72B6\u6001</small></div>
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/messages</code><small>Anthropic \u6D88\u606F</small></div>
-        <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/responses</code><small>\u54CD\u5E94\u63A5\u53E3</small></div>
+        <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/responses</code><small>\u54CD\u5E94\u6D41</small></div>
         <div class="ep-item"><code><span class="endpoint-method">POST</span> /v1/moderations</code><small>\u5185\u5BB9\u5BA1\u6838</small></div>
         <div class="ep-item"><code><span class="endpoint-method">GET</span> /v1/models</code><small>\u6A21\u578B\u5217\u8868</small></div>
       </div>
@@ -15934,19 +17748,18 @@ ${H("\u9996\u9875")}
     <div class="metric"><span class="metric__value">${providers.length}</span><span class="metric__label">\u6E20\u9053\u603B\u8BA1</span></div>
     <div class="metric"><span class="metric__value">${enabledProviders.length}</span><span class="metric__label">\u5DF2\u542F\u7528\u6E20\u9053</span></div>
     <div class="metric"><span class="metric__value">${allModelsCount}</span><span class="metric__label">\u6A21\u578B\u603B\u8BA1</span></div>
-    <div class="metric"><span class="metric__value">${enabledModelsCount}</span><span class="metric__label">\u53EF\u7528\u6A21\u578B</span></div>
+    <div class="metric"><span class="metric__value">${enabledModelsCount}</span><span class="metric__label">\u5F53\u524D\u53EF\u7528\u6A21\u578B</span></div>
   </section>
 
   <section class="shell directory" aria-labelledby="directory-title">
     <div class="section-heading">
       <div>
-        <h2 id="directory-title">\u6A21\u578B\u5217\u8868</h2>
-        <p>\u70B9\u51FB\u6A21\u578B ID \u5373\u53EF\u590D\u5236\uFF1B\u8FD9\u91CC\u53EA\u5C55\u793A\u5DF2\u542F\u7528\u7684\u6E20\u9053\u4E0E\u6A21\u578B\u3002</p>
+        <h2 id="directory-title">\u5DF2\u5C31\u7EEA\u7684\u6A21\u578B\u76EE\u5F55</h2>
+        <p>\u70B9\u51FB\u6A21\u578B ID \u5373\u53EF\u4E00\u952E\u590D\u5236\uFF1B\u4EC5\u5C55\u793A\u5DF2\u542F\u7528\u4E14\u53EF\u6B63\u5E38\u8C03\u7528\u7684\u6A21\u578B\u3002</p>
       </div>
       <label class="search-field" for="model-search">
-        <i class="fas fa-search" aria-hidden="true"></i>
-        <span class="sr-only">\u641C\u7D22\u6E20\u9053\u6216\u6A21\u578B</span>
-        <input id="model-search" type="search" placeholder="\u641C\u7D22\u6E20\u9053\u6216\u6A21\u578B" autocomplete="off">
+        ${icon("search", "", 15)}
+        <input id="model-search" type="search" placeholder="\u641C\u7D22\u6E20\u9053\u6216\u6A21\u578B\u540D\u79F0..." autocomplete="off">
       </label>
     </div>
 
@@ -15964,14 +17777,14 @@ ${H("\u9996\u9875")}
           <div class="provider-row__models">
             ${models.length ? models.map((model) => {
       const fullModel = `${provider.id}/${model.alias || model.id}`;
-      return `<button class="model-token copy-control" type="button" data-copy="${escapePageHtml(fullModel)}"><code>${escapePageHtml(fullModel)}</code><i class="far fa-copy" aria-hidden="true"></i></button>`;
+      return `<button class="model-token copy-control" type="button" data-copy="${escapePageHtml(fullModel)}" title="\u70B9\u51FB\u590D\u5236"><code>${escapePageHtml(fullModel)}</code>${icon("copy", "", 12)}</button>`;
     }).join("") : '<span class="empty-inline">\u6682\u65E0\u542F\u7528\u6A21\u578B</span>'}
           </div>
-          <span class="status-badge status-badge--on"><i aria-hidden="true"></i>\u5DF2\u542F\u7528</span>
+          <span class="status-badge status-badge--on">\u5DF2\u5C31\u7EEA</span>
         </article>`;
-  }).join("") : `<div class="empty-state"><i class="fas fa-cubes" aria-hidden="true"></i><h3>\u5C1A\u65E0\u53EF\u7528\u6A21\u578B</h3><p>\u7BA1\u7406\u5458\u542F\u7528\u6E20\u9053\u548C\u6A21\u578B\u540E\uFF0C\u5B83\u4EEC\u4F1A\u51FA\u73B0\u5728\u8FD9\u91CC\u3002</p>${isLoggedIn ? '<a class="btn btn-p" href="/admin">\u524D\u5F80\u7BA1\u7406\u63A7\u5236\u53F0</a>' : ""}</div>`}
+  }).join("") : `<div class="empty-state">${icon("cube", "", 36)}<h3>\u5C1A\u65E0\u53EF\u7528\u6A21\u578B</h3><p>\u7BA1\u7406\u5458\u542F\u7528\u6E20\u9053\u548C\u6A21\u578B\u540E\uFF0C\u4F1A\u81EA\u52A8\u5728\u6B64\u5C55\u793A\u3002</p>${isLoggedIn ? '<a class="btn btn-p" href="/admin" style="margin-top:12px">\u524D\u5F80\u63A7\u5236\u53F0</a>' : ""}</div>`}
     </div>
-    <div id="search-empty" class="empty-state hd"><i class="fas fa-search" aria-hidden="true"></i><h3>\u6CA1\u6709\u5339\u914D\u7ED3\u679C</h3><p>\u8BF7\u5C1D\u8BD5\u8F93\u5165\u6E20\u9053\u540D\u79F0\u3001ID \u6216\u6A21\u578B\u540D\u79F0\u3002</p></div>
+    <div id="search-empty" class="empty-state hd">${icon("search", "", 36)}<h3>\u6CA1\u6709\u5339\u914D\u5230\u7ED3\u679C</h3><p>\u8BF7\u5C1D\u8BD5\u641C\u7D22\u5176\u4ED6\u6E20\u9053\u540D\u79F0\u6216\u6A21\u578B ID\u3002</p></div>
   </section>
 </main>
 
@@ -15979,29 +17792,44 @@ ${renderSiteFooter(SITE_CONFIG.title, getPlatformLabel(c.env, c.req.header("host
 
 <script>
 (function () {
-  var status = document.getElementById('copy-status')
   document.querySelectorAll('.copy-control').forEach(function (button) {
+    var label = button.querySelector('span')
+    var originalLabel = label ? label.textContent : ''
     button.addEventListener('click', async function () {
       var text = button.getAttribute('data-copy') || ''
-      var icon = button.querySelector('i')
-      var label = button.querySelector('span')
+      var iconWrap = button.querySelector('.svg-icon')
       try {
         await navigator.clipboard.writeText(text)
         button.setAttribute('data-state', 'success')
-        if (icon) icon.className = 'fas fa-check c-s'
+        if (iconWrap && window.SVG_ICONS && window.SVG_ICONS.check) {
+          iconWrap.innerHTML = window.SVG_ICONS.check
+        }
         if (label) label.textContent = '\u5DF2\u590D\u5236'
-        if (status) status.textContent = '\u5DF2\u590D\u5236 ' + text
-        window.setTimeout(function () {
+        setTimeout(function () {
           button.removeAttribute('data-state')
-          if (icon) icon.className = 'far fa-copy'
-          if (label) label.textContent = '\u590D\u5236'
+          if (iconWrap && window.SVG_ICONS && window.SVG_ICONS.copy) {
+            iconWrap.innerHTML = window.SVG_ICONS.copy
+          }
+          if (label) label.textContent = originalLabel
         }, 1800)
       } catch (error) {
         button.setAttribute('data-state', 'error')
-        if (status) status.textContent = '\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u6587\u672C\u3002'
       }
     })
   })
+
+  // API \u5730\u5740\u76D2\uFF1A\u7F51\u5740\u5360\u6EE1\u4E2D\u95F4\u53EF\u7528\u7A7A\u95F4\uFF08\u8D85\u957F\u663E\u793A\u7701\u7565\u53F7\uFF09\uFF0C\u4EC5\u5F53\u7A7A\u95F4\u8FC7\u7A84\u65F6\u624D\u9690\u85CF
+  function fitEndpointUrl() {
+    document.querySelectorAll('.endpoint-box--url code').forEach(function (el) {
+      el.style.display = ''
+      if (el.clientWidth < 80) el.style.display = 'none'
+    })
+  }
+  window.addEventListener('resize', function () {
+    clearTimeout(window.__fitEndpointUrlTimer)
+    window.__fitEndpointUrlTimer = setTimeout(fitEndpointUrl, 150)
+  })
+  fitEndpointUrl()
 
   var search = document.getElementById('model-search')
   var rows = Array.from(document.querySelectorAll('.provider-row'))
@@ -16020,47 +17848,71 @@ ${renderSiteFooter(SITE_CONFIG.title, getPlatformLabel(c.env, c.req.header("host
 </script>
 </body></html>`);
 }
+
+// src/login.page.ts
+init_config();
+var H2 = (title) => `
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f8fafc">
+  <title>${title} \u2014 ${SITE_CONFIG.title}</title>
+  <link rel="icon" href="${SITE_CONFIG.favicon}">
+  <link rel="stylesheet" href="${SITE_CONFIG.faCdn}">
+  <style>${CSS_CONTENT}</style>
+</head>`;
 async function renderLoginPage(c) {
   return c.html(`<!DOCTYPE html><html lang="zh-CN">
-${H("\u767B\u5F55")}
+${H2("\u767B\u5F55")}
 <body class="site-page auth-page">
-<header class="topbar topbar--auth">
+<header class="topbar topbar--auth" style="width:100%">
   <div class="shell topbar__inner">
-    <a class="brand" href="/" aria-label="AI Gateway \u9996\u9875">
-      <span class="brand__mark" aria-hidden="true"><i class="fas fa-cloud"></i></span>
-      <span class="brand__name">${SITE_CONFIG.title}</span>
+    <a class="brand" href="/" aria-label="AI GATEWAY \u9996\u9875">
+      <span class="brand__mark">${icon("cloud", "", 18)}</span>
+      <span class="brand__name">AI GATEWAY</span>
     </a>
-    <a href="/" class="btn btn-gh"><i class="fas fa-arrow-left" aria-hidden="true"></i>\u8FD4\u56DE\u9996\u9875</a>
+    <a href="/" class="btn btn-gh">${icon("arrowLeft", "", 14)}\u8FD4\u56DE\u9996\u9875</a>
   </div>
 </header>
 
 <main class="auth-shell">
-  <section class="auth-context" aria-labelledby="auth-context-title">
-    <p class="eyebrow"><span aria-hidden="true"></span>CONTROL PANEL ACCESS</p>
-    <h1 id="auth-context-title">\u7BA1\u7406\u6E20\u9053\u3001\u6A21\u578B\u548C\u4EE4\u724C\u3002</h1>
-  </section>
-
   <section class="auth-form-wrap" aria-labelledby="login-title">
     <form class="auth-form" id="login-form" novalidate>
       <div class="auth-form__heading">
-        <span class="auth-form__icon" aria-hidden="true"><i class="fas fa-lock"></i></span>
-        <div><h2 id="login-title">\u7BA1\u7406\u5458\u767B\u5F55</h2><p>\u4F7F\u7528\u90E8\u7F72\u65F6\u914D\u7F6E\u7684\u8D26\u53F7\u7EE7\u7EED\u3002</p></div>
+        <span class="auth-form__icon" aria-hidden="true">${icon("lock", "", 22)}</span>
+        <div>
+          <h2 id="login-title">\u7BA1\u7406\u5458\u767B\u5F55</h2>
+          <p>\u8BF7\u8F93\u5165\u90E8\u7F72\u65F6\u914D\u7F6E\u7684\u51ED\u636E\u4EE5\u7BA1\u7406\u7CFB\u7EDF</p>
+        </div>
       </div>
 
       <div id="er" class="al al-e hd" role="alert" aria-live="assertive">
-        <i class="fas fa-exclamation-circle" aria-hidden="true"></i><span id="em"></span>
+        ${icon("alert", "", 16)}<span id="em"></span>
       </div>
 
       <div class="fg">
         <label for="u">\u7528\u6237\u540D</label>
-        <div class="input-wrap"><i class="far fa-user" aria-hidden="true"></i><input type="text" id="u" name="username" placeholder="admin" autocomplete="username" aria-required="true" aria-describedby="login-helper"></div>
+        <div class="input-wrap">
+          ${icon("user", "", 16)}
+          <input type="text" id="u" name="username" placeholder="admin" autocomplete="username" aria-required="true">
+        </div>
       </div>
       <div class="fg">
         <label for="p">\u5BC6\u7801</label>
-        <div class="input-wrap"><i class="fas fa-key" aria-hidden="true"></i><input type="password" id="p" name="password" placeholder="\u90E8\u7F72\u73AF\u5883\u53D8\u91CF\u4E2D\u7684\u5BC6\u7801" autocomplete="current-password" aria-required="true" aria-describedby="login-helper"><button class="password-toggle" id="password-toggle" type="button" aria-label="\u663E\u793A\u5BC6\u7801"><i class="far fa-eye" aria-hidden="true"></i></button></div>
+        <div class="input-wrap">
+          ${icon("key", "", 16)}
+          <input type="password" id="p" name="password" placeholder="\u90E8\u7F72\u73AF\u5883\u53D8\u91CF\u4E2D\u7684\u5BC6\u7801" autocomplete="current-password" aria-required="true">
+          <button class="password-toggle" id="password-toggle" type="button" aria-label="\u663E\u793A\u5BC6\u7801">
+            ${icon("eye", "", 16)}
+          </button>
+        </div>
       </div>
-      <p id="login-helper" class="form-helper">\u767B\u5F55\u6210\u529F\u540E\u5C06\u8FDB\u5165\u7BA1\u7406\u63A7\u5236\u53F0\u3002</p>
-      <button class="btn btn-p btn-submit" id="login-button" type="submit"><span class="button-label"><i class="fas fa-sign-in-alt" aria-hidden="true"></i>\u767B\u5F55\u7BA1\u7406\u63A7\u5236\u53F0</span><span class="button-loading"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>\u6B63\u5728\u9A8C\u8BC1</span></button>
+      <p id="login-helper" class="form-helper" style="margin-top:4px">\u767B\u5F55\u6210\u529F\u540E\u5C06\u8FDB\u5165\u5B8C\u6574\u7684\u7BA1\u7406\u63A7\u5236\u53F0\u3002</p>
+      
+      <button class="btn btn-p btn-submit" id="login-button" type="submit">
+        <span class="button-label">${icon("signIn", "", 14)} \u767B\u5F55\u7BA1\u7406\u63A7\u5236\u53F0</span>
+        <span class="button-loading">${icon("spinner", "spin", 14)} \u6B63\u5728\u9A8C\u8BC1\u51ED\u636E...</span>
+      </button>
     </form>
   </section>
 </main>
@@ -16091,7 +17943,10 @@ ${H("\u767B\u5F55")}
     var show = password.type === 'password'
     password.type = show ? 'text' : 'password'
     toggle.setAttribute('aria-label', show ? '\u9690\u85CF\u5BC6\u7801' : '\u663E\u793A\u5BC6\u7801')
-    toggle.querySelector('i').className = show ? 'far fa-eye-slash' : 'far fa-eye'
+    var iconWrap = toggle.querySelector('.svg-icon')
+    if (iconWrap && window.SVG_ICONS) {
+      iconWrap.innerHTML = show ? window.SVG_ICONS.eyeSlash : window.SVG_ICONS.eye
+    }
     password.focus({ preventScroll: true })
   })
 
@@ -16121,7 +17976,7 @@ ${H("\u767B\u5F55")}
       }
       showError(data.message || '\u767B\u5F55\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u8D26\u53F7\u914D\u7F6E\u3002')
     } catch (error) {
-      showError('\u65E0\u6CD5\u8FDE\u63A5\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002')
+      showError('\u65E0\u6CD5\u8FDE\u63A5\u7F51\u5173\u670D\u52A1\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002')
     }
     submit.disabled = false
     submit.removeAttribute('data-state')
@@ -16130,256 +17985,59 @@ ${H("\u767B\u5F55")}
 </script>
 </body></html>`);
 }
-async function renderAdminPage(c) {
-  const providers = await getProviders(c.env);
-  const proxyKeys = await getProxyKeys(c.env);
-  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null);
-  const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, "") : "";
-  const enabledProvidersCount = providers.filter((provider) => provider.enabled).length;
-  const modelsCount = providers.reduce((total, provider) => total + provider.models.length, 0);
-  const enabledModelsCount = providers.reduce((total, provider) => total + provider.models.filter((model) => model.enabled).length, 0);
-  const enabledProxyKeysCount = proxyKeys.filter((key) => key.enabled).length;
-  const agChannels = providers.filter((provider) => (provider.type || "") === "antigravity" && provider.enabled).map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-    accountCount: provider.apiKeys.filter((key) => key.enabled && key.key && key.key.trim()).length
-  }));
-  const agAccountCount = agChannels.reduce((total, ch) => total + ch.accountCount, 0);
-  const storageLabel = storageTypeLabel(c.env);
-  return c.html(`<!DOCTYPE html><html lang="zh-CN">
-${H("\u7BA1\u7406")}
-<body class="site-page admin-page">
-<div class="admin-shell">
-  <aside class="admin-rail" aria-label="\u63A7\u5236\u53F0\u5BFC\u822A">
-    <div class="admin-rail__head">
-      <a class="brand admin-rail__brand" href="/">
-        <span class="brand__mark" aria-hidden="true"><i class="fas fa-cloud"></i></span>
-        <span><strong>${SITE_CONFIG.title}</strong><small>CONTROL PANEL</small></span>
-      </a>
-    </div>
-    <nav class="admin-nav">
-      <a class="admin-nav__link is-active" href="#overview"><i class="fas fa-chart-pie" aria-hidden="true"></i><span>\u6982\u89C8</span></a>
-      <a class="admin-nav__link" href="#providers"><i class="fas fa-server" aria-hidden="true"></i><span>\u6E20\u9053</span><b>${providers.length}</b></a>
-      <a class="admin-nav__link" href="#quota"><i class="fas fa-gauge-high" aria-hidden="true"></i><span>\u989D\u5EA6</span><b>${agAccountCount}</b></a>
-      <a class="admin-nav__link" href="#proxy-keys"><i class="fas fa-key" aria-hidden="true"></i><span>\u4EE4\u724C</span><b>${proxyKeys.length}</b></a>
-      <a class="admin-nav__link" href="#usage"><i class="fas fa-chart-line" aria-hidden="true"></i><span>\u7528\u91CF</span></a>
-      <a class="admin-nav__link" href="#backup"><i class="fas fa-database" aria-hidden="true"></i><span>\u5907\u4EFD</span></a>
-    </nav>
-    <div class="admin-rail__foot">
-      <button class="admin-nav__link rail-toggle" type="button" onclick="toggleRail()" title="\u6536\u7F29\u4FA7\u8FB9\u680F" aria-label="\u6536\u7F29/\u5C55\u5F00\u4FA7\u8FB9\u680F"><i class="fas fa-angles-left" aria-hidden="true"></i><span>\u6536\u7F29\u4FA7\u8FB9\u680F</span></button>
-      <a href="/" class="admin-nav__link"><i class="fas fa-arrow-left" aria-hidden="true"></i><span>\u8FD4\u56DE\u9996\u9875</span></a>
-      <a href="/admin/logout" class="admin-nav__link"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span>\u9000\u51FA\u767B\u5F55</span></a>
-    </div>
-  </aside>
 
-  <div class="admin-main">
-    <header class="admin-topbar">
-      <a class="brand" href="/"><span class="brand__mark" aria-hidden="true"><i class="fas fa-cloud"></i></span><span class="brand__name">${SITE_CONFIG.title}</span></a>
-      <nav aria-label="\u79FB\u52A8\u7AEF\u63A7\u5236\u53F0\u5BFC\u822A"><a href="#overview">\u6982\u89C8</a><a href="#providers">\u6E20\u9053</a><a href="#quota">\u989D\u5EA6</a><a href="#proxy-keys">\u4EE4\u724C</a><a href="#usage">\u7528\u91CF</a><a href="#backup">\u5907\u4EFD</a></nav>
-      <a class="icon-btn" href="/admin/logout" aria-label="\u9000\u51FA\u767B\u5F55"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></a>
-    </header>
+// src/admin.page.ts
+init_storage();
+init_codex();
+init_config();
+init_storage_adapter();
+init_azure_voices();
 
-    <main class="admin-content">
-      <div id="toast" class="hd toast" role="status" aria-live="polite"></div>
-
-      <section id="overview" class="admin-overview" aria-labelledby="admin-title">
-        <div class="admin-heading">
-          <div><p class="eyebrow"><span aria-hidden="true"></span>GATEWAY STATUS</p><h1 id="admin-title">\u7BA1\u7406\u63A7\u5236\u53F0</h1><p>\u914D\u7F6E\u6E20\u9053\u3001\u6A21\u578B\u4E0E\u5BA2\u6237\u7AEF\u8BBF\u95EE\u51ED\u636E\u3002\u53D8\u66F4\u5C06\u5199\u5165 ${storageLabel}\u3002</p></div>
-          <div class="admin-heading__actions"><a href="/" class="btn btn-s"><i class="fas fa-external-link-alt" aria-hidden="true"></i>\u67E5\u770B\u6A21\u578B\u5217\u8868</a></div>
-        </div>
-        <div class="admin-metrics" aria-label="\u914D\u7F6E\u7EDF\u8BA1">
-          <div onclick="location.hash='#providers'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u6E20\u9053"><span>${providers.length}</span><p>\u6E20\u9053</p><small>${enabledProvidersCount} \u4E2A\u5DF2\u542F\u7528</small></div>
-          <div onclick="location.hash='#providers'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u6A21\u578B"><span>${modelsCount}</span><p>\u6A21\u578B</p><small>${enabledModelsCount} \u4E2A\u53EF\u7528</small></div>
-          <div onclick="location.hash='#proxy-keys'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u4EE4\u724C"><span>${proxyKeys.length}</span><p>\u4EE4\u724C</p><small>${enabledProxyKeysCount} \u4E2A\u53EF\u7528</small></div>
-          <div onclick="location.hash='#usage'" style="cursor:pointer" title="\u70B9\u51FB\u67E5\u770B\u7528\u91CF"><span class="status-dot status-dot--online"><i aria-hidden="true"></i>\u5DF2\u914D\u7F6E</span><p>\u5B58\u50A8</p><small>${storageLabel}</small></div>
-        </div>
-      </section>
-
-      <section id="providers" class="workspace-section" aria-labelledby="providers-title">
-        <div class="section-heading section-heading--admin">
-          <div><h2 id="providers-title">\u6E20\u9053</h2><p>\u7BA1\u7406\u4E0A\u6E38\u5730\u5740\u3001\u534F\u8BAE\u3001API Key \u548C\u6A21\u578B\u3002</p></div>
-          <button class="btn btn-p" onclick="showAdd()"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0\u6E20\u9053</button>
-        </div>
-
-        <div class="af-w">
-          <div id="af" class="hd add-form-panel">
-            <div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-plus" aria-hidden="true"></i></span><div><h3>\u6DFB\u52A0\u65B0\u6E20\u9053</h3><p>\u5148\u914D\u7F6E\u57FA\u672C\u4FE1\u606F\uFF0C\u518D\u6D4B\u8BD5 Key \u4E0E\u6A21\u578B\u8FDE\u63A5\u3002</p></div></div><button class="icon-btn" type="button" onclick="hideAdd()" aria-label="\u5173\u95ED\u6DFB\u52A0\u8868\u5355"><i class="fas fa-times" aria-hidden="true"></i></button></div>
-            <div class="fr">
-              <div class="fg"><label for="anm">\u540D\u79F0</label><input type="text" id="anm" placeholder="DeepSeek"></div>
-              <div class="fg"><label for="aid">\u6E20\u9053 ID</label><input type="text" id="aid" placeholder="deepseek"><span class="form-helper">\u7528\u4E8E\u6A21\u578B\u524D\u7F00\uFF0C\u521B\u5EFA\u540E\u4E0D\u53EF\u4FEE\u6539\u3002</span></div>
-            </div>
-            <div class="fg"><label for="aurl">API \u5730\u5740</label><input type="url" id="aurl" placeholder="https://api.deepseek.com"></div>
-            <div class="fg" data-hide-ag><label for="amirror">\u955C\u50CF\u5730\u5740</label><textarea id="amirror" rows="3" placeholder="https://opencode.ai.cmliussss.net/zen/v1&#10;\u6BCF\u884C\u4E00\u4E2A, \u7559\u7A7A\u4F7F\u7528 OPENCODE_MIRRORS_URL \u73AF\u5883\u53D8\u91CF"></textarea><span class="form-helper">\u5B98\u65B9\u5730\u5740\u5931\u8D25\u540E\u81EA\u52A8\u6545\u969C\u8F6C\u79FB\u5230\u7684\u955C\u50CF\u5730\u5740\uFF0C\u6BCF\u884C\u4E00\u4E2A URL\u3002</span></div>
-            <div class="fg"><label for="apt">\u6E20\u9053\u7C7B\u578B</label><select id="apt" class="select-sm" onchange="onTypeChange(this, 'new')"><option value="openai">OpenAI \u517C\u5BB9</option><option value="anthropic">Anthropic \u517C\u5BB9</option><option value="openai-video">OpenAI \u89C6\u9891</option><option value="agnes-video">Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts">Azure TTS \u8BED\u97F3</option><option value="antigravity">Antigravity \u53CD\u4EE3</option><option value="claude">Claude OAuth \u53CD\u4EE3</option><option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi">Kimi OAuth \u53CD\u4EE3</option><option value="grok">Grok OAuth \u53CD\u4EE3</option><option value="qwen">Qwen OAuth \u53CD\u4EE3</option><option value="deepseek">DeepSeek \u53CD\u4EE3</option><option value="vertex">Vertex AI \u53CD\u4EE3</option><option value="devin">Devin \u53CD\u4EE3</option><option value="zai">Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy">CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option><option value="cline">Cline \u53CD\u4EE3</option></select><span class="form-helper" id="apt-hint-new">Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002</span></div>
-            <div class="ag-config" id="ag-new" style="display:none"><div class="fg"><label>\u83B7\u53D6 refresh_token</label><button class="btn btn-s" type="button" onclick="antigravityOAuth('new')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Google \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u70B9\u5F00\u6388\u6743\uFF1AGoogle \u767B\u5F55\u5E76\u540C\u610F\u540E\u6D4F\u89C8\u5668\u4F1A\u8DF3\u5230 localhost:51121 \u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\uFF08\u6B63\u5E38\uFF09\uFF0C\u628A\u5730\u5740\u680F code= \u540E\u9762\u90A3\u6BB5\u7C98\u56DE\u5F39\u7A97\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 refresh_token \u5E76\u586B\u5165\u4E0B\u65B9 API Keys\u3002\u591A\u8D26\u53F7\uFF1A\u4E00\u884C\u4E00\u4E2A refresh_token\uFF1B\u82E5\u67D0\u4E2A\u8D26\u53F7\u9700\u8981\u7528\u522B\u7684\u9879\u76EE ID\uFF0C\u5199\u6210 refresh_token|\u9879\u76EEID\uFF08\u6CA1\u5199 project \u7684\u8D26\u53F7\u7EDF\u4E00\u7528\u6E20\u9053\u7EA7 project\uFF09\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchAgModels('new')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button><span class="form-helper">\u7528 refresh_token \u62C9\u53D6 Antigravity \u53EF\u7528\u6A21\u578B\u540D\uFF0C\u8FFD\u52A0\u5230\u4E0B\u65B9\u6A21\u578B\u5217\u8868\u3002</span></div></div>
-            <div class="ag-config" id="ds-new" style="display:none"><div class="fg"><label>\u83B7\u53D6 userToken</label><div class="fc field-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('new')"><i class="fas fa-key" aria-hidden="true"></i>\u7C98\u8D34 userToken</button><button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('new')"><i class="fas fa-user-shield" aria-hidden="true"></i>\u8D26\u53F7\u4EE3\u767B\u5F55</button><button class="btn btn-s" type="button" onclick="verifyDeepseek('new')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button></div><span class="form-helper">\u4E24\u6761\u8DEF\u4EFB\u9009\uFF1A<b>\u2460 \u7C98\u8D34 userToken</b> \u2014\u2014 \u81EA\u5DF1\u4ECE\u6D4F\u89C8\u5668\u62A0\uFF0C\u7F51\u5173\u4E0D\u7ECF\u624B\u5BC6\u7801\uFF08\u66F4\u5B89\u5168\uFF0C\u4F46\u7EA6 24h \u540E\u8981\u91CD\u8D34\uFF09\uFF1B<b>\u2461 \u8D26\u53F7\u4EE3\u767B\u5F55</b> \u2014\u2014 \u586B\u90AE\u7BB1/\u624B\u673A\u53F7+\u5BC6\u7801\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 userToken\uFF0C\u5BC6\u7801 AES-GCM \u52A0\u5BC6\u5B58\u50A8\uFF08\u66F4\u7701\u4E8B\uFF0C\u4F46\u5BC6\u7801\u6258\u7BA1\u5728\u7F51\u5173\uFF09\u3002\u4E24\u79CD\u51ED\u636E\u5F62\u6001\uFF1A<code>sk-</code> \u5B98\u65B9 API Key \u76F4\u8FDE\u3001<code>eyJ</code> \u7F51\u9875 userToken \u8D70\u53CD\u4EE3\uFF08PoW \u7EA6 0.3~0.7s CPU\uFF0C\u9700 Workers Paid\uFF09\u3002</span></div></div>
-            <div class="ag-config" id="oa-new" style="display:none"><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('new')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok/Cline \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\uFF1BCodeBuddy \u6253\u5F00\u6240\u9009\u533A\u57DF(\u56FD\u5185\u7248/\u56FD\u9645\u7248)\u7684\u767B\u5F55\u9875\uFF0C\u767B\u5F55\u5B8C\u6210\u540E\u7F51\u5173\u81EA\u52A8\u8F6E\u8BE2\u6362\u53D6\u51ED\u636E\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('new')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button><span class="form-helper">Claude/Kimi/CodeBuddy \u652F\u6301\u81EA\u52A8\u62C9\u53D6\u6A21\u578B\uFF1BCodex/Grok \u8BF7\u624B\u52A8\u586B\u5199\uFF08\u5982 gpt-5.5\u3001grok-4.6\uFF09\u3002</span></div></div>
-            <div class="cb-config" id="cb-new" style="display:none"><div class="fg"><label for="cbr-new">\u7248\u672C / \u533A\u57DF</label><select id="cbr-new" class="select-sm" onchange="cbRegionChange('new')"><option value="cn">\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option><option value="global">\u56FD\u9645\u7248 \xB7 workbuddy.ai</option></select><span class="form-helper">\u56FD\u5185\u7248\u4E0E\u56FD\u9645\u7248\u662F\u4E24\u5957\u4E92\u76F8\u72EC\u7ACB\u7684\u8D26\u53F7\u4F53\u7CFB\uFF0C\u51ED\u636E\u4E0D\u53EF\u6DF7\u7528\uFF1B\u5207\u6362\u540E\u4E0A\u65B9\u300CAPI \u5730\u5740\u300D\u4F1A\u81EA\u52A8\u6539\u6210\u5BF9\u5E94\u57DF\u540D\uFF0C\u6388\u6743\u4E0E\u8F6C\u53D1\u90FD\u6309\u6B64\u533A\u57DF\u8D70\u3002</span></div><div class="fg"><label>\u8D26\u53F7\u72B6\u6001</label><button class="btn btn-s" type="button" onclick="codebuddyStatus('new')"><i class="fas fa-coins" aria-hidden="true"></i>\u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button><button class="btn btn-s" type="button" style="margin-left:6px" onclick="codebuddyCheckin('new')"><i class="fas fa-calendar-check" aria-hidden="true"></i>\u7B7E\u5230</button><span class="form-helper">\u300C\u67E5\u8BE2\u79EF\u5206/\u5957\u9910\u300D\u8BFB\u53D6\u5269\u4F59\u79EF\u5206\u4E0E\u5957\u9910\u660E\u7EC6\uFF1B\u300C\u7B7E\u5230\u300D\u6267\u884C\u6BCF\u65E5\u7B7E\u5230\uFF08\u91CD\u590D\u7B7E\u5230\u4E0A\u6E38\u4F1A\u8FD4\u56DE\u300C\u4ECA\u65E5\u5DF2\u7B7E\u5230\u300D\uFF0C\u6309\u6210\u529F\u5904\u7406\uFF09\u3002\u4E24\u8005\u90FD\u53D6\u8BE5\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u51ED\u636E\uFF0C\u9700\u5148\u5728\u4E0B\u65B9 API Keys \u586B\u5165 refresh_token\uFF0C\u6216\u70B9\u4E0A\u65B9\u300C\u6388\u6743\u767B\u5F55\u300D\u81EA\u52A8\u83B7\u53D6\u3002</span></div><div class="mt-1" id="cbst-new" aria-live="polite"></div></div>
-            <div class="tts-config" id="tts-new" style="display:none"><fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u914D\u7F6E\uFF08\u8BF7\u6C42\u4F53\u53EF\u4E34\u65F6\u8986\u76D6\uFF09</legend><div class="fr"><div class="fg"><label>\u97F3\u8272 Voice</label><div class="tts-voice-row"><select id="av" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${AZURE_VOICE_OPTIONS}</select><button class="btn btn-s" type="button" onclick="previewTts('new')" title="\u8BD5\u542C\u5F53\u524D\u97F3\u8272"><i class="fas fa-play" aria-hidden="true"></i>\u8BD5\u542C</button></div></div><div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="ar" value="+0%" placeholder="+0%"></div></div><div class="fr"><div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="avol" value="+0%" placeholder="+0%"></div><div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="ap" value="+0Hz" placeholder="+0Hz"></div></div><div class="tts-preview" id="ttp-new"></div><button class="btn btn-s" type="button" onclick="addAllTtsModels('new')"><i class="fas fa-microphone" aria-hidden="true"></i>\u6DFB\u52A0\u5168\u90E8\u97F3\u8272\u4E3A\u6A21\u578B</button></fieldset></div>
-            <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend><div id="akeys"><div class="fc mb-4 field-row"><input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="\u4E0A\u6E38 API Key"><label class="tg" title="\u542F\u7528 Key"><input type="checkbox" checked class="ake" aria-label="\u542F\u7528 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236 Key" aria-label="\u590D\u5236 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="\u6D4B\u8BD5 Key" aria-label="\u6D4B\u8BD5 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664 Key" aria-label="\u79FB\u9664 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s" onclick="addAKeyRow()"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0 Key</button><button class="btn btn-s" onclick="batchAddKeys()"><i class="fas fa-list" aria-hidden="true"></i>\u6279\u91CF\u6DFB\u52A0</button><button class="btn btn-s" onclick="batchTestKeys()"><i class="fas fa-plug" aria-hidden="true"></i>\u6279\u91CF\u6D4B\u8BD5</button></div></fieldset>
-            <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>\u53EF\u7528\u6A21\u578B</h3><p>\u70B9\u51FB\u201C+\u201D\u6DFB\u52A0\u5230\u914D\u7F6E\u3002</p></div></div><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')" title="\u5173\u95ED\u53EF\u7528\u6A21\u578B" aria-label="\u5173\u95ED\u53EF\u7528\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button></div><div id="amcl"></div></aside>
-            <div class="fc" data-hide-ag style="gap:8px;margin-block-end:var(--space-sm)"><button class="btn btn-s" type="button" onclick="fetchNewModels(true)"><i class="fas fa-gift" aria-hidden="true"></i>\u83B7\u53D6\u514D\u8D39\u6A21\u578B</button><button class="btn btn-s" type="button" onclick="fetchNewModels(false)"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u5168\u90E8\u6A21\u578B</button></div>
-            <fieldset class="form-group"><legend>\u6A21\u578B ID</legend><div id="amodels"><div class="fc mb-4 field-row"><input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="\u6A21\u578B ID"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1 amal" aria-label="\u5BF9\u5916\u540D" title="\u5BF9\u5916\u663E\u793A\u540D, \u7559\u7A7A\u81EA\u52A8\u53BB:free\u540E\u7F00"><label class="tg" title="\u542F\u7528\u6A21\u578B"><input type="checkbox" checked class="ame" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button></div></div><button class="btn btn-s" onclick="addMdlRow()"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0\u6A21\u578B</button></fieldset>
-            <div class="panel-actions"><label class="switch-label"><span>\u521B\u5EFA\u540E\u7ACB\u5373\u542F\u7528</span><span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span></label><div><button class="btn btn-s" onclick="hideAdd()">\u53D6\u6D88</button><button class="btn btn-p" onclick="createProv()"><i class="fas fa-check" aria-hidden="true"></i>\u521B\u5EFA\u6E20\u9053</button></div></div>
-            <div id="atestR" class="mt-1" aria-live="polite"></div>
-            <div class="vx-config" id="vx-new" style="display:none"><div class="fg"><label>\u670D\u52A1\u8D26\u53F7 JSON</label><textarea id="vxs" rows="4" class="fx1" placeholder='{"type":"service_account","project_id":"my-project","private_key":"-----BEGIN PRIVATE KEY-----
-...","client_email":"svc@my-project.iam.gserviceaccount.com"}'></textarea><span class="form-helper">GCP \u63A7\u5236\u53F0 \u2192 IAM \u4E0E\u7BA1\u7406 \u2192 \u670D\u52A1\u8D26\u53F7 \u2192 \u5BC6\u94A5 \u2192 \u65B0\u5EFA JSON \u5BC6\u94A5\uFF0C\u6574\u6BB5\u7C98\u8D34\uFF08\u56DE\u8F66\u6362\u884C\u6CA1\u95EE\u9898\uFF09\uFF1B\u591A\u4E2A\u8D26\u53F7\u4E4B\u95F4\u7A7A\u4E00\u884C\u5373\u8F6E\u6D41\u4F7F\u7528\u3002Express \u6A21\u5F0F\u7684 API Key \u5728\u901A\u7528\u7AEF\u70B9\u4F1A\u88AB Google \u62D2\u7EDD\uFF0C\u5EFA\u8BAE\u7528\u670D\u52A1\u8D26\u53F7\u3002</span></div><div class="fr"><div class="fg"><label>\u533A\u57DF Location</label><input type="text" id="vxl" placeholder="us-central1"></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyVertex('new')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div></div><div class="dv-config" id="dv-new" style="display:none"><div class="fg"><label>\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="devinOAuth('new')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Devin \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u70B9\u5F00\u6388\u6743\u9875\u540E\u7528 Devin \u8D26\u53F7\u767B\u5F55\uFF0C\u9875\u9762\u4F1A\u76F4\u63A5\u7ED9\u51FA\u6388\u6743\u7801\uFF0C\u590D\u5236\u56DE\u6765\u7C98\u8D34\u5373\u53EF\u81EA\u52A8\u586B\u5165\u4E0B\u65B9\u51ED\u636E\uFF1B\u4E5F\u53EF\u624B\u52A8\u586B\u5DF2\u6709\u7684 session token\uFF08\u6BCF\u884C\u4E00\u4E2A\uFF0C\u591A\u4E2A\u51ED\u636E\u8F6E\u6D41\u4F7F\u7528\uFF09\u3002</span></div><div class="fg"><label>Session Token</label><textarea id="dvt" rows="3" class="fx1" placeholder="devin-session-token$...\uFF08\u6BCF\u884C\u4E00\u4E2A\uFF0C\u53EF\u591A\u8D26\u53F7\u8F6E\u6362\uFF09"></textarea><span class="form-helper">\u4FDD\u5B58\u65F6\u4EE5\u672C\u6846\u5185\u5BB9\u4F5C\u4E3A\u6E20\u9053\u51ED\u636E\uFF1B\u591A\u4E2A\u4E4B\u95F4\u6362\u884C\u5206\u9694\u3002</span></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyDevin('new')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div>
-            
-            
-        </div>
-
-        <div class="gp provider-list" id="plist">
-          ${providers.length ? providers.map((p) => `
-          <article class="pi" data-id="${escapePageHtml(p.id)}">
-            <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tog('${p.id}')}" aria-controls="dt-${escapePageHtml(p.id)}">
-              <div class="l"><i class="fas fa-chevron-right provider-chevron" aria-hidden="true" id="ch-${escapePageHtml(p.id)}"></i><span class="provider-avatar" aria-hidden="true">${escapePageHtml(p.name.charAt(0).toUpperCase() || "A")}</span><div><h3>${escapePageHtml(p.name)}</h3><div class="pu"><code>${escapePageHtml(p.id)}</code><span>${p.type === "antigravity" ? "Antigravity" : p.type === "claude" ? "Claude" : p.type === "codex" ? "Codex" : p.type === "kimi" ? "Kimi" : p.type === "grok" ? "Grok" : p.type === "qwen" ? "Qwen" : p.type === "deepseek" ? "DeepSeek" : p.type === "vertex" ? "Vertex" : p.type === "devin" ? "Devin" : p.type === "codebuddy" ? "CodeBuddy" : p.type === "cline" ? "Cline" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "Anthropic" : "OpenAI"}</span><span>${p.apiKeys.length} Keys</span><span>${p.models.length} \u6A21\u578B</span></div></div></div>
-              <div class="fc fx-s0" onclick="event.stopPropagation()"><label class="tg"><input type="checkbox" ${p.enabled ? "checked" : ""} id="en-${escapePageHtml(p.id)}" onchange="togglePb('${p.id}',this.checked)" aria-label="\u542F\u7528 ${escapePageHtml(p.name)}"><span class="sl"></span></label><span class="bd ${p.enabled ? "bd-on" : "bd-off"}">${p.enabled ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"}</span>${(p.type || "") === "codex" && codexRelayHost ? `<span class="bd bd-info" title="\u8BF7\u6C42\u7ECF ${escapePageHtml(codexRelayHost)} \u4E2D\u7EE7\u8F6C\u53D1\uFF0C\u672A\u76F4\u8FDE chatgpt.com">\u7ECF\u4E2D\u7EE7</span>` : ""}</div>
-            </div>
-            <div class="pd" id="dt-${escapePageHtml(p.id)}">
-              <div class="detail-heading"><div><h3>\u7F16\u8F91 ${escapePageHtml(p.name)}</h3><p>\u4FDD\u5B58\u540E\uFF0C\u65B0\u914D\u7F6E\u4F1A\u7528\u4E8E\u540E\u7EED\u8F6C\u53D1\u8BF7\u6C42\u3002${(p.type || "") === "codex" && codexRelayHost ? `\u8BE5\u6E20\u9053\u7ECF <code>${escapePageHtml(codexRelayHost)}</code> \u4E2D\u7EE7\u8F6C\u53D1\uFF08\u672C\u673A\u51FA\u53E3\u65E0\u6CD5\u76F4\u8FDE chatgpt.com\uFF09\u3002` : ""}</p></div><span class="protocol-chip">${p.type === "antigravity" ? "ANTIGRAVITY" : p.type === "claude" ? "CLAUDE" : p.type === "codex" ? "CODEX" : p.type === "kimi" ? "KIMI" : p.type === "grok" ? "GROK" : p.type === "qwen" ? "QWEN" : p.type === "deepseek" ? "DEEPSEEK" : p.type === "vertex" ? "VERTEX" : p.type === "devin" ? "DEVIN" : p.type === "codebuddy" ? "CODEBUDDY" : p.type === "cline" ? "CLINE" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "ANTHROPIC" : "OPENAI"}</span></div>
-              <div class="fr"><div class="fg"><label>\u540D\u79F0</label><input type="text" id="nm-${escapePageHtml(p.id)}" value="${escapePageHtml(p.name)}"></div><div class="fg"><label>ID</label><input type="text" id="pid-${escapePageHtml(p.id)}" value="${escapePageHtml(p.id)}" title="\u6E20\u9053\u552F\u4E00\u6807\u8BC6, \u4FEE\u6539\u540E\u65E7 ID \u5931\u6548"></div></div>
-              <div class="fg"><label>API \u5730\u5740</label><input type="url" id="url-${escapePageHtml(p.id)}" value="${escapePageHtml(p.baseUrl)}" ${(p.type || "openai") === "azure-tts" ? 'disabled placeholder="Azure TTS \u4E3A\u5185\u7F6E\u670D\u52A1\uFF0C\u65E0\u9700 API \u5730\u5740"' : ""}></div>
-              <div class="fr"><div class="fg"><label>\u6E20\u9053\u7C7B\u578B</label><select id="pt-${escapePageHtml(p.id)}" class="select-sm" onchange="onTypeChange(this, '${escapePageHtml(p.id)}')"><option value="openai" ${(p.type || "openai") === "openai" ? "selected" : ""}>OpenAI \u517C\u5BB9</option><option value="anthropic" ${p.type === "anthropic" ? "selected" : ""}>Anthropic \u517C\u5BB9</option><option value="openai-video" ${p.type === "openai-video" ? "selected" : ""}>OpenAI \u89C6\u9891</option><option value="agnes-video" ${p.type === "agnes-video" ? "selected" : ""}>Agnes \u5F02\u6B65\u89C6\u9891</option><option value="azure-tts" ${p.type === "azure-tts" ? "selected" : ""}>Azure TTS \u8BED\u97F3</option><option value="antigravity" ${p.type === "antigravity" ? "selected" : ""}>Antigravity \u53CD\u4EE3</option><option value="claude" ${p.type === "claude" ? "selected" : ""}>Claude OAuth \u53CD\u4EE3</option><option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option><option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi OAuth \u53CD\u4EE3</option><option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option><option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option><option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option><option value="vertex" ${p.type === "vertex" ? "selected" : ""}>Vertex AI \u53CD\u4EE3</option><option value="devin" ${p.type === "devin" ? "selected" : ""}>Devin \u53CD\u4EE3</option><option value="zai" ${p.type === "zai" ? "selected" : ""}>Z.AI (GLM \u56FD\u9645)</option><option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option><option value="cline" ${p.type === "cline" ? "selected" : ""}>Cline \u53CD\u4EE3</option></select></div></div>
-              <div class="ag-config" id="ag-${escapePageHtml(p.id)}" ${p.type === "antigravity" ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6 refresh_token</label><button class="btn btn-s" type="button" onclick="antigravityOAuth('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Google \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u6388\u6743\u540E\u6D4F\u89C8\u5668\u8DF3\u8F6C localhost:51121 \u663E\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code= \u540E\u9762\u90A3\u4E00\u6BB5\u56DE\u6765\uFF0Crefresh_token \u4F1A\u81EA\u52A8\u8FFD\u52A0\u5230\u4E0B\u65B9 API Keys\u3002\u591A\u8D26\u53F7\uFF1A\u4E00\u884C\u4E00\u4E2A refresh_token\uFF1B\u82E5\u67D0\u4E2A\u8D26\u53F7\u9700\u8981\u7528\u522B\u7684\u9879\u76EE ID\uFF0C\u5199\u6210 refresh_token|\u9879\u76EEID\uFF08\u6CA1\u5199 project \u7684\u8D26\u53F7\u7EDF\u4E00\u7528\u6E20\u9053\u7EA7 project\uFF09\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchAgModels('${escapePageHtml(p.id)}')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button></div></div><div class="vx-config" id="vx-${escapePageHtml(p.id)}" style="display:none"><div class="fg"><label>\u670D\u52A1\u8D26\u53F7 JSON</label><textarea id="vxs-${escapePageHtml(p.id)}" rows="4" class="fx1">${escapePageHtml((p.apiKeys || []).map((k) => k.key).join("\n\n"))}</textarea><span class="form-helper">\u4FDD\u5B58\u65F6\u4EE5\u672C\u6846\u5185\u5BB9\u4E3A\u51C6\uFF08\u591A\u4E2A\u8D26\u53F7\u7A7A\u884C\u5206\u9694\uFF09\uFF1B\u4E5F\u53EF\u586B Express API Key\u3002</span></div><div class="fr"><div class="fg"><label>\u533A\u57DF Location</label><input type="text" id="vxl-${escapePageHtml(p.id)}" value="${escapePageHtml(p.location || "")}" placeholder="us-central1"></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyVertex('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div></div><div class="dv-config" id="dv-${escapePageHtml(p.id)}" style="display:none"><div class="fg"><label>\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="devinOAuth('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7528 Devin \u8D26\u53F7\u6388\u6743</button><span class="form-helper">\u6388\u6743\u6210\u529F\u4F1A\u81EA\u52A8\u628A session token \u8FFD\u52A0\u5230\u4E0B\u65B9\u51ED\u636E\u6846\u3002</span></div><div class="fg"><label>Session Token</label><textarea id="dvt-${escapePageHtml(p.id)}" rows="3" class="fx1">${escapePageHtml((p.apiKeys || []).map((k) => k.key).join("\n"))}</textarea><span class="form-helper">\u4FDD\u5B58\u65F6\u4EE5\u672C\u6846\u5185\u5BB9\u4E3A\u51C6\uFF08\u6BCF\u884C\u4E00\u4E2A session token\uFF09\u3002</span></div><div class="fg"><label>\u6821\u9A8C\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="verifyDevin('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1</button></div></div>
-            
-            
-              <div class="ag-config" id="ds-${escapePageHtml(p.id)}" ${p.type === "deepseek" ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6 userToken</label><div class="fc field-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u7C98\u8D34 userToken</button><button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('${escapePageHtml(p.id)}')"><i class="fas fa-user-shield" aria-hidden="true"></i>\u8D26\u53F7\u4EE3\u767B\u5F55</button><button class="btn btn-s" type="button" onclick="verifyDeepseek('${escapePageHtml(p.id)}')"><i class="fas fa-plug" aria-hidden="true"></i>\u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button></div><span class="form-helper">\u4E24\u6761\u8DEF\u4EFB\u9009\uFF1A<b>\u2460 \u7C98\u8D34 userToken</b> \u2014\u2014 \u81EA\u5DF1\u4ECE\u6D4F\u89C8\u5668\u62A0\uFF0C\u7F51\u5173\u4E0D\u7ECF\u624B\u5BC6\u7801\uFF1B<b>\u2461 \u8D26\u53F7\u4EE3\u767B\u5F55</b> \u2014\u2014 \u586B\u90AE\u7BB1/\u624B\u673A\u53F7+\u5BC6\u7801\uFF0C\u7F51\u5173\u81EA\u52A8\u6362\u53D6 userToken\uFF0C\u5BC6\u7801\u52A0\u5BC6\u5B58\u50A8\u3002${p.dsAccount && (p.dsAccount.email || p.dsAccount.mobile) ? '<br><b class="c-s">\u5F53\u524D\u5DF2\u6258\u7BA1\u8D26\u53F7\uFF1A' + escapePageHtml(p.dsAccount.mobile || p.dsAccount.email || "") + (p.dsAccount.hasPassword ? "\uFF08\u542B\u5BC6\u7801\uFF09" : "\uFF08\u65E0\u5BC6\u7801\uFF09") + (p.dsAccount.tokenSet ? " \xB7 \u6301\u6709 token " + escapePageHtml(p.dsAccount.tokenPreview || "") : "") + (p.dsAccount.lastLoginAt ? " \xB7 \u4E0A\u6B21\u767B\u5F55 " + escapePageHtml(String(p.dsAccount.lastLoginAt).slice(0, 16).replace("T", " ")) : "") + "</b>" : ""}</span><script type="application/json" id="dsacc-${escapePageHtml(p.id)}">${JSON.stringify(p.dsAccount || {}).replace(/</g, "\\u003c")}</script></div></div>
-              <div class="ag-config" id="oa-${escapePageHtml(p.id)}" ${["claude", "codex", "kimi", "grok", "qwen", "codebuddy", "cline"].includes(p.type || "") ? "" : 'style="display:none"'}><div class="fg"><label>\u83B7\u53D6\u51ED\u636E</label><button class="btn btn-s" type="button" onclick="oauthChannel('${escapePageHtml(p.id)}')"><i class="fas fa-key" aria-hidden="true"></i>\u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button><span class="form-helper">Claude/ChatGPT \u8DF3\u8F6C\u5B98\u65B9\u6388\u6743\u9875\uFF08\u56DE\u8C03\u5230 localhost \u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09\uFF1BKimi/Grok/Cline \u5F39\u51FA\u8BBE\u5907\u7801\u9A8C\u8BC1\u9875\u5E76\u81EA\u52A8\u7B49\u5F85\u6388\u6743\u3002refresh_token \u4F1A\u8FFD\u52A0\u5230\u4E0B\u65B9 API Keys\u3002</span></div><div class="fg"><label>\u53EF\u7528\u6A21\u578B</label><button class="btn btn-s" type="button" onclick="fetchOAuthModels('${escapePageHtml(p.id)}')"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B\u5217\u8868</button></div></div>
-              <div class="cb-config" id="cb-${escapePageHtml(p.id)}" ${p.type === "codebuddy" ? "" : 'style="display:none"'}><div class="fg"><label for="cbr-${escapePageHtml(p.id)}">\u7248\u672C / \u533A\u57DF</label><select id="cbr-${escapePageHtml(p.id)}" class="select-sm" onchange="cbRegionChange('${escapePageHtml(p.id)}')"><option value="cn" ${cbRealmOf(p) === "cn" ? "selected" : ""}>\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option><option value="global" ${cbRealmOf(p) === "global" ? "selected" : ""}>\u56FD\u9645\u7248 \xB7 workbuddy.ai</option></select><span class="form-helper">\u56FD\u5185\u7248\u4E0E\u56FD\u9645\u7248\u662F\u4E24\u5957\u4E92\u76F8\u72EC\u7ACB\u7684\u8D26\u53F7\u4F53\u7CFB\uFF0C\u51ED\u636E\u4E0D\u53EF\u6DF7\u7528\uFF1B\u5207\u6362\u540E\u4E0A\u65B9\u300CAPI \u5730\u5740\u300D\u4F1A\u81EA\u52A8\u6539\u6210\u5BF9\u5E94\u57DF\u540D\u3002\u82E5\u5DF2\u6709\u51ED\u636E\u5C5E\u4E8E\u53E6\u4E00\u533A\u57DF\uFF0C\u9700\u91CD\u65B0\u6388\u6743\u3002</span></div><div class="fg"><label>\u8D26\u53F7\u72B6\u6001</label><button class="btn btn-s" type="button" onclick="codebuddyStatus('${escapePageHtml(p.id)}')"><i class="fas fa-coins" aria-hidden="true"></i>\u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button><button class="btn btn-s" type="button" style="margin-left:6px" onclick="codebuddyCheckin('${escapePageHtml(p.id)}')"><i class="fas fa-calendar-check" aria-hidden="true"></i>\u7B7E\u5230</button><span class="form-helper">\u300C\u67E5\u8BE2\u79EF\u5206/\u5957\u9910\u300D\u8BFB\u53D6\u5269\u4F59\u79EF\u5206\u4E0E\u5957\u9910\u660E\u7EC6\uFF1B\u300C\u7B7E\u5230\u300D\u6267\u884C\u6BCF\u65E5\u7B7E\u5230\uFF08\u91CD\u590D\u7B7E\u5230\u6309\u300C\u4ECA\u65E5\u5DF2\u7B7E\u5230\u300D\u5904\u7406\uFF0C\u4E0D\u7B97\u5931\u8D25\uFF09\u3002\u4E24\u8005\u90FD\u53D6\u8BE5\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u7684\u51ED\u636E\u3002</span></div><div class="mt-1" id="cbst-${escapePageHtml(p.id)}" aria-live="polite"></div></div>
-              <div class="tts-config" id="tts-${escapePageHtml(p.id)}" ${(p.type || "openai") === "azure-tts" ? "" : 'style="display:none"'}><fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u914D\u7F6E\uFF08\u8BF7\u6C42\u4F53\u53EF\u4E34\u65F6\u8986\u76D6\uFF09</legend><div class="fr"><div class="fg"><label>\u97F3\u8272 Voice</label><div class="tts-voice-row"><select id="pv-${escapePageHtml(p.id)}" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${azureVoiceOptions(p.voice || "zh-CN-XiaoxiaoNeural")}</select><button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml(p.id)}')" title="\u8BD5\u542C\u5F53\u524D\u97F3\u8272"><i class="fas fa-play" aria-hidden="true"></i>\u8BD5\u542C</button></div></div><div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="pr-${escapePageHtml(p.id)}" value="${escapePageHtml(p.rate || "+0%")}" placeholder="+0%"></div></div><div class="fr"><div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="pvol-${escapePageHtml(p.id)}" value="${escapePageHtml(p.volume || "+0%")}" placeholder="+0%"></div><div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="pp-${escapePageHtml(p.id)}" value="${escapePageHtml(p.pitch || "+0Hz")}" placeholder="+0Hz"></div></div><div class="tts-preview" id="ttp-${escapePageHtml(p.id)}"></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml(p.id)}')" title="\u628A\u5F53\u524D\u9009\u4E2D\u7684\u97F3\u8272\u6DFB\u52A0\u5230\u6A21\u578B\u5217\u8868"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0\u6A21\u578B</button><button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml(p.id)}')"><i class="fas fa-microphone" aria-hidden="true"></i>\u6DFB\u52A0\u5168\u90E8\u97F3\u8272\u4E3A\u6A21\u578B</button></div></fieldset></div>
-              <div class="fg" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""}><label>\u955C\u50CF\u5730\u5740</label><textarea id="mir-${escapePageHtml(p.id)}" rows="3" placeholder="\u6BCF\u884C\u4E00\u4E2A, \u7559\u7A7A\u4F7F\u7528 OPENCODE_MIRRORS_URL \u73AF\u5883\u53D8\u91CF">${(p.mirrorUrls || []).map(escapePageHtml).join("\n")}</textarea><span class="form-helper">\u5B98\u65B9\u5730\u5740\u5931\u8D25\u540E\u81EA\u52A8\u6545\u969C\u8F6C\u79FB\u5230\u7684\u955C\u50CF\u5730\u5740\uFF0C\u6BCF\u884C\u4E00\u4E2A URL\u3002</span></div>
-              <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend><div id="keys-${escapePageHtml(p.id)}">${p.apiKeys.map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}" placeholder="API Key" aria-label="API Key"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml(p.id)}-${ki}" aria-label="\u542F\u7528 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236 Key" aria-label="\u590D\u5236 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})" title="\u6D4B\u8BD5 Key" aria-label="\u6D4B\u8BD5 Key"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})" title="\u79FB\u9664 Key" aria-label="\u79FB\u9664 Key"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join("")}</div><div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="\u65B0\u7684 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0</button></div></fieldset>
-              <fieldset class="form-group"><legend>\u6A21\u578B</legend><div id="ml-${escapePageHtml(p.id)}">${p.models.map((m, mi) => `<div class="fc mb-3 field-row" data-idx="${mi}"><input type="text" value="${escapePageHtml(m.id)}" class="fx1" id="mid-${escapePageHtml(p.id)}-${mi}" placeholder="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" value="${escapePageHtml(m.alias || "")}" class="fx1" id="mal-${escapePageHtml(p.id)}-${mi}" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" title="\u5BF9\u5916\u663E\u793A\u540D, \u7559\u7A7A\u81EA\u52A8\u53BB:free\u540E\u7F00"><label class="tg"><input type="checkbox" ${m.enabled ? "checked" : ""} id="men-${escapePageHtml(p.id)}-${mi}" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="testMdl('${p.id}','${m.id}',${mi})" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button></div>`).join("")}</div><div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml(p.id)}" placeholder="\u65B0\u7684\u6A21\u578B ID" class="fx1"><input type="text" id="nmal-${escapePageHtml(p.id)}" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1"><button class="btn btn-s" onclick="addMdl('${p.id}')"><i class="fas fa-plus" aria-hidden="true"></i>\u6DFB\u52A0</button></div></fieldset>
-              <div class="detail-actions"><div id="tr-${escapePageHtml(p.id)}" aria-live="polite"></div><div><button class="btn btn-s" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""} onclick="fetchEditModels('${p.id}', false)"><i class="fas fa-download" aria-hidden="true"></i>\u83B7\u53D6\u6A21\u578B</button><button class="btn btn-s" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""} onclick="fetchEditModels('${p.id}', true)"><i class="fas fa-gift" aria-hidden="true"></i>\u83B7\u53D6\u514D\u8D39\u6A21\u578B</button><button class="btn btn-d" onclick="del('${p.id}')"><i class="fas fa-trash" aria-hidden="true"></i>\u5220\u9664</button><button class="btn btn-p" onclick="save('${p.id}')"><i class="fas fa-save" aria-hidden="true"></i>\u4FDD\u5B58\u66F4\u6539</button></div></div>
-            </div>
-          </article>`).join("") : `<div class="empty-state"><i class="fas fa-server" aria-hidden="true"></i><h3>\u8FD8\u6CA1\u6709\u6E20\u9053</h3><p>\u6DFB\u52A0\u7B2C\u4E00\u4E2A\u4E0A\u6E38\u6E20\u9053\uFF0C\u914D\u7F6E API \u5730\u5740\u3001Key \u548C\u6A21\u578B\u3002</p><button class="btn btn-p" onclick="showAdd()">\u6DFB\u52A0\u6E20\u9053</button></div>`}
-        </div>
-      </section>
-
-      <section id="quota" class="workspace-section" aria-labelledby="quota-title">
-        <div class="section-heading section-heading--admin"><div><h2 id="quota-title">\u989D\u5EA6</h2><p>Antigravity \u5404\u8D26\u53F7\u7684\u6A21\u578B\u5269\u4F59\u989D\u5EA6\u4E0E\u91CD\u7F6E\u65F6\u95F4\uFF0C\u5171 ${agAccountCount} \u4E2A\u8D26\u53F7\u3002\u8D26\u53F7\u5361\u7247\u91CC\u7684\u90AE\u7BB1\u4E0E\u8BA2\u9605\u5C42\uFF08Google AI Pro \u7B49\uFF09\u6765\u81EA Google\uFF0C\u53EF\u7528\u6765\u786E\u8BA4\u67D0\u4E2A token \u5C5E\u4E8E\u54EA\u4E2A\u8D26\u53F7\u3001\u5957\u9910\u662F\u5426\u771F\u7684\u751F\u6548\u3002</p></div><div class="fc" style="gap:8px;flex-wrap:wrap"><button class="btn btn-p" onclick="queryAllAgQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>\u67E5\u8BE2\u5168\u90E8\u989D\u5EA6</button><button class="btn btn-s" onclick="refreshAgAccounts()"><i class="fas fa-sync-alt" aria-hidden="true"></i>\u5237\u65B0\u8D26\u53F7</button></div></div>
-        <div id="quotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u53F3\u4E0A\u89D2\u300C\u5237\u65B0\u8D26\u53F7\u300D\u91CD\u65B0\u8BFB\u53D6\u8D26\u53F7\uFF1B\u70B9\u8D26\u53F7\u53F3\u4FA7\u300C\u67E5\u8BE2\u300D\u83B7\u53D6\u8BE5\u8D26\u53F7\u989D\u5EA6\u3002</div></div>
-        <div class="section-heading" style="margin-top:28px"><div><h3 style="margin:0">Cline \u8D26\u53F7</h3><p>\u6BCF\u4E2A\u51ED\u636E\u7684\u8D26\u53F7\u90AE\u7BB1\u4E0E\u5B98\u65B9 Credit \u4F59\u989D\uFF0C\u4EE5\u53CA\u5404\u6A21\u578B\u7684\u4ECA\u65E5\u7528\u91CF\uFF08\u7F51\u5173\u8BB0\u8D26\uFF0C\u5317\u4EAC\u65F6\u95F4\u81EA\u7136\u65E5\uFF09\u4E0E 429 \u51B7\u5374\u72B6\u6001\u3002Cline \u514D\u8D39\u989D\u5EA6\u6309\u300C\u8D26\u53F7 \xD7 \u6A21\u578B\u300D\u72EC\u7ACB\u8BA1\u989D\u4E14\u4E0A\u6E38\u4E0D\u63D0\u4F9B\u5269\u4F59\u91CF\u67E5\u8BE2\uFF0C\u7528\u91CF\u4EE5\u7F51\u5173\u5B9E\u9645\u8F6C\u53D1\u4E3A\u51C6\u3002</p></div><button class="btn btn-p" onclick="queryAllClineQuota()"><i class="fas fa-gauge-high" aria-hidden="true"></i>\u67E5\u8BE2 Cline \u8D26\u53F7</button></div>
-        <div id="clineQuotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u300C\u67E5\u8BE2 Cline \u8D26\u53F7\u300D\u83B7\u53D6\u5168\u90E8\u8D26\u53F7\u7684\u4F59\u989D\u4E0E\u5404\u6A21\u578B\u7528\u91CF/\u51B7\u5374\u72B6\u6001\u3002</div></div>
-      </section>
-
-      <section id="proxy-keys" class="workspace-section" aria-labelledby="proxy-keys-title">
-        <div class="section-heading section-heading--admin"><div><h2 id="proxy-keys-title">\u4EE4\u724C</h2><p>\u5BA2\u6237\u7AEF\u4F7F\u7528\u8FD9\u4E9B Key \u8BBF\u95EE\u7EDF\u4E00\u7684 <code>/v1</code> \u63A5\u53E3\u3002</p></div><button class="btn btn-p" onclick="genKey()"><i class="fas fa-plus" aria-hidden="true"></i>\u751F\u6210\u4EE4\u724C</button></div>
-        <div class="key-list">
-          ${proxyKeys.length === 0 ? '<div class="empty-state"><i class="fas fa-key" aria-hidden="true"></i><h3>\u6682\u65E0\u4EE4\u724C</h3><p>\u751F\u6210\u4E00\u4E2A Key \u540E\uFF0C\u5BA2\u6237\u7AEF\u624D\u80FD\u8BBF\u95EE\u7F51\u5173\u3002</p><button class="btn btn-p" onclick="genKey()">\u751F\u6210\u4EE4\u724C</button></div>' : ""}
-          ${proxyKeys.map((k) => `<article class="ki" data-id="${escapePageHtml(k.id)}"><div class="key-main"><span class="key-icon" aria-hidden="true"><i class="fas fa-key"></i></span><div><div class="kv"><span id="kv-${escapePageHtml(k.id)}" data-full="${escapePageHtml(k.key)}" data-vis="0">${escapePageHtml(k.key.length > 12 ? k.key.substring(0, 8) + "*****" + k.key.substring(k.key.length - 4) : k.key)}</span><button class="icon-btn" onclick="toggleKeyVis('${k.id}')" title="\u663E\u793A\u6216\u9690\u85CF" aria-label="\u663E\u793A\u6216\u9690\u85CF Key"><i class="far fa-eye" aria-hidden="true"></i></button><button class="icon-btn" onclick='copyText("${escapePageHtml(k.key)}",this)' title="\u590D\u5236" aria-label="\u590D\u5236 Key"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" onclick="regenerateKey('${k.id}')" title="\u91CD\u65B0\u751F\u6210" aria-label="\u91CD\u65B0\u751F\u6210 Key"><i class="fas fa-sync-alt" aria-hidden="true"></i></button></div><div class="key-meta"><h3>${escapePageHtml(k.name)}</h3><span class="key-meta__sep" aria-hidden="true">-</span><p>\u521B\u5EFA\u4E8E ${new Date(k.createdAt).toLocaleDateString()} \xB7 ${k.expiresAt ? "\u6709\u6548\u81F3 " + new Date(k.expiresAt).toLocaleDateString() : "\u6C38\u4E45\u6709\u6548"}</p></div></div></div><div class="key-actions"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} onchange="toggleProxyKey('${k.id}',this.checked)" aria-label="\u542F\u7528 ${escapePageHtml(k.name)}"><span class="sl"></span></label><span class="bd ${k.enabled ? "bd-on" : "bd-off"}">${k.enabled ? "\u5DF2\u542F\u7528" : "\u5DF2\u7981\u7528"}</span><button class="bd bd-del" onclick="rmKey('${k.id}')"><i class="fas fa-trash" aria-hidden="true"></i>\u5220\u9664</button></div></article>`).join("")}
-        </div>
-      </section>
-
-      <section id="usage" class="workspace-section" aria-labelledby="usage-title">
-        <div class="section-heading section-heading--admin">
-          <div><h2 id="usage-title">\u7528\u91CF\u7EDF\u8BA1</h2><p>\u805A\u5408\u7EDF\u8BA1 Token \u6D88\u8017\u4E0E\u8BF7\u6C42\u5206\u5E03\uFF0C\u6570\u636E\u4FDD\u7559 30 \u5929\u3002</p></div>
-          <select id="usage-days" class="select-sm" onchange="loadUsage()" aria-label="\u65F6\u95F4\u8303\u56F4">
-            <option value="1" selected>\u4ECA\u5929</option>
-            <option value="7">\u8FD1 7 \u5929</option>
-            <option value="14">\u8FD1 14 \u5929</option>
-            <option value="30">\u8FD1 30 \u5929</option>
-          </select>
-        </div>
-        <div class="admin-metrics metrics-4" aria-label="\u7528\u91CF\u7EDF\u8BA1">
-          <div><span id="u-req">-</span><p>\u8BF7\u6C42\u603B\u6570</p><small id="u-ok">- \u6210\u529F</small></div>
-          <div><span id="u-in">-</span><p>\u8F93\u5165 Tokens</p><small>\u63D0\u793A\u8BCD\u6D88\u8017</small></div>
-          <div><span id="u-out">-</span><p>\u8F93\u51FA Tokens</p><small>\u751F\u6210\u6D88\u8017</small></div>
-          <div><span id="u-lat">-</span><p>\u5E73\u5747\u8017\u65F6</p><small>\u6BEB\u79D2</small></div>
-        </div>
-        <div id="u-trend-wrap" class="hd add-form-panel" style="margin-top:16px">
-          <div class="panel-heading"><div><span class="panel-heading__mark"><i class="fas fa-chart-bar" aria-hidden="true"></i></span><div><h3>\u6BCF\u65E5\u8BF7\u6C42\u8D8B\u52BF</h3></div></div></div>
-          <div id="u-trend" style="padding:16px"></div>
-        </div>
-        <div class="rank-grid" style="margin-top:16px">
-          <div class="rank-card">
-            <div class="panel-heading" style="border:none;padding:0;margin-bottom:10px"><div><span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span><div><h3>\u6A21\u578B\u6392\u884C</h3></div></div></div>
-            <div id="u-models"></div>
-          </div>
-          <div class="rank-card">
-            <div class="panel-heading" style="border:none;padding:0;margin-bottom:10px"><div><span class="panel-heading__mark"><i class="fas fa-server" aria-hidden="true"></i></span><div><h3>\u6E20\u9053\u6392\u884C</h3></div></div></div>
-            <div id="u-providers"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="backup" class="workspace-section" aria-labelledby="backup-title">
-        <div class="section-heading section-heading--admin">
-          <div><h2 id="backup-title">\u5907\u4EFD\u4E0E\u6062\u590D</h2><p>\u5BFC\u51FA/\u5BFC\u5165\u5168\u91CF\u6570\u636E\uFF0C\u6216\u5907\u4EFD\u5230 R2 \u4E91\u7AEF\u5FEB\u7167\u3002\u8986\u76D6\u6E20\u9053\u914D\u7F6E\u3001\u4EE4\u724C\u4E0E\u7528\u91CF\u7EDF\u8BA1\u3002</p></div>
-        </div>
-        <div class="rank-grid">
-          <div class="rank-card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
-            <div class="panel-heading" style="border:none;padding:0;margin-bottom:10px;justify-content:center"><div style="flex-direction:column;align-items:center"><span class="panel-heading__mark"><i class="fas fa-download" aria-hidden="true"></i></span><div><h3>\u5BFC\u51FA / \u5BFC\u5165</h3><p>\u5BFC\u51FA\u5B8C\u6574\u6570\u636E\u4E3A JSON \u6587\u4EF6\uFF0C\u6216\u4ECE\u6587\u4EF6\u6062\u590D\u3002</p></div></div></div>
-            <div class="fc" style="gap:8px;flex-wrap:wrap;justify-content:center">
-              <button class="btn btn-p" onclick="backupExport()"><i class="fas fa-download" aria-hidden="true"></i>\u5BFC\u51FA\u6570\u636E\u5E93</button>
-              <button class="btn btn-s" onclick="backupImportPick()"><i class="fas fa-upload" aria-hidden="true"></i>\u5BFC\u5165\u6570\u636E\u5E93</button>
-            </div>
-            <div id="bk-io-result" class="mt-1" aria-live="polite"></div>
-          </div>
-          <div class="rank-card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
-            <div class="panel-heading" style="border:none;padding:0;margin-bottom:10px;justify-content:center"><div style="flex-direction:column;align-items:center"><span class="panel-heading__mark"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i></span><div><h3>R2 \u4E91\u7AEF\u5907\u4EFD</h3><p>\u5FEB\u7167\u5B58\u5165 R2 \u6876(\u81EA\u52A8\u4FDD\u7559\u6700\u65B0 30 \u4EFD)\u3002</p></div></div></div>
-            <div class="fc" style="gap:8px;flex-wrap:wrap;justify-content:center">
-              <button class="btn btn-p" onclick="backupToR2()"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>\u5907\u4EFD\u5230 R2</button>
-              <button class="btn btn-s" onclick="backupList()"><i class="fas fa-sync-alt" aria-hidden="true"></i>\u5237\u65B0\u5217\u8868</button>
-            </div>
-            <div id="bk-r2-result" class="mt-1" aria-live="polite"></div>
-          </div>
-          <div class="rank-card" >
-            <div class="panel-heading" style="border:none;padding:0;margin-bottom:10px"><div><span class="panel-heading__mark"><i class="fas fa-paper-plane" aria-hidden="true"></i></span><div><h3>Telegram \u5907\u4EFD</h3><p>\u901A\u8FC7 Bot \u53D1\u9001\u5907\u4EFD\u6587\u4EF6\u5230\u81EA\u5DF1\u7684 Telegram\u3002\u9700\u5148\u6D4B\u8BD5\u901A\u9053\u3002</p></div></div></div>
-            <div class="fg"><label>Telegram Bot Token</label><input type="password" id="tgToken" class="fx1" placeholder="123456:ABC-DEF..." autocomplete="off"></div>
-            <div class="fg"><label>Telegram USER ID</label><input type="text" id="tgChat" class="fx1" placeholder="123456789"></div>
-            <div class="fc" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-              <button class="btn btn-s" onclick="telegramTest()"><i class="fas fa-paper-plane" aria-hidden="true"></i>\u6D4B\u8BD5\u901A\u9053</button>
-              <button class="btn btn-p" onclick="backupToTelegram()"><i class="fas fa-arrow-circle-up" aria-hidden="true"></i>\u5907\u4EFD\u5230 Telegram</button>
-            </div>
-            <div id="bk-tg-result" class="mt-1" aria-live="polite"></div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    ${renderSiteFooter(SITE_CONFIG.title, getPlatformLabel(c.env, c.req.header("host")))}
-  </div>
-</div>
-
-<div id="modal" class="modal-o hd" role="presentation" onclick="if(event.target===this)closeM()"><div class="modal" id="mc" role="dialog" aria-modal="true" aria-live="polite"></div></div>
-
-<script>${SHARED_JS}
-// copy
+// src/admin.script.ts
+var ADMIN_CLIENT_SCRIPT = `
+// \u2500\u2500 \u590D\u5236\u63A7\u5236 \u2500\u2500
 function copyText(t, el) {
-  const i = el.tagName === 'I' ? el : (el.querySelector('i') || el.parentElement?.querySelector('i'))
-  if (!i) { navigator.clipboard.writeText(t).catch(() => {}); return }
-  const oc = i.className
-  navigator.clipboard.writeText(t).then(() => {
-    i.className = 'fas fa-check c-s'
+  var iconEl = el.querySelector('.svg-icon') || el.querySelector('i') || (el.classList.contains('svg-icon') ? el : null)
+  navigator.clipboard.writeText(t).then(function() {
     el.setAttribute('data-state', 'success')
-    setTimeout(() => {
-      i.className = oc
+    if (iconEl && window.SVG_ICONS && window.SVG_ICONS.check) {
+      iconEl.innerHTML = window.SVG_ICONS.check
+      iconEl.className = 'svg-icon c-s'
+    }
+    setTimeout(function() {
       el.removeAttribute('data-state')
+      if (iconEl && window.SVG_ICONS && window.SVG_ICONS.copy) {
+        iconEl.innerHTML = window.SVG_ICONS.copy
+        iconEl.className = 'svg-icon'
+      }
     }, 1800)
-  }).catch(() => {
+  }).catch(function() {
     el.setAttribute('data-state', 'error')
   })
 }
 
-// \u4ECE\u5F53\u524D\u884C\u8BFB\u53D6\u5B9E\u65F6\u8F93\u5165\u503C\u5E76\u590D\u5236\uFF08Key \u884C\u4E0E\u6A21\u578B ID \u884C\u5171\u7528\uFF09
 function copyRowVal(btn) {
   const inp = btn.parentElement.querySelector('input[type=text]')
   if (inp) copyText(inp.value, btn)
 }
 
-// modal
-function showM(h) { document.getElementById('mc').innerHTML = h; document.getElementById('modal').classList.remove('hd') }
-function closeM() { document.getElementById('modal').classList.add('hd') }
+// \u2500\u2500 \u5F39\u7A97 Modal \u2500\u2500
+function showM(h) { 
+  document.getElementById('mc').innerHTML = h
+  document.getElementById('modal').classList.remove('hd') 
+}
+function closeM() { 
+  document.getElementById('modal').classList.add('hd') 
+}
 function cM(msg) {
-  return new Promise(r => {
-    showM('<h3><i class="fas fa-question-circle c-p"></i> \u786E\u8BA4</h3><p>' + msg + '</p><div class="fa"><button class="btn btn-s" onclick="closeM();r(false)">\u53D6\u6D88</button><button class="btn btn-p" onclick="closeM();r(true)">\u786E\u5B9A</button></div>')
+  return new Promise(function(r) {
+    showM('<h3>' + svgIcon('info', 'c-p', 20) + ' \u786E\u8BA4\u64CD\u4F5C</h3><p>' + msg + '</p><div class="fa"><button class="btn btn-s" onclick="closeM();r(false)">\u53D6\u6D88</button><button class="btn btn-p" onclick="closeM();r(true)">\u786E\u5B9A</button></div>')
     window.r = r
   })
 }
 function pM(msg, def) {
-  return new Promise(r => {
-    showM('<h3><i class="fas fa-pen c-p"></i> ' + msg + '</h3><div class="fg"><input type="text" id="pv" value="' + (def || '') + '" placeholder="\u8BF7\u8F93\u5165"></div><div class="fa"><button class="btn btn-s" id="pMc">\u53D6\u6D88</button><button class="btn btn-p" id="pMo">\u786E\u5B9A</button></div>')
+  return new Promise(function(r) {
+    showM('<h3>' + svgIcon('key', 'c-p', 20) + ' ' + escapeHtml(msg) + '</h3><div class="fg"><input type="text" id="pv" value="' + escapeHtml(def || '') + '" placeholder="\u8BF7\u8F93\u5165"></div><div class="fa"><button class="btn btn-s" id="pMc">\u53D6\u6D88</button><button class="btn btn-p" id="pMo">\u786E\u5B9A</button></div>')
     window.r = r
     const inp = document.getElementById('pv')
     if (inp) {
@@ -16393,45 +18051,58 @@ function pM(msg, def) {
   })
 }
 function aM(msg, t) {
-  const i = t === 'success' ? 'fa-check-circle c-s' : 'fa-exclamation-circle c-d'
-  showM('<h3><i class="fas ' + i + '"></i> ' + (t === 'success' ? '\u6210\u529F' : '\u63D0\u793A') + '</h3><p>' + msg + '</p><div class="fa"><button class="btn btn-p" onclick="closeM()">\u786E\u5B9A</button></div>')
+  const ic = t === 'success' ? svgIcon('check', 'c-s', 20) : svgIcon('alert', 'c-d', 20)
+  showM('<h3>' + ic + ' ' + (t === 'success' ? '\u64CD\u4F5C\u6210\u529F' : '\u7CFB\u7EDF\u63D0\u793A') + '</h3><p>' + escapeHtml(msg) + '</p><div class="fa"><button class="btn btn-p" onclick="closeM()">\u786E\u5B9A</button></div>')
 }
 
 function toast(msg, t) {
   const el = document.getElementById('toast')
-  const i = t === 'success' ? 'fa-check-circle' : 'fa-times-circle'
+  const ic = t === 'success' ? svgIcon('check', '', 16) : svgIcon('alert', '', 16)
   const cls = t === 'success' ? 'al-s' : 'al-e'
-  el.innerHTML = '<div class="al ' + cls + '"><i class="fas ' + i + '"></i> ' + escapeHtml(msg) + '</div>'
+  el.innerHTML = '<div class="al ' + cls + '">' + ic + ' <span>' + escapeHtml(msg) + '</span></div>'
   el.classList.remove('hd')
-  setTimeout(() => el.classList.add('hd'), 3000)
+  setTimeout(function() { el.classList.add('hd') }, 3000)
 }
 
-// providers
+// \u2500\u2500 \u6E20\u9053\u5361\u7247\u6298\u53E0\u4E0E\u5C55\u5F00 \u2500\u2500
 function tog(id) {
   const d = document.getElementById('dt-' + id), c = document.getElementById('ch-' + id)
+  if (!d) return
   d.classList.toggle('open')
-  c.style.transform = d.classList.contains('open') ? 'rotate(90deg)' : ''
+  if (c) c.style.transform = d.classList.contains('open') ? 'rotate(90deg)' : ''
 }
 
-function showAdd() { document.getElementById('af').classList.remove('hd') }
-function hideAdd() { document.getElementById('af').classList.add('hd'); document.getElementById('amc').classList.add('hd') }
+function showAdd() { 
+  document.getElementById('af').classList.remove('hd')
+  document.getElementById('af').scrollIntoView({ behavior: 'smooth' })
+}
+function hideAdd() { 
+  document.getElementById('af').classList.add('hd')
+  document.getElementById('amc').classList.add('hd') 
+}
 
-// OAuth \u53CD\u4EE3\u6E20\u9053\u7684\u9ED8\u8BA4 API \u5730\u5740\uFF08\u7F51\u5173\u4E0D\u5B9E\u9645\u4F7F\u7528\u8BE5\u5730\u5740\u8F6C\u53D1\uFF0C\u4EC5\u4F5C\u5C55\u793A/\u515C\u5E95\uFF09
-const OAUTH_DEFAULT_URLS = { claude: 'https://api.anthropic.com', codex: 'https://chatgpt.com/backend-api/codex', kimi: 'https://api.kimi.ai/coding', grok: 'https://cli-chat-proxy.grok.com/v1', qwen: 'https://portal.qwen.ai/v1', deepseek: 'https://chat.deepseek.com', zai: 'https://api.z.ai/api/coding/paas/v4', codebuddy: 'https://copilot.tencent.com', cline: 'https://api.cline.bot' }
+const OAUTH_DEFAULT_URLS = { 
+  claude: 'https://api.anthropic.com', 
+  codex: 'https://chatgpt.com/backend-api/codex', 
+  kimi: 'https://api.kimi.ai/coding', 
+  grok: 'https://cli-chat-proxy.grok.com/v1', 
+  qwen: 'https://portal.qwen.ai/v1', 
+  deepseek: 'https://chat.deepseek.com', 
+  zai: 'https://api.z.ai/api/coding/paas/v4', 
+  codebuddy: 'https://copilot.tencent.com', 
+  cline: 'https://api.cline.bot' 
+}
 function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy', 'cline'].indexOf(t) !== -1 }
 function isDeepseekType(t) { return t === 'deepseek' }
 function isZaiType(t) { return t === 'zai' }
 function isCodebuddyType(t) { return t === 'codebuddy' }
 
-// ===== CodeBuddy \u533A\u57DF\uFF08\u56FD\u5185\u7248 / \u56FD\u9645\u7248\uFF09=====
-// \u533A\u57DF\u4EE5 region \u5B57\u6BB5\u4E3A\u51C6\uFF0CAPI \u5730\u5740\u4EC5\u4F5C\u5C55\u793A\u4E0E\u515C\u5E95\uFF1B\u4E24\u5957\u8D26\u53F7\u4F53\u7CFB\u4E92\u76F8\u72EC\u7ACB\uFF0C\u51ED\u636E\u4E0D\u53EF\u6DF7\u7528\u3002
 const CB_REGION_URLS = { cn: 'https://copilot.tencent.com', global: 'https://www.workbuddy.ai' }
 function cbRegionValue(id) {
   const el = document.getElementById('cbr-' + id)
   return el && el.value === 'global' ? 'global' : 'cn'
 }
 function cbRegionUrl(id) { return CB_REGION_URLS[cbRegionValue(id)] }
-// \u5207\u6362\u533A\u57DF\uFF1A\u540C\u6B65 API \u5730\u5740\uFF0C\u5E76\u6E05\u6389\u4E0A\u4E00\u6B21\u7684\u533A\u57DF\u76F8\u5173\u67E5\u8BE2\u7ED3\u679C\uFF08\u6362\u533A\u540E\u65E7\u7ED3\u679C\u5DF2\u5931\u6548\uFF09
 function cbRegionChange(id) {
   const urlEl = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
   if (urlEl) urlEl.value = cbRegionUrl(id)
@@ -16439,7 +18110,6 @@ function cbRegionChange(id) {
   if (box) box.innerHTML = ''
 }
 
-// \u6E20\u9053\u7C7B\u578B\u5207\u6362: azure-tts \u663E\u793A\u97F3\u8272\u914D\u7F6E, antigravity/OAuth \u53CD\u4EE3\u663E\u793A\u6388\u6743\u533A; \u8FD9\u4E9B\u7C7B\u578B\u90FD\u5FFD\u7565 API \u5730\u5740
 function onTypeChange(sel, id) {
   const isTts = sel.value === 'azure-tts'
   const isAg = sel.value === 'antigravity'
@@ -16467,19 +18137,18 @@ function onTypeChange(sel, id) {
       : sel.value === 'agnes-video' ? 'Agnes \u5F02\u6B65\u89C6\u9891\u4EFB\u52A1\u6A21\u5F0F(\u4EC5\u89C6\u9891\u7AEF\u70B9, \u5BF9\u8BDD/\u56FE\u7247\u8BF7\u53E6\u5EFA OpenAI \u517C\u5BB9\u6E20\u9053)\u3002'
       : sel.value === 'openai-video' ? '\u6807\u51C6 OpenAI \u89C6\u9891\u7AEF\u70B9, \u539F\u6837\u900F\u4F20\u3002'
       : sel.value === 'azure-tts' ? '\u5185\u7F6E\u514D\u8D39\u8BED\u97F3\u5408\u6210, \u65E0\u9700 API Key\u3002'
-      : sel.value === 'antigravity' ? 'Antigravity \u53CD\u4EE3: \u70B9\u300C\u7528 Google \u8D26\u53F7\u6388\u6743\u300D\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Gemini \u534F\u8BAE\u3002\u652F\u6301\u591A\u8D26\u53F7(\u4E00\u884C\u4E00\u4E2A), \u53EF\u7528 refresh_token|\u9879\u76EEID \u7ED9\u5355\u4E2A\u8D26\u53F7\u5355\u72EC\u6307\u5B9A\u9879\u76EE\u3002'
-      : sel.value === 'claude' ? 'Claude OAuth \u53CD\u4EE3: \u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Anthropic Messages \u534F\u8BAE, \u540C\u65F6\u517C\u5BB9 /v1/messages \u76F4\u8FDE\u3002'
+      : sel.value === 'antigravity' ? 'Antigravity \u53CD\u4EE3: \u70B9\u300C\u7528 Google \u8D26\u53F7\u6388\u6743\u300D\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Gemini \u534F\u8BAE\u3002\u652F\u6301\u591A\u8D26\u53F7(\u4E00\u884C\u4E00\u4E2A)\u3002'
+      : sel.value === 'claude' ? 'Claude OAuth \u53CD\u4EE3: \u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Anthropic Messages \u534F\u8BAE\u3002'
       : sel.value === 'codex' ? 'ChatGPT (Codex) \u53CD\u4EE3: \u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Responses \u534F\u8BAE\u3002'
-      : sel.value === 'kimi' ? 'Kimi \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, OpenAI \u517C\u5BB9\u76F4\u901A (kimi-for-coding)\u3002'
+      : sel.value === 'kimi' ? 'Kimi \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, OpenAI \u517C\u5BB9\u76F4\u901A\u3002'
       : sel.value === 'grok' ? 'Grok (xAI) \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, \u8BF7\u6C42\u81EA\u52A8\u7FFB\u8BD1\u6210 Responses \u534F\u8BAE\u3002'
-      : sel.value === 'qwen' ? 'Qwen \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, OpenAI \u517C\u5BB9\u76F4\u901A (portal.qwen.ai)\u3002'
-      : sel.value === 'deepseek' ? 'DeepSeek \u53CD\u4EE3: \u586B\u5B98\u65B9 API Key(sk-, \u76F4\u8FDE api.deepseek.com) \u6216\u7F51\u9875 userToken(PoW, \u9700 Workers Paid)\u3002'
-      : sel.value === 'codebuddy' ? 'CodeBuddy(\u817E\u8BAF) \u53CD\u4EE3: \u5148\u5728\u4E0B\u65B9\u300C\u7248\u672C / \u533A\u57DF\u300D\u9009\u56FD\u5185\u7248\u6216\u56FD\u9645\u7248, \u518D\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u767B\u5F55\u5BF9\u5E94\u533A\u57DF\u7684\u8D26\u53F7\u83B7\u53D6 refresh_token\u3002\u4E0A\u6E38\u5F3A\u5236\u6D41\u5F0F, \u975E\u6D41\u5F0F\u8BF7\u6C42\u7531\u7F51\u5173\u81EA\u52A8\u805A\u5408\u3002'
-      : sel.value === 'cline' ? 'Cline \u53CD\u4EE3: \u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u8D70\u8BBE\u5907\u7801\u6D41\u7A0B\u83B7\u53D6 refreshToken (\u6216\u624B\u52A8\u7C98\u8D34), \u591A\u8D26\u53F7\u4E00\u884C\u4E00\u4E2A\u8F6E\u6362\u3002\u514D\u8D39\u901A\u9053\u81EA\u52A8\u5265 max_tokens + \u5F3A\u5236\u6D41\u5F0F, \u975E\u6D41\u5F0F\u7531\u7F51\u5173\u805A\u5408\u3002'
+      : sel.value === 'qwen' ? 'Qwen \u53CD\u4EE3: \u8BBE\u5907\u7801\u6388\u6743\u83B7\u53D6 refresh_token, OpenAI \u517C\u5BB9\u76F4\u901A\u3002'
+      : sel.value === 'deepseek' ? 'DeepSeek \u53CD\u4EE3: \u586B\u5B98\u65B9 API Key(sk-, \u76F4\u8FDE api.deepseek.com) \u6216\u7F51\u9875 userToken(PoW)\u3002'
+      : sel.value === 'codebuddy' ? 'CodeBuddy(\u817E\u8BAF) \u53CD\u4EE3: \u5148\u5728\u4E0B\u65B9\u9009\u56FD\u5185\u7248\u6216\u56FD\u9645\u7248, \u518D\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u83B7\u53D6 refresh_token\u3002'
+      : sel.value === 'cline' ? 'Cline \u53CD\u4EE3: \u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u8D70\u8BBE\u5907\u7801\u6D41\u7A0B\u83B7\u53D6 refreshToken, \u591A\u8D26\u53F7\u4E00\u884C\u4E00\u4E2A\u8F6E\u6362\u3002'
       : sel.value === 'zai' ? 'Z.AI \u9884\u8BBE: \u586B z.ai \u7684 API Key(\u7F16\u7801\u5957\u9910)\u3002/v1/messages \u81EA\u52A8\u8D70 Anthropic \u7AEF\u70B9, \u5176\u4F59\u8D70 OpenAI \u7AEF\u70B9\u3002'
       : 'Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002'
   }
-  // Antigravity / OAuth \u53CD\u4EE3: \u9690\u85CF\u4EC5\u5BF9\u666E\u901A\u6E20\u9053\u6709\u610F\u4E49\u7684\u5B57\u6BB5/\u6309\u94AE\uFF08\u955C\u50CF\u5730\u5740\u3001OpenAI \u5F0F\u83B7\u53D6\u6A21\u578B\uFF09
   const hideForOAuth = isAg || isOa || isDs
   const scope = id === 'new' ? document.getElementById('af') : document.getElementById('dt-' + id)
   if (scope) {
@@ -16488,7 +18157,6 @@ function onTypeChange(sel, id) {
   if (id === 'new') {
     const url = document.getElementById('aurl')
     if (url) {
-      // codebuddy \u7684 API \u5730\u5740\u8DDF\u968F\u300C\u7248\u672C/\u533A\u57DF\u300D\u4E0B\u62C9\uFF0C\u4FDD\u6301\u53EF\u7F16\u8F91
       url.disabled = isTts || isAg || (isOa && !isCb) || isDs
       if (isTts) url.value = ''
       else if (isAg) url.value = 'https://daily-cloudcode-pa.googleapis.com'
@@ -16510,34 +18178,30 @@ function onTypeChange(sel, id) {
   }
 }
 
-// \u8BFB\u53D6\u5F53\u524D\u6E20\u9053\u7C7B\u578B / \u9879\u76EE ID\uFF08\u65B0\u589E\u6001 id='new'\uFF0C\u7F16\u8F91\u6001\u4E3A\u6E20\u9053 id\uFF09
 function provType(id) { const el = document.getElementById(id === 'new' ? 'apt' : 'pt-' + id); return el ? el.value : 'openai' }
-// \u9879\u76EE ID \u8868\u5355\u5DF2\u4E0D\u66B4\u9732\uFF0C\u4FDD\u7559\u8BFB\u53D6\u4EE5\u517C\u5BB9\u65E7\u6570\u636E\uFF08\u7559\u7A7A\u5219\u7F51\u5173\u81EA\u52A8\u89E3\u6790\uFF09
 function provProject(id) {
   const el = document.getElementById(id === 'new' ? 'agpj' : 'agpj-' + id)
   return el ? el.value.trim() : ''
 }
-// Vertex \u51ED\u636E\uFF08\u670D\u52A1\u8D26\u53F7 JSON \u6216 Express API Key\uFF0C\u591A\u4E2A\u4E4B\u95F4\u7A7A\u884C\u5206\u9694\uFF09
 function provVertexKeys(id) {
   const el = document.getElementById(id === 'new' ? 'vxs' : 'vxs-' + id)
   if (!el) return null
   const txt = (el.value || '').trim()
   if (!txt) return null
-  return txt.split(new RegExp('\\n\\s*\\n')).map(function (s) { return s.trim() }).filter(Boolean)
+  return txt.split(new RegExp('\\\\n\\\\s*\\\\n')).map(function (s) { return s.trim() }).filter(Boolean)
 }
 function provVertexLocation(id) {
   const el = document.getElementById(id === 'new' ? 'vxl' : 'vxl-' + id)
   return el ? el.value.trim() : ''
 }
-// Devin \u51ED\u636E\uFF08session token\uFF0C\u6BCF\u884C\u4E00\u4E2A\uFF09
 function provDevinKeys(id) {
   const el = document.getElementById(id === 'new' ? 'dvt' : 'dvt-' + id)
   if (!el) return null
   const txt = (el.value || '').trim()
   if (!txt) return null
-  return txt.split(new RegExp('\\n+')).map(function (s) { return s.trim() }).filter(Boolean)
+  return txt.split(new RegExp('\\\\n+')).map(function (s) { return s.trim() }).filter(Boolean)
 }
-// \u6821\u9A8C Devin \u51ED\u636E\uFF08GET /v3/self\uFF09
+
 async function verifyDevin(id) {
   const keys = provDevinKeys(id)
   if (!keys || !keys.length) { toast('\u8BF7\u5148\u586B\u5199 session token \u6216\u5B8C\u6210\u6388\u6743', 'error'); return }
@@ -16549,7 +18213,7 @@ async function verifyDevin(id) {
     toast(d.success ? ((d.data && d.data.message) || '\u51ED\u636E\u6709\u6548') : (d.message || '\u6821\u9A8C\u5931\u8D25'), d.success ? 'success' : 'error')
   } catch (e) { toast('\u6821\u9A8C\u8BF7\u6C42\u5931\u8D25', 'error') }
 }
-// Devin \u6388\u6743\uFF08PKCE \u65E0\u56DE\u8C03\uFF1A\u6388\u6743\u9875\u76F4\u63A5\u7ED9 code\uFF09
+
 async function devinOAuth(id) {
   const w = window.open('', '_blank')
   try {
@@ -16557,7 +18221,7 @@ async function devinOAuth(id) {
     const d = await r.json()
     if (!d.success || !d.data) { if (w) w.close(); toast(d.message || '\u751F\u6210\u6388\u6743\u94FE\u63A5\u5931\u8D25', 'error'); return }
     if (w) w.location.href = d.data.url; else window.open(d.data.url, '_blank')
-    showM('<h3><i class="fas fa-key c-p"></i> Devin \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684 Devin \u9875\u9762\u767B\u5F55\u5E76\u786E\u8BA4\u6388\u6743\uFF0C\u9875\u9762\u4F1A\u76F4\u63A5\u663E\u793A\u4E00\u6BB5\u6388\u6743\u7801\uFF08code\uFF09\uFF0C\u590D\u5236\u5230\u4E0B\u9762\u3002</p><div class="fg"><label>\u6388\u6743\u7801 code</label><textarea id="dvcode" rows="3" class="fx1" placeholder="\u7C98\u8D34\u9875\u9762\u7ED9\u51FA\u7684 code"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="dvok">\u5B8C\u6210\u6388\u6743</button></div>')
+    showM('<h3>' + svgIcon('key', 'c-p', 20) + ' Devin \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684 Devin \u9875\u9762\u767B\u5F55\u5E76\u786E\u8BA4\u6388\u6743\uFF0C\u9875\u9762\u4F1A\u76F4\u63A5\u663E\u793A\u4E00\u6BB5\u6388\u6743\u7801\uFF08code\uFF09\uFF0C\u590D\u5236\u5230\u4E0B\u9762\u3002</p><div class="fg"><label>\u6388\u6743\u7801 code</label><textarea id="dvcode" rows="3" class="fx1" placeholder="\u7C98\u8D34\u9875\u9762\u7ED9\u51FA\u7684 code"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="dvok">\u5B8C\u6210\u6388\u6743</button></div>')
     const ok = document.getElementById('dvok')
     ok.onclick = async function () {
       const code = (document.getElementById('dvcode').value || '').trim()
@@ -16568,7 +18232,7 @@ async function devinOAuth(id) {
         const dd = await rr.json()
         if (dd.success && dd.data && dd.data.session_token) {
           const el = document.getElementById(id === 'new' ? 'dvt' : 'dvt-' + id)
-          if (el) { el.value = (el.value ? el.value.replace(new RegExp('\\\\s*$'), '\\n') : '') + dd.data.session_token }
+          if (el) { el.value = (el.value ? el.value.replace(new RegExp('\\\\s*$'), '\\\\n') : '') + dd.data.session_token }
           closeM()
           toast('\u6388\u6743\u6210\u529F\uFF08' + (dd.data.user_name || dd.data.user_id || 'Devin') + '\uFF09\uFF0C\u51ED\u636E\u5DF2\u586B\u5165\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
         } else { ok.disabled = false; toast(dd.message || '\u6388\u6743\u5931\u8D25', 'error') }
@@ -16577,7 +18241,6 @@ async function devinOAuth(id) {
   } catch (e) { if (w) w.close(); toast('\u751F\u6210\u6388\u6743\u94FE\u63A5\u5931\u8D25', 'error') }
 }
 
-// \u6821\u9A8C Vertex \u51ED\u636E\uFF1A\u6362 token\uFF0C\u5E76\u7528\u6E20\u9053\u91CC\u7684\u7B2C\u4E00\u4E2A\u6A21\u578B\u8BD5\u8DD1\u4E00\u6B21
 async function verifyVertex(id) {
   const keys = provVertexKeys(id)
   if (!keys || !keys.length) { toast('\u8BF7\u5148\u586B\u5199\u670D\u52A1\u8D26\u53F7 JSON \u6216 API Key', 'error'); return }
@@ -16596,7 +18259,6 @@ async function verifyVertex(id) {
   } catch (e) { toast('\u6821\u9A8C\u8BF7\u6C42\u5931\u8D25', 'error') }
 }
 
-// \u628A\u6388\u6743\u5F97\u5230\u7684 refresh_token \u8FFD\u52A0\u5230\u300C\u4E0A\u6E38 API Keys\u300D\u5217\u8868
 function addKeyValue(id, value) {
   if (!value) return
   if (id === 'new') { addAKeyRow(value); return }
@@ -16604,7 +18266,6 @@ function addKeyValue(id, value) {
   if (inp) { inp.value = value; addKeyRow(id) } else { addAKeyRow(value) }
 }
 
-// Antigravity \u5185\u7F6E OAuth \u6388\u6743\uFF08loopback \u56DE\u8C03\uFF0C\u6253\u4E0D\u5F00\u9875\u9762\u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F code\uFF09
 async function antigravityOAuth(id) {
   const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
   const w = window.open('', '_blank')
@@ -16613,9 +18274,8 @@ async function antigravityOAuth(id) {
     const r = await fetch('/admin/api/antigravity/oauth/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     const d = await r.json()
     if (!d.success || !d.data) { if (w) w.close(); if (tr) showResult(tr, false, d.message || '\u751F\u6210\u6388\u6743\u94FE\u63A5\u5931\u8D25'); return }
-    if (w) w.location.href = d.data.url
-    else window.open(d.data.url, '_blank')
-    showM('<h3><i class="fas fa-key c-p"></i> Antigravity \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684 Google \u9875\u9762\u767B\u5F55\u5E76\u540C\u610F\u6388\u6743\u3002\u6388\u6743\u540E\u6D4F\u89C8\u5668\u4F1A\u8DF3\u8F6C\u5230 <code>localhost:51121</code> \u5E76\u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u2014\u2014 \u8FD9\u662F\u6B63\u5E38\u7684\uFF0C\u628A\u5730\u5740\u680F <code>code=</code> \u540E\u9762\u90A3\u6BB5\uFF08\u6216\u6574\u6BB5\u5730\u5740\uFF09\u590D\u5236\u5230\u4E0B\u9762\u3002</p><div class="fg"><label>code \u6216\u56DE\u8C03\u5730\u5740</label><textarea id="agcode" rows="3" class="fx1" placeholder="4/0A... \u6216 http://localhost:51121/oauth-callback?code=..."></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="agok">\u5B8C\u6210\u6388\u6743</button></div>')
+    if (w) w.location.href = d.data.url; else window.open(d.data.url, '_blank')
+    showM('<h3>' + svgIcon('key', 'c-p', 20) + ' Antigravity \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684 Google \u9875\u9762\u767B\u5F55\u5E76\u540C\u610F\u6388\u6743\u3002\u6388\u6743\u540E\u6D4F\u89C8\u5668\u4F1A\u8DF3\u8F6C\u5230 <code>localhost:51121</code> \u5E76\u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u2014\u2014 \u8FD9\u662F\u6B63\u5E38\u7684\uFF0C\u628A\u5730\u5740\u680F <code>code=</code> \u540E\u9762\u90A3\u6BB5\u590D\u5236\u5230\u4E0B\u9762\u3002</p><div class="fg"><label>code \u6216\u56DE\u8C03\u5730\u5740</label><textarea id="agcode" rows="3" class="fx1" placeholder="4/0A... \u6216 http://localhost:51121/oauth-callback?code=..."></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="agok">\u5B8C\u6210\u6388\u6743</button></div>')
     const agok = document.getElementById('agok')
     agok.onclick = async function () {
       const code = document.getElementById('agcode').value.trim()
@@ -16641,7 +18301,6 @@ async function antigravityOAuth(id) {
   }
 }
 
-// \u62C9\u53D6 Antigravity \u53EF\u7528\u6A21\u578B\u5E76\u8FFD\u52A0\u5230\u6A21\u578B\u5217\u8868
 async function fetchAgModels(id) {
   const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
   let key = ''
@@ -16660,7 +18319,6 @@ async function fetchAgModels(id) {
     if (!d.success) { if (tr) showResult(tr, false, d.message || '\u83B7\u53D6\u5931\u8D25'); return }
     const models = (d.data && d.data.models) || []
     if (models.length === 0) { if (tr) showResult(tr, false, '\u672A\u89E3\u6790\u5230\u6A21\u578B\u540D\uFF0C\u53EF\u624B\u52A8\u586B\u5199'); return }
-    // \u53BB\u91CD\uFF1A\u5DF2\u5B58\u5728\u7684\u6A21\u578B\u4E0D\u91CD\u590D\u6DFB\u52A0
     const existing = {}
     const sel = id === 'new' ? '#amodels .ami' : '#ml-' + id + ' [data-idx] input'
     document.querySelectorAll(sel).forEach(function (inp) { if (inp.value.trim()) existing[inp.value.trim()] = 1 })
@@ -16671,9 +18329,6 @@ async function fetchAgModels(id) {
   } catch (e) { if (tr) showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25') }
 }
 
-// =====================================================================
-// OAuth \u53CD\u4EE3\u6E20\u9053\u6388\u6743\uFF08claude/codex: \u6388\u6743\u94FE\u63A5 + \u7C98\u8D34 code; kimi/grok: \u8BBE\u5907\u7801\u8F6E\u8BE2\uFF09
-// =====================================================================
 async function oauthChannel(id) {
   const provider = provType(id)
   if (!isOauthType(provider)) { toast('\u5F53\u524D\u6E20\u9053\u7C7B\u578B\u4E0D\u652F\u6301 OAuth \u6388\u6743', 'error'); return }
@@ -16686,13 +18341,11 @@ async function oauthChannel(id) {
     const d = await r.json()
     if (!d.success || !d.data) { if (tr) showResult(tr, false, d.message || '\u53D1\u8D77\u6388\u6743\u5931\u8D25'); return }
     if (d.data.mode === 'redirect') {
-      // claude / codex: \u6253\u5F00\u5B98\u65B9\u6388\u6743\u9875\uFF0C\u56DE\u8C03\u5230 localhost\uFF08\u65E0\u6CD5\u8BBF\u95EE\u5C5E\u6B63\u5E38\uFF09\uFF0C\u7C98\u8D34 code \u6362 token
       const w = window.open('', '_blank')
-      if (w) { try { w.location.href = d.data.url } catch (e) { /* \u5F39\u7A97\u88AB\u62E6\u622A\u65F6\u5FFD\u7565 */ } }
-      else window.open(d.data.url, '_blank')
+      if (w) { try { w.location.href = d.data.url } catch (e) { } } else window.open(d.data.url, '_blank')
       const loopback = provider === 'claude' ? 'localhost:54545' : 'localhost:1455'
       const pname = provider === 'claude' ? 'Claude' : 'ChatGPT'
-      showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684\u5B98\u65B9\u9875\u9762\u767B\u5F55\u5E76\u540C\u610F\u6388\u6743\u3002\u6388\u6743\u540E\u6D4F\u89C8\u5668\u4F1A\u8DF3\u8F6C\u5230 <code>' + loopback + '</code> \u5E76\u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u2014\u2014 \u8FD9\u662F\u6B63\u5E38\u7684\uFF0C\u628A\u5730\u5740\u680F <code>code=</code> \u540E\u9762\u90A3\u6BB5\uFF08\u6216\u6574\u6BB5\u5730\u5740\uFF09\u590D\u5236\u5230\u4E0B\u9762\u3002</p><div class="fg"><label>code \u6216\u56DE\u8C03\u5730\u5740</label><textarea id="oacode" rows="3" class="fx1" placeholder="' + (provider === 'claude' ? 'e2ec2f0a...' : 'eyJ... \u6216 http://localhost:1455/auth/callback?code=...') + '"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="oaok">\u5B8C\u6210\u6388\u6743</button></div>')
+      showM('<h3>' + svgIcon('key', 'c-p', 20) + ' ' + pname + ' \u6388\u6743</h3><p class="form-helper" style="margin-bottom:8px">\u5728\u6253\u5F00\u7684\u5B98\u65B9\u9875\u9762\u767B\u5F55\u5E76\u540C\u610F\u6388\u6743\u3002\u8DF3\u8F6C\u5230 <code>' + loopback + '</code> \u63D0\u793A\u300C\u65E0\u6CD5\u8BBF\u95EE\u300D\u5C5E\u6B63\u5E38\uFF0C\u590D\u5236\u5730\u5740\u680F <code>code=</code> \u540E\u9762\u90A3\u6BB5\u5230\u4E0B\u65B9\u3002</p><div class="fg"><label>code \u6216\u56DE\u8C03\u5730\u5740</label><textarea id="oacode" rows="3" class="fx1" placeholder="\u7C98\u8D34 code"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="oaok">\u5B8C\u6210\u6388\u6743</button></div>')
       const oaok = document.getElementById('oaok')
       oaok.onclick = async function () {
         const code = document.getElementById('oacode').value.trim()
@@ -16704,7 +18357,12 @@ async function oauthChannel(id) {
           if (dd.success && dd.data && dd.data.refresh_token) {
             closeM()
             addKeyValue(id, dd.data.refresh_token)
-            toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
+            var acctEmail = dd.data.email || ''
+            if (provType(id) === 'cline' && acctEmail) {
+              toast('\u5DF2\u83B7\u53D6\u8D26\u53F7 ' + acctEmail + ' \u7684 refreshToken\u3002\u82E5\u8FD9\u662F\u65E7\u8D26\u53F7\u800C\u975E\u8981\u65B0\u589E\u7684\u8D26\u53F7\uFF1A\u590D\u5236\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u5230\u65E0\u75D5\u7A97\u53E3\u91CD\u65B0\u6388\u6743\uFF08\u6388\u6743\u9875\u4F1A\u590D\u7528\u6D4F\u89C8\u5668\u5DF2\u767B\u5F55\u7684\u4F1A\u8BDD\uFF0C\u65E0\u6CD5\u4ECE\u94FE\u63A5\u5F3A\u5236\u5207\u6362\uFF09', 'success')
+            } else {
+              toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
+            }
             if (tr) showResult(tr, true, '')
           } else {
             toast(dd.message || '\u6362\u53D6 token \u5931\u8D25', 'error')
@@ -16713,29 +18371,24 @@ async function oauthChannel(id) {
         } catch (e) { toast('\u8BF7\u6C42\u5931\u8D25', 'error'); oaok.disabled = false }
       }
     } else if (d.data.mode === 'redirect-poll') {
-      // CodeBuddy(\u817E\u8BAF)\uFF1A\u6253\u5F00\u767B\u5F55\u9875\uFF0C\u767B\u5F55\u5B8C\u6210\u540E\u7F51\u5173\u81EA\u52A8\u8F6E\u8BE2\u6362\u53D6 refresh_token\uFF08\u65E0\u9700\u590D\u5236 code\uFF09
       window.open(d.data.url, '_blank')
-      const realmName = d.data.realm === 'global' ? '\u56FD\u9645\u7248 (workbuddy.ai)' : '\u56FD\u5185\u7248 (codebuddy.cn)'
-      showM('<h3><i class="fas fa-key c-p"></i> CodeBuddy \u6388\u6743</h3>'
-        + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5C1D\u8BD5\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u817E\u8BAF\u767B\u5F55\u9875\uFF08' + realmName + '\uFF09\u3002\u82E5\u6D4F\u89C8\u5668\u62E6\u622A\u4E86\u5F39\u7A97\uFF0C\u8BF7\u70B9\u4E0B\u9762\u7684\u6309\u94AE\u6253\u5F00\u3002\u7528\u4F60\u7684 CodeBuddy / WorkBuddy \u8D26\u53F7\u5B8C\u6210\u767B\u5F55\u5373\u53EF\uFF0C<b>\u65E0\u9700\u590D\u5236\u4EFB\u4F55 code</b> \u2014\u2014 \u767B\u5F55\u5B8C\u6210\u540E\u672C\u9875\u4F1A\u81EA\u52A8\u68C0\u6D4B\u5E76\u586B\u5165 refresh_token\u3002</p>'
-        + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(d.data.url) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> \u6253\u5F00\u767B\u5F55\u9875</a></p>'
-        + '<div class="fg"><label>\u6388\u6743\u94FE\u63A5\uFF08\u6253\u4E0D\u5F00\u65F6\u590D\u5236\u5230\u6D4F\u89C8\u5668\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(d.data.url) + '" readonly onclick="this.select()"></div>'
-        + '<div id="oadev" class="mu"><i class="fas fa-spinner fa-spin"></i> \u7B49\u5F85\u767B\u5F55\u5B8C\u6210...</div>'
+      const realmName = d.data.realm === 'global' ? '\u56FD\u9645\u7248 (workbuddy.ai)' : '\u56FD\u5185\u7248 (copilot.tencent.com)'
+      showM('<h3>' + svgIcon('key', 'c-p', 20) + ' CodeBuddy \u6388\u6743</h3>'
+        + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u817E\u8BAF\u767B\u5F55\u9875\uFF08' + realmName + '\uFF09\u3002\u7528\u8D26\u53F7\u5B8C\u6210\u767B\u5F55\u5373\u53EF\uFF0C<b>\u65E0\u9700\u590D\u5236 code</b> \u2014\u2014 \u767B\u5F55\u5B8C\u6210\u540E\u81EA\u52A8\u586B\u5165\u51ED\u636E\u3002</p>'
+        + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(d.data.url) + '" target="_blank" rel="noreferrer">' + svgIcon('external', '', 14) + ' \u6253\u5F00\u767B\u5F55\u9875</a></p>'
+        + '<div id="oadev" class="mu">' + svgIcon('spinner', 'spin', 14) + ' \u7B49\u5F85\u767B\u5F55\u5B8C\u6210...</div>'
         + '<div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button></div>')
       pollDeviceFlow(provider, d.data.state, id, tr, document.getElementById('oadev'))
     } else {
-      // \u8BBE\u5907\u7801\u6D41\u7A0B\uFF1A\u6253\u5F00\u5E26 user_code \u7684\u5B8C\u6574\u6388\u6743\u94FE\u63A5\uFF08\u7F3A user_code \u53C2\u6570\u65F6\u9875\u9762\u4F1A\u62A5\u9519\uFF09\uFF0C\u5E76\u81EA\u52A8\u8F6E\u8BE2
       const complete = d.data.verification_uri_complete
         || (d.data.verification_uri ? d.data.verification_uri + '?user_code=' + encodeURIComponent(d.data.user_code || '') : '')
       window.open(complete, '_blank')
       const pname = provider === 'kimi' ? 'Kimi' : provider === 'qwen' ? 'Qwen' : provider === 'cline' ? 'Cline' : 'Grok'
-      showM('<h3><i class="fas fa-key c-p"></i> ' + pname + ' \u8BBE\u5907\u7801\u6388\u6743</h3>'
-        + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5C1D\u8BD5\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u6388\u6743\u9875\u9762\uFF08\u94FE\u63A5\u5DF2\u81EA\u52A8\u5E26\u4E0A\u9A8C\u8BC1\u7801\uFF09\u3002\u82E5\u6D4F\u89C8\u5668\u62E6\u622A\u4E86\u5F39\u7A97\uFF0C\u8BF7\u70B9\u51FB\u4E0B\u9762\u7684\u6309\u94AE\u6253\u5F00\u2014\u2014<b>\u5FC5\u987B\u4F7F\u7528\u5E26 user_code \u7684\u5B8C\u6574\u94FE\u63A5</b>\uFF0C\u76F4\u63A5\u6253\u5F00\u9A8C\u8BC1\u5730\u5740\u4F1A\u63D0\u793A\u300C\u7F3A\u5C11 user_code \u53C2\u6570\u300D\u3002</p>'
-        + (provider === 'cline' ? '<p class="form-helper" style="margin-bottom:8px"><b>\u6DFB\u52A0\u7B2C\u4E8C\u4E2A\u8D26\u53F7\u65F6</b>\uFF1A\u6388\u6743\u9875\u4F1A\u590D\u7528\u6D4F\u89C8\u5668\u91CC\u5DF2\u767B\u5F55\u7684\u65E7\u8D26\u53F7\uFF08Cline \u767B\u5F55\u670D\u52A1\u7684\u884C\u4E3A\uFF0C\u94FE\u63A5\u5C42\u9762\u65E0\u6CD5\u5F3A\u5236\u5207\u6362\uFF09\u2014\u2014\u8BF7\u628A\u4E0B\u65B9\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u590D\u5236\u5230<b>\u65E0\u75D5\u7A97\u53E3</b>\u6253\u5F00\uFF0C\u7528\u65B0\u8D26\u53F7\u767B\u5F55\u5E76\u5B8C\u6210\u6388\u6743\u3002</p>' : '')
-        + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer"><i class="fas fa-external-link-alt" aria-hidden="true"></i> \u6253\u5F00\u6388\u6743\u9875\u9762</a></p>'
-        + '<div class="fg"><label>\u9A8C\u8BC1\u7801 User Code\uFF08\u9875\u9762\u8981\u6C42\u624B\u52A8\u8F93\u5165\u65F6\u4F7F\u7528\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(d.data.user_code || '') + '" readonly onclick="this.select()"></div>'
-        + '<div class="fg"><label>\u5B8C\u6574\u6388\u6743\u94FE\u63A5\uFF08\u6253\u4E0D\u5F00\u65F6\u590D\u5236\u5230\u6D4F\u89C8\u5668\uFF09</label><input type="text" class="fx1" value="' + escapeHtml(complete) + '" readonly onclick="this.select()"></div>'
-        + '<div id="oadev" class="mu"><i class="fas fa-spinner fa-spin"></i> \u7B49\u5F85\u6388\u6743\u786E\u8BA4...</div>'
+      showM('<h3>' + svgIcon('key', 'c-p', 20) + ' ' + pname + ' \u8BBE\u5907\u7801\u6388\u6743</h3>'
+        + '<p class="form-helper" style="margin-bottom:8px">\u5DF2\u5728\u65B0\u7A97\u53E3\u6253\u5F00\u6388\u6743\u9875\u9762\uFF08\u5DF2\u5E26\u9A8C\u8BC1\u7801\uFF09\u3002\u5B8C\u6210\u540E\u5C06\u81EA\u52A8\u586B\u5165\u51ED\u636E\u3002</p>'
+        + '<p style="margin:8px 0"><a class="btn btn-p" href="' + escapeHtml(complete) + '" target="_blank" rel="noreferrer">' + svgIcon('external', '', 14) + ' \u6253\u5F00\u6388\u6743\u9875\u9762</a></p>'
+        + '<div class="fg"><label>\u9A8C\u8BC1\u7801 User Code</label><input type="text" class="fx1" value="' + escapeHtml(d.data.user_code || '') + '" readonly onclick="this.select()"></div>'
+        + '<div id="oadev" class="mu">' + svgIcon('spinner', 'spin', 14) + ' \u7B49\u5F85\u6388\u6743\u786E\u8BA4...</div>'
         + '<div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button></div>')
       pollDeviceFlow(provider, d.data.state, id, tr, document.getElementById('oadev'))
     }
@@ -16744,10 +18397,8 @@ async function oauthChannel(id) {
   }
 }
 
-// \u8BBE\u5907\u7801\u6388\u6743\u8F6E\u8BE2\uFF08\u5F39\u7A97\u5173\u95ED\u540E\u81EA\u52A8\u505C\u6B62\uFF09
 async function pollDeviceFlow(provider, state, id, tr, boxEl) {
   const intervalMs = 5000
-  // \u7ED1\u5B9A\u672C\u6B21\u5F39\u7A97\u8282\u70B9: \u82E5\u8BE5\u8282\u70B9\u5DF2\u88AB\u65B0\u5F39\u7A97\u66FF\u6362(\u518D\u6B21\u70B9\u51FB\u6388\u6743), \u65E7\u6D41\u7A0B\u7ACB\u5373\u9000\u51FA, \u907F\u514D\u628A\u8FC7\u671F\u9519\u8BEF\u5199\u8FDB\u65B0\u5F39\u7A97
   const box = boxEl || document.getElementById('oadev')
   for (;;) {
     await new Promise(function (res) { setTimeout(res, intervalMs) })
@@ -16764,12 +18415,7 @@ async function pollDeviceFlow(provider, state, id, tr, boxEl) {
         if (!tok) { box.innerHTML = '<span class="c-e">\u6388\u6743\u6210\u529F\u4F46\u672A\u8FD4\u56DE\u4EE4\u724C\uFF0C\u8BF7\u91CD\u8BD5</span>'; return }
         addKeyValue(id, tok)
         closeM()
-        var acctEmail = d.data.email || ''
-        if (provider === 'cline' && acctEmail) {
-          toast('\u5DF2\u83B7\u53D6\u8D26\u53F7 ' + acctEmail + ' \u7684 refreshToken\u3002\u82E5\u8FD9\u662F\u65E7\u8D26\u53F7\u800C\u975E\u8981\u65B0\u589E\u7684\u8D26\u53F7\uFF1A\u590D\u5236\u5B8C\u6574\u6388\u6743\u94FE\u63A5\u5230\u65E0\u75D5\u7A97\u53E3\u91CD\u65B0\u6388\u6743\uFF08\u6388\u6743\u9875\u4F1A\u590D\u7528\u6D4F\u89C8\u5668\u5DF2\u767B\u5F55\u7684\u4F1A\u8BDD\uFF0C\u65E0\u6CD5\u4ECE\u94FE\u63A5\u5F3A\u5236\u5207\u6362\uFF09', 'success')
-        } else {
-          toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
-        }
+        toast('\u6388\u6743\u6210\u529F\uFF0Crefresh_token \u5DF2\u586B\u5165 API Keys\uFF0C\u4FDD\u5B58\u6E20\u9053\u540E\u751F\u6548', 'success')
         if (tr) showResult(tr, true, '')
         return
       }
@@ -16777,12 +18423,10 @@ async function pollDeviceFlow(provider, state, id, tr, boxEl) {
         box.innerHTML = '<span class="c-e">' + escapeHtml(d.data.message || '\u6388\u6743\u5931\u8D25') + '</span>'
         return
       }
-    } catch (e) {
-    }
+    } catch (e) { }
   }
 }
 
-// CodeBuddy: \u67E5\u8BE2\u8D26\u53F7\u79EF\u5206/\u5957\u9910\u4F59\u989D\uFF08\u53D6\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u51ED\u636E\uFF0C\u6216\u65B0\u589E\u6001\u8868\u5355\u91CC\u7684\u503C\uFF09
 async function codebuddyStatus(id) {
   const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
   const box = document.getElementById(id === 'new' ? 'cbst-new' : 'cbst-' + id)
@@ -16794,9 +18438,9 @@ async function codebuddyStatus(id) {
     const keys = getKeys(id)
     key = keys.length > 0 ? keys[0].key : ''
   }
-  if (!key) { toast('\u8BF7\u5148\u586B\u5199 refresh_token\uFF08\u6216\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u81EA\u52A8\u83B7\u53D6\uFF09', 'error'); return }
+  if (!key) { toast('\u8BF7\u5148\u586B\u5199 refresh_token', 'error'); return }
   if (tr) showSpinner(tr)
-  if (box) box.innerHTML = '<span class="mu"><i class="fas fa-spinner fa-spin"></i> \u67E5\u8BE2\u4E2D...</span>'
+  if (box) box.innerHTML = '<span class="mu">' + svgIcon('spinner', 'spin', 14) + ' \u67E5\u8BE2\u4E2D...</span>'
   try {
     const baseEl = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
     const baseUrl = baseEl ? baseEl.value.trim() : ''
@@ -16812,26 +18456,10 @@ async function codebuddyStatus(id) {
     }
     const s = d.data
     const num = function (v) { return (Number(v) || 0).toLocaleString() }
-    const cell = 'display:inline-block;min-width:96px;color:var(--text-dim,#888);font-size:12px'
-    const val = 'display:inline-block;font-weight:600'
-    let html = '<div style="padding:10px 12px;border:1px solid var(--border,#333);border-radius:8px;margin-top:8px">'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u8D26\u53F7</span><span style="' + val + '">' + escapeHtml(s.nickname || s.uid || '\u672A\u77E5') + '</span></div>'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u533A\u57DF</span><span style="' + val + '">' + (s.realm === 'global' ? '\u56FD\u9645\u7248 (workbuddy.ai)' : '\u56FD\u5185\u7248 (codebuddy.cn)') + '</span></div>'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u5269\u4F59\u79EF\u5206</span><span style="' + val + ';color:#22c55e">' + num(s.remain) + '</span></div>'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u5DF2\u7528 / \u603B\u91CF</span><span style="' + val + '">' + num(s.used) + ' / ' + num(s.size) + '</span></div>'
-      + '<div><span style="' + cell + '">\u5957\u9910\u6570</span><span style="' + val + '">' + (s.packs || 0) + '</span></div>'
+    let html = '<div class="quota-row" style="background:var(--bg-surface);padding:12px;border:1px solid var(--border-color);border-radius:var(--radius-md);margin-top:8px">'
+      + '<div><strong>\u8D26\u53F7\uFF1A</strong>' + escapeHtml(s.nickname || s.uid || '\u672A\u77E5') + ' \xB7 <strong>\u533A\u57DF\uFF1A</strong>' + (s.realm === 'global' ? '\u56FD\u9645\u7248' : '\u56FD\u5185\u7248') + '</div>'
+      + '<div style="margin-top:4px"><strong>\u5269\u4F59\u79EF\u5206\uFF1A</strong><span class="c-s">' + num(s.remain) + '</span> \xB7 <strong>\u5DF2\u7528/\u603B\u989D\uFF1A</strong>' + num(s.used) + ' / ' + num(s.size) + '</div>'
       + '</div>'
-    if (s.packages && s.packages.length) {
-      const th = 'text-align:left;padding:4px 8px;border-bottom:1px solid var(--border,#333);font-size:12px;color:var(--text-dim,#888)'
-      const td = 'padding:4px 8px;font-size:12px'
-      html += '<table style="border-collapse:collapse;margin-top:8px;width:100%"><thead><tr>'
-        + '<th style="' + th + '">\u5957\u9910</th><th style="' + th + '">\u5269\u4F59</th><th style="' + th + '">\u5DF2\u7528</th><th style="' + th + '">\u603B\u91CF</th><th style="' + th + '">\u5230\u671F</th>'
-        + '</tr></thead><tbody>'
-      for (const p of s.packages) {
-        html += '<tr><td style="' + td + '">' + escapeHtml(p.name) + '</td><td style="' + td + '">' + num(p.remain) + '</td><td style="' + td + '">' + num(p.used) + '</td><td style="' + td + '">' + num(p.size) + '</td><td style="' + td + '">' + escapeHtml(p.endTime || '-') + '</td></tr>'
-      }
-      html += '</tbody></table>'
-    }
     if (box) box.innerHTML = html
   } catch (e) {
     if (tr) showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25')
@@ -16839,7 +18467,6 @@ async function codebuddyStatus(id) {
   }
 }
 
-// CodeBuddy: \u6BCF\u65E5\u7B7E\u5230\uFF08\u5355\u8D26\u53F7\uFF0C\u53D6\u6E20\u9053\u7B2C\u4E00\u4E2A\u542F\u7528\u51ED\u636E\uFF1B\u540E\u7AEF\u7B7E\u5230\u6210\u529F\u540E\u4F1A\u987A\u5E26\u5237\u65B0\u4F59\u989D\uFF09
 async function codebuddyCheckin(id) {
   const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
   const box = document.getElementById(id === 'new' ? 'cbst-new' : 'cbst-' + id)
@@ -16851,9 +18478,9 @@ async function codebuddyCheckin(id) {
     const keys = getKeys(id)
     key = keys.length > 0 ? keys[0].key : ''
   }
-  if (!key) { toast('\u8BF7\u5148\u586B\u5199 refresh_token\uFF08\u6216\u70B9\u300C\u6388\u6743\u767B\u5F55\u300D\u81EA\u52A8\u83B7\u53D6\uFF09', 'error'); return }
+  if (!key) { toast('\u8BF7\u5148\u586B\u5199 refresh_token', 'error'); return }
   if (tr) showSpinner(tr)
-  if (box) box.innerHTML = '<span class="mu"><i class="fas fa-spinner fa-spin"></i> \u7B7E\u5230\u4E2D...</span>'
+  if (box) box.innerHTML = '<span class="mu">' + svgIcon('spinner', 'spin', 14) + ' \u7B7E\u5230\u4E2D...</span>'
   try {
     const baseEl = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
     const baseUrl = baseEl ? baseEl.value.trim() : ''
@@ -16870,19 +18497,9 @@ async function codebuddyCheckin(id) {
     }
     const s = d.data
     const num = function (v) { return (Number(v) || 0).toLocaleString() }
-    const cell = 'display:inline-block;min-width:96px;color:var(--text-dim,#888);font-size:12px'
-    const val = 'display:inline-block;font-weight:600'
-    let html = '<div style="padding:10px 12px;border:1px solid var(--border,#333);border-radius:8px;margin-top:8px">'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u7ED3\u679C</span><span style="' + val + ';color:#22c55e">' + (s.already ? '\u4ECA\u65E5\u5DF2\u7B7E\u5230' : '\u7B7E\u5230\u6210\u529F') + '</span></div>'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u8D26\u53F7</span><span style="' + val + '">' + escapeHtml(s.nickname || s.uid || '\u672A\u77E5') + '</span></div>'
-      + '<div style="margin-bottom:6px"><span style="' + cell + '">\u533A\u57DF</span><span style="' + val + '">' + (s.realm === 'global' ? '\u56FD\u9645\u7248 (workbuddy.ai)' : '\u56FD\u5185\u7248 (codebuddy.cn)') + '</span></div>'
-    if (typeof s.reward === 'number' && s.reward > 0) {
-      html += '<div style="margin-bottom:6px"><span style="' + cell + '">\u672C\u6B21\u5956\u52B1</span><span style="' + val + ';color:#22c55e">+' + num(s.reward) + '</span></div>'
-    }
-    if (typeof s.remain === 'number') {
-      html += '<div><span style="' + cell + '">\u5269\u4F59\u79EF\u5206</span><span style="' + val + ';color:#22c55e">' + num(s.remain) + '</span></div>'
-    }
-    html += '</div>'
+    let html = '<div class="quota-row" style="background:var(--bg-surface);padding:12px;border:1px solid var(--border-color);border-radius:var(--radius-md);margin-top:8px">'
+      + '<div><strong>\u72B6\u6001\uFF1A</strong><span class="c-s">' + (s.already ? '\u4ECA\u65E5\u5DF2\u7B7E\u5230' : '\u7B7E\u5230\u6210\u529F') + '</span> \xB7 <strong>\u5269\u4F59\u79EF\u5206\uFF1A</strong>' + num(s.remain) + '</div>'
+      + '</div>'
     if (box) box.innerHTML = html
   } catch (e) {
     if (tr) showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25')
@@ -16890,265 +18507,122 @@ async function codebuddyCheckin(id) {
   }
 }
 
-// DeepSeek: \u5F15\u5BFC\u5F0F\u5F39\u7A97\u6536 userToken\uFF08\u628A\u624B\u6284 localStorage \u7684\u6B65\u9AA4\u964D\u7EA7\u6210\u300C\u7C98\u4E00\u6BB5\u5B57\u7B26\u4E32\u300D\uFF09
+// \u2500\u2500 DeepSeek \u5F39\u7A97\u4E0E\u6821\u9A8C \u2500\u2500
 function openDeepseekTokenDialog(id) {
   const already = id === 'new'
     ? (document.querySelector('#akeys .aki') || {}).value || ''
     : (getKeys(id)[0] || {}).key || ''
   showM(
-    '<h3><i class="fas fa-key c-p"></i> \u83B7\u53D6\u5E76\u586B\u5165 userToken</h3>'
-    + '<p class="form-helper" style="margin-bottom:8px">'
-    + 'userToken \u662F DeepSeek \u7F51\u9875\u7248\u7684\u767B\u5F55\u51ED\u636E\uFF08JWT\uFF0C\u7EA6 24 \u5C0F\u65F6\u8FC7\u671F\uFF09\u3002\u6309\u4E0B\u9762\u4E09\u6B65\u53D6\u51FA\u6765\uFF0C\u7C98\u5230\u6846\u91CC\u5373\u53EF\u3002'
-    + '</p>'
-    + '<ol class="ds-steps">'
-    + '<li>\u6253\u5F00 <a href="https://chat.deepseek.com" target="_blank" rel="noopener noreferrer">chat.deepseek.com</a> \u5E76<b>\u767B\u5F55</b>\u4F60\u7684\u8D26\u53F7</li>'
-    + '<li>\u6309 <kbd>F12</kbd> \u6253\u5F00\u5F00\u53D1\u8005\u5DE5\u5177 \u2192 \u5207\u5230 <b>Application</b>\uFF08\u4E2D\u6587\u754C\u9762\u4E3A\u300C\u5E94\u7528\u300D\uFF09</li>'
-    + '<li>\u5DE6\u4FA7\u5C55\u5F00 <b>Local Storage</b> \u2192 \u70B9 <code>https://chat.deepseek.com</code>\uFF0C'
-    + '\u5728\u53F3\u4FA7\u5217\u8868\u627E\u5230 <code>userToken</code>\uFF0C\u53CC\u51FB\u5B83\u7684\u503C\u5168\u9009\u590D\u5236</li>'
-    + '</ol>'
-    + '<details class="ds-alt"><summary>\u627E\u4E0D\u5230 userToken\uFF1F\u6362\u4E2A\u4F4D\u7F6E\u627E\uFF08Console \u4E00\u884C\u547D\u4EE4\uFF09</summary>'
-    + '<p class="form-helper" style="margin:8px 0 4px">\u5728\u5F00\u53D1\u8005\u5DE5\u5177\u7684 <b>Console</b> \u91CC\u7C98\u8D34\u4E0B\u9762\u8FD9\u884C\u5E76\u56DE\u8F66\uFF0C'
-    + '\u5B83\u4F1A\u76F4\u63A5\u628A token \u590D\u5236\u5230\u526A\u8D34\u677F\uFF1A</p>'
-    + '<code class="ds-code">copy(localStorage.getItem(&#39;userToken&#39;))</code>'
-    + '</details>'
-    + '<div class="fg" style="margin-top:10px"><label for="ds-tok">\u7C98\u8D34 userToken</label>'
-    + '<textarea id="ds-tok" rows="4" class="fx1" placeholder="eyJhbGciOi...\uFF08\u4EE5 eyJ \u5F00\u5934\u7684\u957F\u5B57\u7B26\u4E32\uFF0C\u6216 sk- \u5F00\u5934\u7684\u5B98\u65B9 API Key\uFF09" spellcheck="false"></textarea>'
-    + '<span class="form-helper" id="ds-tok-hint">'
-    + '\u652F\u6301\u4E24\u79CD\u51ED\u636E\uFF1A<b>\u7F51\u9875 userToken</b>\uFF08<code>eyJ\u2026</code>\uFF09\u8D70\u7F51\u9875\u53CD\u4EE3\uFF0C\u9700 Workers Paid\uFF1B'
-    + '<b>\u5B98\u65B9 API Key</b>\uFF08<code>sk-\u2026</code>\uFF09\u76F4\u8FDE api.deepseek.com\uFF0C\u514D\u8D39\u7248\u4E5F\u80FD\u7528\u3002'
-    + '</span></div>'
+    '<h3>' + svgIcon('key', 'c-p', 20) + ' \u83B7\u53D6\u5E76\u586B\u5165 userToken</h3>'
+    + '<p class="form-helper" style="margin-bottom:8px">userToken \u662F DeepSeek \u7F51\u9875\u7248\u767B\u5F55\u51ED\u636E\u3002\u4ECE\u5F00\u53D1\u8005\u5DE5\u5177\u7684 Application -> Local Storage \u590D\u5236 userToken \u5373\u53EF\u3002</p>'
+    + '<div class="fg" style="margin-top:10px"><label for="ds-tok">\u7C98\u8D34 userToken \u6216\u5B98\u65B9 Key</label>'
+    + '<textarea id="ds-tok" rows="4" class="fx1" placeholder="eyJ... \u6216 sk-..."></textarea>'
+    + '<span class="form-helper" id="ds-tok-hint">\u652F\u6301\u7F51\u9875 userToken (eyJ...) \u6216\u5B98\u65B9 API Key (sk-...)</span></div>'
     + '<div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button>'
-    + '<button class="btn btn-p" id="ds-tok-ok"><i class="fas fa-check" aria-hidden="true"></i> \u586B\u5165\u5E76\u9A8C\u8BC1</button></div>'
+    + '<button class="btn btn-p" id="ds-tok-ok">' + svgIcon('check', '', 14) + ' \u586B\u5165\u5E76\u9A8C\u8BC1</button></div>'
   )
   const ta = document.getElementById('ds-tok')
   if (ta) {
     if (already) ta.value = already
     ta.focus()
-    // \u7C98\u8D34\u540E\u5373\u65F6\u63D0\u793A\u8BC6\u522B\u5230\u7684\u51ED\u636E\u7C7B\u578B
-    ta.addEventListener('input', function () {
-      const v = ta.value.trim()
-      const hint = document.getElementById('ds-tok-hint')
-      if (!hint) return
-      if (!v) { hint.classList.remove('c-e', 'c-s'); return }
-      const isOfficial = /^sk-[A-Za-z0-9]/.test(v)
-      const isJwt = /^eyJ[A-Za-z0-9_-]*./.test(v)
-      if (isOfficial) { hint.textContent = '\u2713 \u8BC6\u522B\u4E3A\u5B98\u65B9 API Key\uFF08sk- \u5F00\u5934\uFF09\u2192 \u76F4\u8FDE api.deepseek.com\uFF0C\u514D\u8D39\u7248\u53EF\u7528'; hint.classList.add('c-s'); hint.classList.remove('c-e') }
-      else if (isJwt) { hint.textContent = '\u2713 \u8BC6\u522B\u4E3A\u7F51\u9875 userToken\uFF08JWT\uFF09\u2192 \u8D70\u7F51\u9875\u53CD\u4EE3\uFF0C\u9700 Workers Paid'; hint.classList.add('c-s'); hint.classList.remove('c-e') }
-      else { hint.textContent = '\u26A0 \u770B\u8D77\u6765\u4E0D\u50CF sk- \u5F00\u5934\u7684 API Key\uFF0C\u4E5F\u4E0D\u50CF eyJ \u5F00\u5934\u7684 JWT\uFF0C\u8BF7\u786E\u8BA4\u590D\u5236\u5B8C\u6574'; hint.classList.add('c-e'); hint.classList.remove('c-s') }
-    })
   }
   const okBtn = document.getElementById('ds-tok-ok')
   if (okBtn) okBtn.onclick = function () { applyDeepseekToken(id) }
 }
 
-// DeepSeek \u65B9\u6848 B: \u8D26\u53F7\u6258\u7BA1\uFF08\u7F51\u5173\u4EE3\u767B\u5F55\uFF09\u5F39\u7A97
-// \u6536\u96C6\u90AE\u7BB1/\u624B\u673A\u53F7 + \u5BC6\u7801 -> \u540E\u7AEF\u52A0\u5BC6\u5B58\u50A8 -> \u7ACB\u523B\u4EE3\u767B\u5F55\u6362 userToken -> \u586B\u5165 API Keys
 function openDeepseekAccountDialog(id) {
   const el = document.getElementById('dsacc-' + id)
   const acc = el ? JSON.parse(el.textContent || '{}') : {}
   const has = !!(acc.hasPassword || acc.tokenSet)
   showM(
-    '<h3><i class="fas fa-user-shield c-p"></i> DeepSeek \u8D26\u53F7\u4EE3\u767B\u5F55</h3>'
-    + '<p class="form-helper" style="margin-bottom:8px">'
-    + '\u586B\u5165 DeepSeek \u7F51\u9875\u7248\u8D26\u53F7\uFF0C\u7F51\u5173\u4F1A\u7528<b>\u4E0E\u8BE5\u8D26\u53F7\u4E00\u81F4\u7684\u8BBE\u5907\u8EAB\u4EFD</b>\u8C03\u5B98\u65B9\u767B\u5F55\u63A5\u53E3\u6362\u53D6 userToken\uFF0C'
-    + '\u514D\u53BB\u624B\u52A8\u4ECE\u6D4F\u89C8\u5668\u62A0 token\u3002'
-    + '</p>'
-    + '<div class="ds-warn"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i>'
-    + '<div><b>\u5BC6\u7801\u4F1A\u4FDD\u5B58\u5728\u8FD9\u5957\u7F51\u5173\u91CC</b>\uFF08AES-GCM \u52A0\u5BC6\uFF0C\u5BC6\u94A5\u7531\u7BA1\u7406\u5458\u5BC6\u7801\u6D3E\u751F\uFF09\u3002'
-    + '\u82E5\u4F60\u6539\u8FC7\u7BA1\u7406\u5458\u5BC6\u7801\uFF0C\u5DF2\u5B58\u5BC6\u7801\u5C06\u65E0\u6CD5\u89E3\u5BC6\uFF0C\u9700\u8981\u91CD\u65B0\u586B\u5199\u3002'
-    + '\u4E0D\u60F3\u6258\u7BA1\u5BC6\u7801\uFF0C\u8BF7\u6539\u7528\u4E0A\u9762\u7684\u300C\u7C98\u8D34 userToken\u300D\u3002</div></div>'
-    + (has ? '<p class="form-helper" style="margin:8px 0"><b class="c-s">\u5DF2\u6258\u7BA1\uFF1A</b>'
-      + escapePageHtml(acc.mobile || acc.email || '')
-      + (acc.hasPassword ? ' \xB7 \u5DF2\u5B58\u5BC6\u7801' : ' \xB7 \u672A\u5B58\u5BC6\u7801')
-      + (acc.tokenSet ? ' \xB7 \u6301\u6709 token ' + escapePageHtml(acc.tokenPreview || '') : ' \xB7 \u65E0 token')
-      + (acc.lastLoginAt ? ' \xB7 \u4E0A\u6B21\u767B\u5F55 ' + escapePageHtml(String(acc.lastLoginAt).slice(0, 16).replace('T', ' ')) : '')
-      + (acc.lastLoginResult && acc.lastLoginResult !== 'ok' ? ' \xB7 <span class="c-e">\u4E0A\u6B21\uFF1A' + escapePageHtml(acc.lastLoginResult) + '</span>' : '')
-      + '</p>' : '')
-    + '<div class="fr">'
-    + '<div class="fg"><label for="dsa-mobile">\u624B\u673A\u53F7</label>'
-    + '<input type="text" id="dsa-mobile" placeholder="13800138000" autocomplete="off" value="' + escapePageHtml(acc.mobile || '') + '"></div>'
-    + '<div class="fg"><label for="dsa-area">\u533A\u53F7</label>'
-    + '<input type="text" id="dsa-area" placeholder="+86" value="' + escapePageHtml(acc.areaCode || '+86') + '"></div>'
-    + '</div>'
-    + '<div class="fg"><label for="dsa-email">\u6216\u7528\u90AE\u7BB1</label>'
-    + '<input type="text" id="dsa-email" placeholder="you@example.com" autocomplete="off" value="' + escapePageHtml(acc.email || '') + '">'
-    + '<span class="form-helper">\u624B\u673A\u53F7\u4E0E\u90AE\u7BB1\u586B\u4E00\u4E2A\u5373\u53EF\uFF1B\u90FD\u586B\u65F6\u4EE5\u624B\u673A\u53F7\u767B\u5F55\u3002</span></div>'
-    + '<div class="fg"><label for="dsa-pass">\u5BC6\u7801' + (acc.hasPassword ? '\uFF08\u7559\u7A7A\u5219\u7528\u5DF2\u5B58\u5BC6\u7801\uFF09' : '') + '</label>'
-    + '<input type="password" id="dsa-pass" placeholder="' + (acc.hasPassword ? '\u5DF2\u4FDD\u5B58\uFF0C\u7559\u7A7A\u6CBF\u7528' : 'DeepSeek \u767B\u5F55\u5BC6\u7801') + '" autocomplete="new-password">'
-    + '<span class="form-helper">\u5BC6\u7801\u53EA\u7528\u4E8E\u6362\u53D6 token\uFF0C\u4E0D\u4F1A\u56DE\u663E\uFF1B\u586B\u5199\u540E\u4F1A\u52A0\u5BC6\u4FDD\u5B58\uFF0C\u4E0B\u6B21\u53EF\u7559\u7A7A\u3002</span></div>'
-    + '<div class="fa">'
-    + (has ? '<button class="btn btn-s" id="dsa-clear"><i class="fas fa-trash" aria-hidden="true"></i> \u6E05\u9664\u6258\u7BA1</button>' : '')
-    + '<button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button>'
-    + '<button class="btn btn-p" id="dsa-ok"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> \u767B\u5F55\u5E76\u586B\u5165</button>'
-    + '</div>'
+    '<h3>' + svgIcon('shield', 'c-p', 20) + ' DeepSeek \u8D26\u53F7\u4EE3\u767B\u5F55</h3>'
+    + '<p class="form-helper" style="margin-bottom:8px">\u586B\u5165\u8D26\u53F7\u5BC6\u7801\uFF0C\u7F51\u5173\u5C06\u81EA\u52A8\u8C03\u7528\u5B98\u65B9\u767B\u5F55\u63A5\u53E3\u6362\u53D6 userToken\u3002\u5BC6\u7801\u5C06\u91C7\u7528 AES-GCM \u52A0\u5BC6\u5B58\u50A8\u3002</p>'
+    + '<div class="fg"><label>\u624B\u673A\u53F7 / \u90AE\u7BB1</label><input type="text" id="ds-acc-user" class="fx1" value="' + escapeHtml(acc.mobile || acc.email || '') + '"></div>'
+    + '<div class="fg"><label>\u5BC6\u7801</label><input type="password" id="ds-acc-pass" class="fx1" placeholder="\u8F93\u5165\u5BC6\u7801"></div>'
+    + '<div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button>'
+    + (has ? '<button class="btn btn-d" onclick="clearDeepseekAccount(\\'' + id + '\\')">\u6E05\u9664\u6258\u7BA1</button>' : '')
+    + '<button class="btn btn-p" onclick="submitDeepseekAccount(\\'' + id + '\\')">' + svgIcon('check', '', 14) + ' \u767B\u5F55\u5E76\u4FDD\u5B58</button></div>'
   )
-
-  const clearBtn = document.getElementById('dsa-clear')
-  if (clearBtn) clearBtn.onclick = function () { clearDeepseekAccount(id) }
-  const okBtn = document.getElementById('dsa-ok')
-  if (okBtn) okBtn.onclick = function () { submitDeepseekAccount(id) }
 }
 
-// \u63D0\u4EA4\u8D26\u53F7\u4EE3\u767B\u5F55\uFF1A\u5148\u5B58\u8D26\u53F7\uFF08\u53EF\u9009\u5BC6\u7801\uFF09\uFF0C\u518D\u89E6\u53D1\u767B\u5F55\uFF0C\u6210\u529F\u540E\u628A token \u5199\u8FDB API Keys
-async function submitDeepseekAccount(id) {
-  const mobile = (document.getElementById('dsa-mobile') || {}).value || ''
-  const area = (document.getElementById('dsa-area') || {}).value || ''
-  const email = (document.getElementById('dsa-email') || {}).value || ''
-  const pass = (document.getElementById('dsa-pass') || {}).value || ''
-  if (!mobile.trim() && !email.trim()) { toast('\u8BF7\u586B\u5199\u624B\u673A\u53F7\u6216\u90AE\u7BB1', 'error'); return }
-  if (id === 'new') { toast('\u8BF7\u5148\u521B\u5EFA\u6E20\u9053\uFF0C\u518D\u914D\u7F6E\u8D26\u53F7\u4EE3\u767B\u5F55', 'error'); return }
-
-  const okBtn = document.getElementById('dsa-ok')
-  if (okBtn) { okBtn.disabled = true; okBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> \u767B\u5F55\u4E2D\u2026' }
-
-  try {
-    // 1) \u4FDD\u5B58\u8D26\u53F7\u4FE1\u606F\uFF08\u542B\u5BC6\u7801\uFF0C\u82E5\u6709\uFF09
-    const saveBody = { mobile: mobile.trim(), areaCode: area.trim(), email: email.trim() }
-    if (pass) saveBody.password = pass
-    const sr = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/ds-account', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(saveBody),
-    })
-    const sj = await sr.json().catch(function () { return {} })
-    if (!sr.ok || sj.success === false) {
-      throw new Error((sj.message || sj.error && sj.error.message || '\u4FDD\u5B58\u8D26\u53F7\u5931\u8D25'))
-    }
-
-    // 2) \u89E6\u53D1\u4EE3\u767B\u5F55
-    const lr = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/ds-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pass ? { password: pass } : {}),
-    })
-    const lj = await lr.json().catch(function () { return {} })
-    if (!lj.success) {
-      const msg = lj.message || '\u767B\u5F55\u5931\u8D25'
-      if (okBtn) { okBtn.disabled = false; okBtn.innerHTML = '<i class="fas fa-rotate-right" aria-hidden="true"></i> \u91CD\u8BD5' }
-      toast('\u4EE3\u767B\u5F55\u5931\u8D25\uFF1A' + msg, 'error')
-      location.reload() // \u5237\u65B0\uFF0C\u8BA9\u300C\u4E0A\u6B21\uFF1Axxx\u300D\u663E\u793A\u51FA\u6765
-      return
-    }
-    const token = lj.data && lj.data.dsAccount && lj.data.dsAccount.userToken
-    if (!token) {
-      toast('\u767B\u5F55\u6210\u529F\u4F46\u672A\u8FD4\u56DE token\uFF0C\u8BF7\u91CD\u8BD5', 'error')
-      if (okBtn) { okBtn.disabled = false; okBtn.innerHTML = '<i class="fas fa-rotate-right" aria-hidden="true"></i> \u91CD\u8BD5' }
-      return
-    }
-
-    // 3) \u628A token \u5199\u8FDB\u8BE5\u6E20\u9053\u7684 API Keys \u8F93\u5165\u6846
-    fillDeepseekKeyInput(id, token)
-    toast(lj.message || '\u4EE3\u767B\u5F55\u6210\u529F\uFF0CuserToken \u5DF2\u586B\u5165\uFF0C\u8BF7\u70B9\u300C\u4FDD\u5B58\u300D', 'success')
-    closeM()
-    location.reload()
-  } catch (e) {
-    if (okBtn) { okBtn.disabled = false; okBtn.innerHTML = '<i class="fas fa-right-to-bracket" aria-hidden="true"></i> \u767B\u5F55\u5E76\u586B\u5165' }
-    toast(String(e && e.message || e), 'error')
-  }
-}
-
-// \u79FB\u9664\u8D26\u53F7\u6258\u7BA1\uFF08\u6E05\u5BC6\u7801\u4E0E token\uFF09
-async function clearDeepseekAccount(id) {
-  const yes = await cM('\u786E\u5B9A\u6E05\u9664\u8BE5\u6E20\u9053\u6258\u7BA1\u7684 DeepSeek \u8D26\u53F7\uFF1F\u5DF2\u4FDD\u5B58\u7684\u5BC6\u7801\u4E0E token \u90FD\u4F1A\u88AB\u5220\u9664\u3002')
-  if (!yes) return
-  try {
-    const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/ds-account', { method: 'DELETE' })
-    const j = await r.json().catch(function () { return {} })
-    if (!j.success) { toast('\u6E05\u9664\u5931\u8D25\uFF1A' + (j.message || '\u672A\u77E5\u9519\u8BEF'), 'error'); return }
-    toast('\u5DF2\u6E05\u9664\u6258\u7BA1\u8D26\u53F7', 'success')
-    closeM()
-    location.reload()
-  } catch (e) { toast('\u6E05\u9664\u5931\u8D25\uFF1A' + String(e && e.message || e), 'error') }
-}
-
-// \u628A DeepSeek token \u5199\u8FDB\u6307\u5B9A\u6E20\u9053\u7684 API Keys \u8F93\u5165\u6846\uFF08\u4F9B\u4EE3\u767B\u5F55\u4E0E\u7C98\u8D34\u5171\u7528\uFF09
 function fillDeepseekKeyInput(id, v) {
-  let input = null
-  if (id === 'new') {
-    input = document.querySelector('#akeys .aki')
-    if (!input && typeof addAKeyRow === 'function') { addAKeyRow(); input = document.querySelector('#akeys .aki:last-of-type') }
-  } else {
-    const rows = document.querySelectorAll('#keys-' + id + ' [data-kidx]')
-    if (rows.length > 0) {
-      input = document.getElementById('k-' + id + '-0')
-    } else {
-      const nk = document.getElementById('nk-' + id)
-      if (nk) nk.value = v
-      if (typeof addKeyRow === 'function') addKeyRow(id)
-      input = document.getElementById('k-' + id + '-0')
-    }
-  }
-  if (!input) {
-    input = document.querySelector('#akeys .aki')
-      || document.querySelector('#keys-' + id + ' input[type="text"]')
-      || document.getElementById('nk-' + id)
-  }
-  if (input) {
-    input.value = v
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    return true
-  }
-  return false
-}
-
-// \u628A\u5F39\u7A97\u91CC\u7684 token \u5199\u8FDB\u6E20\u9053\u7684 API Keys \u8F93\u5165\u6846\uFF0C\u7136\u540E\u7ACB\u523B\u6821\u9A8C
-async function applyDeepseekToken(id) {
-  const ta = document.getElementById('ds-tok')
-  const v = ta ? ta.value.trim() : ''
-  if (!v) { toast('\u8BF7\u5148\u7C98\u8D34 userToken', 'error'); return }
-  const okBtn = document.getElementById('ds-tok-ok')
-  if (okBtn) { okBtn.disabled = true; okBtn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> \u9A8C\u8BC1\u4E2D\u2026' }
-
-  // \u5199\u5165 API Keys \u8F93\u5165\u6846\uFF08\u903B\u8F91\u4E0E\u4EE3\u767B\u5F55\u5171\u7528\uFF0C\u542B\u515C\u5E95\u94FE\u8DEF\uFF0C\u7EDD\u4E0D\u9759\u9ED8\u4E22\u503C\uFF09
-  if (!fillDeepseekKeyInput(id, v)) {
-    toast('\u672A\u627E\u5230\u53EF\u5199\u5165\u7684 API Key \u8F93\u5165\u6846\uFF0C\u8BF7\u624B\u52A8\u7C98\u8D34', 'error')
-    return
-  }
-
-  // \u7ACB\u5373\u6821\u9A8C
-  let success = false, message = ''
-  try {
-    const r = await testKeyConnection(OAUTH_DEFAULT_URLS.deepseek, 'openai', v, id, '', false, 'deepseek', '')
-    success = r.success; message = r.message || ''
-  } catch (e) { message = '\u8BF7\u6C42\u5931\u8D25' }
-
-  if (success) {
-    toast('\u51ED\u636E\u6709\u6548\uFF0C\u5DF2\u586B\u5165\u5E76\u4FDD\u5B58\u524D\u8BF7\u70B9\u300C\u4FDD\u5B58\u300D', 'success')
-    closeM()
-    const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
-    if (tr) showResult(tr, true, '')
-  } else {
-    // \u6821\u9A8C\u5931\u8D25\u4E5F\u4FDD\u7559\u586B\u5165\u7684\u503C\uFF0C\u53EA\u63D0\u793A\uFF08\u907F\u514D\u7528\u6237\u767D\u7C98\u8D34\u4E00\u6B21\uFF09
-    if (okBtn) { okBtn.disabled = false; okBtn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> \u91CD\u65B0\u9A8C\u8BC1' }
-    toast('\u51ED\u636E\u6821\u9A8C\u672A\u901A\u8FC7\uFF1A' + (message || '\u65E0\u6548'), 'error')
-  }
-}
-
-// DeepSeek: \u7528\u5F53\u524D\u586B\u5199\u7684 userToken \u6821\u9A8C\u51ED\u636E\u6709\u6548\u6027\uFF08/users/current\uFF09
-async function verifyDeepseek(id) {
-  const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
-  let key = ''
   if (id === 'new') {
     const first = document.querySelector('#akeys .aki')
-    key = first ? first.value.trim() : ''
+    if (first) first.value = v
+    else addAKeyRow(v)
   } else {
-    const keys = getKeys(id)
-    key = keys.length > 0 ? keys[0].key : ''
+    const list = document.getElementById('keys-' + id)
+    const first = list ? list.querySelector('input[type=text]') : null
+    if (first) first.value = v
+    else addKeyRow(id)
   }
-  if (!key) { toast('\u8BF7\u5148\u586B\u5199 userToken', 'error'); return }
-  if (tr) showSpinner(tr)
-  try {
-    const r = await testKeyConnection(OAUTH_DEFAULT_URLS.deepseek, 'openai', key, id, '', false, 'deepseek', '')
-    if (tr) showResult(tr, r.success, r.success ? '' : (r.message || '\u51ED\u636E\u65E0\u6548'))
-    if (!r.success) toast(r.message || '\u51ED\u636E\u6821\u9A8C\u5931\u8D25', 'error')
-  } catch (e) { if (tr) showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25') }
 }
 
-// \u62C9\u53D6 OAuth \u6E20\u9053\u53EF\u7528\u6A21\u578B\uFF08claude / kimi\uFF09\u5E76\u8FFD\u52A0\u5230\u6A21\u578B\u5217\u8868
+async function submitDeepseekAccount(id) {
+  const u = (document.getElementById('ds-acc-user').value || '').trim()
+  const p = document.getElementById('ds-acc-pass').value
+  if (!u || !p) { toast('\u8BF7\u586B\u5199\u8D26\u53F7\u548C\u5BC6\u7801', 'error'); return }
+  toast('\u767B\u5F55\u4E2D\u2026', 'success')
+  try {
+    const r = await fetch('/admin/api/deepseek/account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerId: id === 'new' ? (document.getElementById('aid').value.trim() || 'deepseek') : id, username: u, password: p }),
+    })
+    const d = await r.json()
+    if (!d.success) { toast(d.message || '\u767B\u5F55\u5931\u8D25', 'error'); return }
+    if (d.data && d.data.userToken) {
+      fillDeepseekKeyInput(id, d.data.userToken)
+      toast('\u767B\u5F55\u6210\u529F\uFF0CuserToken \u5DF2\u586B\u5165 API Keys', 'success')
+    }
+    closeM()
+  } catch (e) { toast('\u767B\u5F55\u8BF7\u6C42\u5931\u8D25', 'error') }
+}
+
+async function clearDeepseekAccount(id) {
+  if (!(await cM('\u786E\u5B9A\u6E05\u9664\u6B64\u6258\u7BA1\u8D26\u53F7\uFF1F'))) return
+  try {
+    const r = await fetch('/admin/api/deepseek/account', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerId: id === 'new' ? (document.getElementById('aid').value.trim() || 'deepseek') : id }),
+    })
+    const d = await r.json()
+    toast(d.success ? '\u5DF2\u6E05\u9664' : (d.message || '\u6E05\u9664\u5931\u8D25'), d.success ? 'success' : 'error')
+    closeM()
+  } catch (e) { toast('\u6E05\u9664\u8BF7\u6C42\u5931\u8D25', 'error') }
+}
+
+async function applyDeepseekToken(id) {
+  const tok = (document.getElementById('ds-tok').value || '').trim()
+  if (!tok) { toast('\u8BF7\u586B\u5199 token', 'error'); return }
+  fillDeepseekKeyInput(id, tok)
+  closeM()
+  toast('\u5DF2\u586B\u5165\u51ED\u636E\uFF0C\u6B63\u5728\u6821\u9A8C\u2026', 'success')
+  await verifyDeepseek(id)
+}
+
+async function verifyDeepseek(id) {
+  const key = id === 'new'
+    ? ((document.querySelector('#akeys .aki') || {}).value || '').trim()
+    : ((getKeys(id)[0] || {}).key || '').trim()
+  if (!key) { toast('\u8BF7\u5148\u586B\u5199 API Key \u6216 userToken', 'error'); return }
+  toast('\u6821\u9A8C\u51ED\u636E\u4E2D\u2026', 'success')
+  try {
+    const r = await fetch('/admin/api/test-key', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://chat.deepseek.com', apiKey: key, apiType: 'openai', providerType: 'deepseek' })
+    })
+    const d = await r.json()
+    if (d.success && d.data && d.data.success) {
+      toast('\u51ED\u636E\u6709\u6548', 'success')
+    } else {
+      toast('\u51ED\u636E\u65E0\u6548: ' + ((d.data && d.data.message) || d.message || '\u9A8C\u8BC1\u5931\u8D25'), 'error')
+    }
+  } catch (e) { toast('\u6821\u9A8C\u8BF7\u6C42\u5931\u8D25', 'error') }
+}
+
 async function fetchOAuthModels(id) {
-  const provider = provType(id)
-  if (!isOauthType(provider) && !isDeepseekType(provider)) { toast('\u5F53\u524D\u6E20\u9053\u7C7B\u578B\u4E0D\u652F\u6301', 'error'); return }
   const tr = document.getElementById(id === 'new' ? 'atestR' : 'tr-' + id)
+  const provider = provType(id)
   let key = ''
   if (id === 'new') {
     const first = document.querySelector('#akeys .aki')
@@ -17160,56 +18634,55 @@ async function fetchOAuthModels(id) {
   if (!key) { toast('\u8BF7\u5148\u586B\u5199\u6216\u6388\u6743\u83B7\u53D6 refresh_token', 'error'); return }
   if (tr) showSpinner(tr)
   try {
-    const baseEl2 = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
-    const netBase = baseEl2 ? baseEl2.value.trim() : ''
-    const r = await fetch('/admin/api/oauth/' + provider + '/models', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: key, baseUrl: netBase, region: cbRegionValue(id) }) })
+    const baseEl = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
+    const baseUrl = baseEl ? baseEl.value.trim() : ''
+    const r = await fetch('/admin/api/oauth/' + provider + '/models', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: key, baseUrl: baseUrl, region: cbRegionValue(id) })
+    })
     const d = await r.json()
-    if (!d.success || !d.data || !d.data.models || d.data.models.length === 0) {
-      if (tr) showResult(tr, false, (d.data && d.data.message) || d.message || '\u672A\u83B7\u53D6\u5230\u6A21\u578B\uFF0C\u8BF7\u624B\u52A8\u586B\u5199')
-      return
-    }
-    const models = d.data.models
+    if (!d.success) { if (tr) showResult(tr, false, d.message || '\u83B7\u53D6\u5931\u8D25'); return }
+    const models = (d.data && d.data.models) || []
+    if (!models.length) { if (tr) showResult(tr, false, '\u672A\u89E3\u6790\u5230\u6A21\u578B'); return }
     const existing = {}
     const sel = id === 'new' ? '#amodels .ami' : '#ml-' + id + ' [data-idx] input'
     document.querySelectorAll(sel).forEach(function (inp) { if (inp.value.trim()) existing[inp.value.trim()] = 1 })
     const toAdd = models.filter(function (m) { return !existing[m] })
     toAdd.forEach(function (m) { if (id === 'new') addMdlToForm(m); else addMdlToEdit(id, m) })
-    toast('\u5DF2\u6DFB\u52A0 ' + toAdd.length + ' \u4E2A\u6A21\u578B' + (toAdd.length < models.length ? '\uFF08\u8DF3\u8FC7 ' + (models.length - toAdd.length) + ' \u4E2A\u5DF2\u5B58\u5728\uFF09' : ''), 'success')
+    toast('\u5DF2\u6DFB\u52A0 ' + toAdd.length + ' \u4E2A\u6A21\u578B', 'success')
     if (tr) showResult(tr, true, '')
   } catch (e) { if (tr) showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25') }
 }
-// \u670D\u52A1\u7AEF\u6CE8\u5165\u7684 Antigravity \u6E20\u9053/\u8D26\u53F7\u6E05\u5355\uFF08\u4E0D\u542B\u51ED\u636E\uFF09\uFF0C\u7528\u4E8E\u8FDB\u5165\u989D\u5EA6\u9875\u65F6\u5148\u5217\u51FA\u8D26\u53F7
-let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
-let quotaReady = false
 
-// \u9876\u90E8\u300C\u5237\u65B0\u8D26\u53F7\u300D\uFF1A\u91CD\u8BFB\u6E20\u9053/\u8D26\u53F7\u6E05\u5355\u5E76\u91CD\u65B0\u5217\u51FA\u8D26\u53F7\uFF08\u4E0D\u67E5\u8BE2\u989D\u5EA6\uFF09
+// \u2500\u2500 \u989D\u5EA6 Quota \u7BA1\u7406 \u2500\u2500
+let quotaReady = false
 async function refreshAgAccounts() {
+  const box = document.getElementById('quotaBody')
+  if (!box) return
+  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">' + svgIcon('spinner', 'spin', 14) + ' \u6B63\u5728\u5237\u65B0\u8D26\u53F7\u2026</div>'
   try {
     const r = await fetch('/admin/api/antigravity/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     const d = await r.json()
-    if (d.success && d.data && Array.isArray(d.data.channels)) {
-      AG_CHANNELS = d.data.channels
-      const badge = document.querySelector('.admin-nav__link[href="#quota"] b')
-      if (badge) badge.textContent = String(AG_CHANNELS.reduce(function (n, c) { return n + (c.accountCount || 0) }, 0))
+    if (!d.success || !d.data || !Array.isArray(d.data.channels)) {
+      box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">' + escapeHtml(d.message || '\u83B7\u53D6\u8D26\u53F7\u5931\u8D25') + '</div>'
+      return
     }
-  } catch (e) { /* \u4FDD\u7559\u73B0\u6709\u6E05\u5355 */ }
-  quotaReady = false
-  renderQuotaSkeleton()
-  toast('\u8D26\u53F7\u5217\u8868\u5DF2\u5237\u65B0', 'success')
+    AG_CHANNELS = d.data.channels
+    renderQuotaSkeleton()
+    toast('\u5DF2\u5237\u65B0\u8D26\u53F7\u5217\u8868', 'success')
+  } catch (e) { box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">\u8BF7\u6C42\u5931\u8D25</div>' }
 }
 
-// \u8FDB\u5165\u989D\u5EA6\u9875\u65F6\uFF08\u5C1A\u672A\u67E5\u8BE2\u8FC7\uFF09\u5148\u5217\u51FA\u8D26\u53F7\u9AA8\u67B6\uFF0C\u6BCF\u6761\u5E26\u300C\u67E5\u8BE2\u300D\u6309\u94AE
 function renderQuotaSkeleton() {
   const box = document.getElementById('quotaBody')
   if (!box) return
   if (!AG_CHANNELS.length) {
-    box.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-gauge-high" aria-hidden="true"></i><h3>\u6682\u65E0 Antigravity \u6E20\u9053</h3><p>\u6DFB\u52A0\u4E00\u4E2A Antigravity \u53CD\u4EE3\u6E20\u9053\u540E\u5373\u53EF\u67E5\u770B\u989D\u5EA6\u3002</p></div>'
+    box.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' + svgIcon('gauge', '', 36) + '<h3>\u6682\u65E0 Antigravity \u6E20\u9053</h3><p>\u6DFB\u52A0\u4E00\u4E2A Antigravity \u53CD\u4EE3\u6E20\u9053\u540E\u5373\u53EF\u67E5\u770B\u989D\u5EA6\u3002</p></div>'
     return
   }
   box.innerHTML = renderQuotaCards(AG_CHANNELS)
 }
 
-// \u989D\u5EA6\u91CD\u7F6E\u65F6\u95F4\u683C\u5F0F\u5316\uFF1A\u76F8\u5BF9\u300C\u591A\u4E45\u540E\u91CD\u7F6E\u300D+ \u5177\u4F53\u672C\u5730\u65F6\u95F4
 function fmtResetIn(iso) {
   const t = Date.parse(iso)
   if (isNaN(t)) return ''
@@ -17229,40 +18702,34 @@ function fmtResetLocal(iso) {
 }
 
 function renderAgQuota(a, chId) {
-  const mail = a.email ? '<code style="font-size:11px;font-weight:400">' + escapeHtml(a.email) + '</code>' : ''
-  // \u8BA2\u9605\u770B paidTier\uFF1Ag1-pro-tier \u8FD9\u7C7B\u624D\u4EE3\u8868 Google AI \u5957\u9910\u771F\u7684\u751F\u6548\uFF08currentTier \u53EA\u53CD\u6620\u914D\u7F6E\u5C42\uFF0C\u514D\u8D39\u8D26\u53F7\u4E00\u5F8B free-tier\uFF09
+  const mail = a.email ? '<code style="font-size:12px;font-weight:500;color:var(--text-primary)">' + escapeHtml(a.email) + '</code>' : ''
   const paid = (a.paidTierId && a.paidTierId !== 'free-tier')
-    ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">' + escapeHtml(a.paidTier || a.paidTierId) + '</span>'
-    : ''
+    ? '<span class="bd bd-on">' + escapeHtml(a.paidTier || a.paidTierId) + '</span>'
+    : '<span class="bd bd-off">Free</span>'
   const tierTxt = a.tierId ? (a.tier && a.tier !== 'Antigravity' ? a.tier + ' \xB7 ' + a.tierId : a.tierId) : (a.tier || '')
-  const info = '<span class="fc" style="gap:8px;align-items:center;flex-wrap:wrap"><strong>\u8D26\u53F7 #' + (a.index + 1) + '</strong>' + mail + paid + '<span class="form-helper">' + escapeHtml(tierTxt) + (a.project ? ' \xB7 ' + escapeHtml(a.project) : '') + '</span></span>'
-  const btn = (chId === undefined || chId === null) ? '' : '<button class="btn btn-s" type="button" data-agq="' + chId + '" data-agi="' + a.index + '"><i class="fas fa-magnifying-glass" aria-hidden="true"></i>\u67E5\u8BE2</button>'
-  const head = '<div class="fc" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' + info + btn + '</div>'
-  // Google \u539F\u8BDD\uFF1A\u5957\u9910\u672A\u751F\u6548\u65F6\u7684\u89E3\u91CA\uFF08\u542B\u8BF4\u660E\u94FE\u63A5\uFF09+ \u4E0D\u5177\u5907\u67D0\u5C42\u8D44\u683C\u7684\u539F\u56E0
-  const notes = (a.tierNote ? '<div class="form-helper" style="margin-top:4px">Google\uFF1A' + escapeHtml(a.tierNote) + (a.tierNoteUrl ? ' <a href="' + escapeHtml(a.tierNoteUrl) + '" target="_blank" rel="noopener">\u8BF4\u660E</a>' : '') + '</div>' : '')
-    + (a.ineligible ? '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.ineligible) + '</div>' : '')
+  const info = '<span class="fc" style="gap:8px;align-items:center;flex-wrap:wrap"><strong>\u8D26\u53F7 #' + (a.index + 1) + '</strong>' + mail + paid + '<span class="form-helper">' + escapeHtml(tierTxt) + '</span></span>'
+  const btn = (chId === undefined || chId === null) ? '' : '<button class="btn btn-s" type="button" data-agq="' + chId + '" data-agi="' + a.index + '">' + svgIcon('refresh', '', 12) + ' \u67E5\u8BE2</button>'
+  const head = '<div class="quota-card__head">' + info + btn + '</div>'
   if (!a.ok) {
     const isErr = !!a.error
-    const bg = isErr ? 'rgba(220,38,38,.08)' : 'rgba(127,127,127,.08)'
     const msg = isErr
-      ? '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.error) + '</div>'
-      : '<div class="form-helper" style="margin-top:4px">\u672A\u67E5\u8BE2\uFF0C\u70B9\u53F3\u4FA7\u300C\u67E5\u8BE2\u300D\u83B7\u53D6\u8BE5\u8D26\u53F7\u989D\u5EA6\u3002</div>'
-    return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:' + bg + '">' + head + msg + notes + '</div>'
+      ? '<div class="al al-e" style="margin-top:8px">' + escapeHtml(a.error) + '</div>'
+      : '<div class="form-helper" style="margin-top:8px">\u672A\u67E5\u8BE2\uFF0C\u70B9\u51FB\u4E0A\u65B9\u300C\u67E5\u8BE2\u300D\u83B7\u53D6\u989D\u5EA6\u8BE6\u60C5\u3002</div>'
+    return '<div class="quota-row">' + head + msg + '</div>'
   }
   const rows = (a.models || []).map(function (m) {
     const pct = (m.remaining === null || m.remaining === undefined) ? null : Math.round(m.remaining * 100)
-    const color = pct === null ? '#9ca3af' : pct > 50 ? '#16a34a' : pct > 10 ? '#d97706' : '#dc2626'
-    const bar = pct === null ? '' : '<span style="display:inline-block;width:80px;height:6px;border-radius:3px;background:rgba(127,127,127,.2);overflow:hidden;vertical-align:middle"><span style="display:block;height:100%;width:' + pct + '%;background:' + color + '"></span></span>'
-    const reset = m.resetTime ? '<span class="form-helper" style="font-size:11px;white-space:nowrap" title="' + escapeHtml(fmtResetLocal(m.resetTime)) + '">' + escapeHtml(fmtResetIn(m.resetTime)) + '</span>' : ''
-    return '<div class="fc" style="justify-content:space-between;gap:8px;padding:2px 0;font-size:12px"><code style="font-size:11px">' + escapeHtml(m.id) + '</code><span class="fc" style="gap:6px;align-items:center">' + reset + bar + '<span style="min-width:38px;text-align:right">' + (pct === null ? '\u2014' : pct + '%') + '</span></span></div>'
+    const color = pct === null ? 'var(--text-subtle)' : pct > 50 ? 'var(--success)' : pct > 10 ? 'var(--warning)' : 'var(--danger)'
+    const bar = pct === null ? '' : '<span class="quota-bar"><span class="quota-bar__fill" style="width:' + pct + '%;background:' + color + '"></span></span>'
+    const reset = m.resetTime ? '<span class="form-helper" style="font-size:11px" title="' + escapeHtml(fmtResetLocal(m.resetTime)) + '">' + escapeHtml(fmtResetIn(m.resetTime)) + '</span>' : ''
+    return '<div class="quota-row__info"><code>' + escapeHtml(m.id) + '</code><span class="fc" style="gap:6px;flex-wrap:wrap">' + reset + bar + '<strong style="min-width:36px;text-align:right">' + (pct === null ? '\u2014' : pct + '%') + '</strong></span></div>'
   }).join('')
-  return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08)">' + head + notes + '<div class="quota-models">' + rows + '</div></div>'
+  return '<div class="quota-row">' + head + '<div style="margin-top:10px">' + rows + '</div></div>'
 }
 
-// \u8D26\u53F7\u5361\u7247\u533A\uFF1Achannels \u65E2\u53EF\u4EE5\u662F\u8D26\u53F7\u9AA8\u67B6\uFF08\u6709 accountCount\u3001\u65E0 accounts\uFF09\uFF0C\u4E5F\u53EF\u4EE5\u662F\u67E5\u8BE2\u7ED3\u679C\uFF08\u6709 accounts\uFF09
 function renderQuotaCards(channels) {
   return channels.map(function (ch) {
-    const head = '<div class="fc" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">' + escapeHtml(ch.name) + ' <code style="font-size:11px;font-weight:400">' + escapeHtml(ch.id) + '</code></h3></div>'
+    const head = '<div class="quota-card__head"><div class="quota-card__identity"><h4>' + escapeHtml(ch.name) + '</h4><code style="font-size:11px;color:var(--text-muted)">' + escapeHtml(ch.id) + '</code></div></div>'
     let accts = ''
     if (ch.accounts && ch.accounts.length) {
       ch.accounts.forEach(function (a) {
@@ -17273,18 +18740,17 @@ function renderQuotaCards(channels) {
         accts += '<div class="ag-acct" id="agacct-' + ch.id + '-' + i + '">' + renderAgQuota({ index: i, ok: false, models: [] }, ch.id) + '</div>'
       }
     } else {
-      accts = '<div class="form-helper" style="padding:8px 0">\u8BE5\u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E</div>'
+      accts = '<div class="form-helper" style="padding:8px 0">\u8BE5\u6E20\u9053\u672A\u914D\u7F6E\u53EF\u7528\u51ED\u636E</div>'
     }
     return '<article class="quota-card">' + head + accts + '</article>'
   }).join('')
 }
 
-// \u4E00\u6B21\u67E5\u5B8C\u6240\u6709\u6E20\u9053\u6240\u6709\u8D26\u53F7\uFF08\u6BCF\u4E2A\u8D26\u53F7\u8981\u95EE\u4E00\u6B21\u4E0A\u6E38\uFF0C\u8D26\u53F7\u591A\u65F6\u6162\uFF0C\u6545\u7ED9\u8FDB\u5EA6\u63D0\u793A\uFF09
 async function queryAllAgQuota() {
   const box = document.getElementById('quotaBody')
   if (!box) return
   quotaReady = true
-  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u6B63\u5728\u67E5\u8BE2\u5168\u90E8\u8D26\u53F7\uFF08\u542B\u8BA2\u9605\u5C42\u4E0E\u90AE\u7BB1\uFF09\uFF0C\u8D26\u53F7\u8F83\u591A\u65F6\u9700\u8981\u5341\u51E0\u79D2\u2026</div>'
+  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">' + svgIcon('spinner', 'spin', 14) + ' \u6B63\u5728\u67E5\u8BE2\u5168\u90E8\u8D26\u53F7\uFF0C\u8FD9\u901A\u5E38\u9700\u8981\u6570\u79D2\u2026</div>'
   try {
     const r = await fetch('/admin/api/antigravity/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
     const d = await r.json()
@@ -17294,19 +18760,18 @@ async function queryAllAgQuota() {
     }
     box.innerHTML = d.data.channels.length
       ? renderQuotaCards(d.data.channels)
-      : '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-gauge-high" aria-hidden="true"></i><h3>\u6682\u65E0 Antigravity \u6E20\u9053</h3><p>\u6DFB\u52A0\u4E00\u4E2A Antigravity \u53CD\u4EE3\u6E20\u9053\u540E\u5373\u53EF\u67E5\u770B\u989D\u5EA6\u3002</p></div>'
+      : '<div class="empty-state" style="grid-column:1/-1">' + svgIcon('gauge', '', 36) + '<h3>\u6682\u65E0 Antigravity \u6E20\u9053</h3></div>'
     toast('\u5DF2\u5237\u65B0\u5168\u90E8\u8D26\u53F7\u989D\u5EA6', 'success')
   } catch (e) {
     box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">\u8BF7\u6C42\u5931\u8D25</div>'
   }
 }
 
-// \u8D26\u53F7\u7EA7\u300C\u67E5\u8BE2\u300D\uFF1A\u53EA\u5237\u65B0\u8BE5\u6E20\u9053\u8BE5\u8D26\u53F7\u7684\u989D\u5EA6
 async function agAccountQuery(chId, idx) {
   const el = document.getElementById('agacct-' + chId + '-' + idx)
   if (!el) return
   quotaReady = true
-  el.innerHTML = '<div class="form-helper" style="padding:8px 0">\u67E5\u8BE2\u4E2D\u2026</div>'
+  el.innerHTML = '<div class="form-helper" style="padding:8px 0">' + svgIcon('spinner', 'spin', 14) + ' \u67E5\u8BE2\u4E2D\u2026</div>'
   try {
     const r = await fetch('/admin/api/antigravity/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channelId: chId, index: idx }) })
     const d = await r.json()
@@ -17316,28 +18781,6 @@ async function agAccountQuery(chId, idx) {
     }
     el.innerHTML = renderAgQuota(d.data.accounts[0], chId)
   } catch (e) { el.innerHTML = '<div class="al al-e">\u8BF7\u6C42\u5931\u8D25</div>' }
-}
-
-// ===== Cline \u989D\u5EA6\u9875\uFF08\u8D26\u53F7\u4F59\u989D + \u5404\u6A21\u578B\u4ECA\u65E5\u7528\u91CF/\u51B7\u5374\u72B6\u6001\uFF0C\u5361\u7247\u6837\u5F0F\u4E0E Antigravity \u4E00\u81F4\uFF09 =====
-async function queryAllClineQuota() {
-  const box = document.getElementById('clineQuotaBody')
-  if (!box) return
-  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u6B63\u5728\u67E5\u8BE2\u5168\u90E8 Cline \u8D26\u53F7\uFF08\u90AE\u7BB1 + \u5B98\u65B9\u4F59\u989D + \u4ECA\u65E5\u7528\u91CF\uFF09\u2026</div>'
-  try {
-    const r = await fetch('/admin/api/cline/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-    const d = await r.json()
-    if (!d.success || !d.data || !Array.isArray(d.data.channels)) {
-      box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">' + escapeHtml(d.message || '\u67E5\u8BE2\u5931\u8D25') + '</div>'
-      return
-    }
-    const hasAny = d.data.channels.some(function (ch) { return ch.accounts && ch.accounts.length })
-    box.innerHTML = hasAny
-      ? renderClineQuotaCards(d.data.channels)
-      : '<div class="empty-state" style="grid-column:1/-1"><i class="fas fa-id-card" aria-hidden="true"></i><h3>\u6682\u65E0 Cline \u6E20\u9053</h3><p>\u6DFB\u52A0\u4E00\u4E2A Cline \u53CD\u4EE3\u6E20\u9053\u5E76\u586B\u5165 refreshToken \u540E\u5373\u53EF\u67E5\u770B\u3002</p></div>'
-    toast('\u5DF2\u5237\u65B0 Cline \u8D26\u53F7\u989D\u5EA6', 'success')
-  } catch (e) {
-    box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">\u8BF7\u6C42\u5931\u8D25</div>'
-  }
 }
 
 function fmtTokens(n) {
@@ -17357,13 +18800,13 @@ function fmtCoolUntil(ts) {
 }
 
 function renderClineQuotaCard(a, idx) {
-  const mail = a.email ? '<code style="font-size:11px;font-weight:400">' + escapeHtml(a.email) + '</code>' : ''
+  const mail = a.email ? '<code style="font-size:12px;font-weight:500;color:var(--text-primary)">' + escapeHtml(a.email) + '</code>' : ''
   const bal = (a.ok && a.balance !== undefined && a.balance !== null)
-    ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">' + a.balance.toFixed(4) + ' Credits</span>'
+    ? '<span class="bd bd-on">' + a.balance.toFixed(4) + ' Credits</span>'
     : ''
-  const head = '<div class="fc" style="gap:8px;align-items:center;flex-wrap:wrap"><strong>\u8D26\u53F7 #' + (idx + 1) + '</strong>' + mail + bal + '</div>'
+  const head = '<div class="quota-card__head"><span class="fc" style="gap:8px;flex-wrap:wrap"><strong>\u8D26\u53F7 #' + (idx + 1) + '</strong>' + mail + bal + '</span></div>'
   if (!a.ok) {
-    return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(220,38,38,.08)">' + head + '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.error || '\u67E5\u8BE2\u5931\u8D25') + '</div></div>'
+    return '<div class="quota-row">' + head + '<div class="al al-e" style="margin-top:4px">' + escapeHtml(a.error || '\u67E5\u8BE2\u5931\u8D25') + '</div></div>'
   }
   const allModels = []
   Object.keys(a.usage || {}).forEach(function (m) { if (allModels.indexOf(m) === -1) allModels.push(m) })
@@ -17372,125 +18815,127 @@ function renderClineQuotaCard(a, idx) {
     const u = (a.usage || {})[m] || { requests: 0, promptTokens: 0, completionTokens: 0 }
     const until = Number((a.cooldowns || {})[m] || 0)
     const pill = until > Date.now()
-      ? '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(217,119,6,.14);color:#d97706;white-space:nowrap">\u51B7\u5374 \xB7 ' + escapeHtml(fmtCoolUntil(until)) + '</span>'
-      : '<span style="font-size:11px;padding:1px 6px;border-radius:9px;background:rgba(22,163,74,.14);color:#16a34a;white-space:nowrap">\u53EF\u7528</span>'
-    return '<div class="fc" style="justify-content:space-between;gap:8px;padding:2px 0;font-size:12px"><code style="font-size:11px">' + escapeHtml(m) + '</code><span class="fc" style="gap:6px;align-items:center">' + pill + '<span class="form-helper" style="white-space:nowrap">\u4ECA\u65E5 ' + u.requests + ' \u6B21 \xB7 ' + fmtTokens(u.promptTokens) + '\u5165 / ' + fmtTokens(u.completionTokens) + '\u51FA</span></span></div>'
+      ? '<span class="bd" style="background:var(--warning-light);color:var(--warning-text);border-color:var(--warning-border)">\u51B7\u5374 \xB7 ' + escapeHtml(fmtCoolUntil(until)) + '</span>'
+      : '<span class="bd bd-on">\u53EF\u7528</span>'
+    return '<div class="quota-row__info"><code>' + escapeHtml(m) + '</code><span class="fc" style="gap:8px">' + pill + '<span class="form-helper">\u4ECA\u65E5 ' + u.requests + ' \u6B21 \xB7 ' + fmtTokens(u.promptTokens) + '\u5165 / ' + fmtTokens(u.completionTokens) + '\u51FA</span></span></div>'
   }).join('')
   const body = allModels.length
-    ? '<div class="quota-models">' + rows + '</div>'
-    : '<div class="form-helper" style="margin-top:4px">\u4ECA\u65E5\u6682\u65E0\u8C03\u7528\u8BB0\u5F55\uFF08\u7528\u91CF\u6309\u5317\u4EAC\u65F6\u95F4\u81EA\u7136\u65E5\u7EDF\u8BA1\uFF09\u3002</div>'
-  return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08)">' + head + body + '</div>'
+    ? '<div style="margin-top:10px">' + rows + '</div>'
+    : '<div class="form-helper" style="margin-top:6px">\u4ECA\u65E5\u6682\u65E0\u8C03\u7528\u8BB0\u5F55\u3002</div>'
+  return '<div class="quota-row">' + head + body + '</div>'
 }
 
 function renderClineQuotaCards(channels) {
   return channels.map(function (ch) {
-    const head = '<div class="fc" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">' + escapeHtml(ch.name) + ' <code style="font-size:11px;font-weight:400">' + escapeHtml(ch.id) + '</code></h3></div>'
+    const head = '<div class="quota-card__head"><div class="quota-card__identity"><h4>' + escapeHtml(ch.name) + '</h4><code style="font-size:11px;color:var(--text-muted)">' + escapeHtml(ch.id) + '</code></div></div>'
     let accts = ''
     if (ch.accounts && ch.accounts.length) {
       ch.accounts.forEach(function (a, i) { accts += '<div class="ag-acct">' + renderClineQuotaCard(a, i) + '</div>' })
     } else {
-      accts = '<div class="form-helper" style="padding:8px 0">\u8BE5\u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E</div>'
+      accts = '<div class="form-helper" style="padding:8px 0">\u8BE5\u6E20\u9053\u672A\u914D\u7F6E\u53EF\u7528\u51ED\u636E</div>'
     }
     return '<article class="quota-card">' + head + accts + '</article>'
   }).join('')
 }
 
-// \u4E00\u952E\u6DFB\u52A0\u5168\u90E8 Azure TTS \u97F3\u8272\u4E3A\u6A21\u578B (\u97F3\u8272 id \u5373\u6A21\u578B id, \u8C03\u7528\u65F6\u76F4\u63A5\u7528\u97F3\u8272\u540D)
+async function queryAllClineQuota() {
+  const box = document.getElementById('clineQuotaBody')
+  if (!box) return
+  box.innerHTML = '<div class="form-helper" style="padding:12px 0;grid-column:1/-1">' + svgIcon('spinner', 'spin', 14) + ' \u6B63\u5728\u67E5\u8BE2\u5168\u90E8 Cline \u8D26\u53F7\u2026</div>'
+  try {
+    const r = await fetch('/admin/api/cline/quota', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    const d = await r.json()
+    if (!d.success || !d.data || !Array.isArray(d.data.channels)) {
+      box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">' + escapeHtml(d.message || '\u67E5\u8BE2\u5931\u8D25') + '</div>'
+      return
+    }
+    box.innerHTML = d.data.channels.length
+      ? renderClineQuotaCards(d.data.channels)
+      : '<div class="empty-state" style="grid-column:1/-1">' + svgIcon('gauge', '', 36) + '<h3>\u6682\u65E0 Cline \u6E20\u9053</h3></div>'
+    toast('\u5DF2\u5237\u65B0 Cline \u8D26\u53F7\u989D\u5EA6', 'success')
+  } catch (e) {
+    box.innerHTML = '<div class="al al-e" style="grid-column:1/-1">\u8BF7\u6C42\u5931\u8D25</div>'
+  }
+}
+
+// \u2500\u2500 Azure TTS \u2500\u2500
 function addAllTtsModels(id) {
-  const voices = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
   if (id === 'new') {
     const container = document.getElementById('amodels')
     const existing = new Set(Array.from(container.querySelectorAll('.ami')).map(i => i.value.trim()))
     let added = 0
-    voices.forEach(v => {
+    AZURE_VOICE_IDS.forEach(v => {
       if (existing.has(v)) return
       const d = document.createElement('div')
       d.className = 'fc mb-4 field-row'
-      d.innerHTML = '<input type="text" class="fx1 ami" value="' + v + '" placeholder="\u6A21\u578B ID"><label class="tg"><input type="checkbox" checked class="ame"><span class="sl"></span></label><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664"><i class="fas fa-times" aria-hidden="true"></i></button>'
+      d.innerHTML = '<input type="text" value="' + escapeHtml(v) + '" class="fx1 ami"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1 amal"><label class="tg"><input type="checkbox" checked class="ame"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testNewMdl(this)">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="this.parentElement.remove()">' + svgIcon('times', '', 14) + '</button>'
       container.appendChild(d)
-      existing.add(v)
       added++
     })
-    toast('\u5DF2\u6DFB\u52A0 ' + added + ' \u4E2A\u97F3\u8272\u6A21\u578B', added ? 'success' : 'error')
+    toast('\u5DF2\u6DFB\u52A0 ' + added + ' \u4E2A\u97F3\u8272\u4E3A\u6A21\u578B', 'success')
   } else {
     const container = document.getElementById('ml-' + id)
-    const existing = new Set(Array.from(container.querySelectorAll('[data-idx] input[id^="mid-"]')).map(i => i.value.trim()))
+    const existing = new Set(Array.from(container.querySelectorAll('[id^=mid-]')).map(i => i.value.trim()))
     let added = 0
-    voices.forEach(v => {
+    AZURE_VOICE_IDS.forEach(v => {
       if (existing.has(v)) return
       const idx = container.querySelectorAll('[data-idx]').length
       const d = document.createElement('div')
       d.className = 'fc mb-3 field-row'
       d.dataset.idx = idx
-      d.innerHTML = '<input type="text" value="' + v + '" class="fx1" id="mid-' + id + '-' + idx + '" placeholder="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" value="' + v + '" class="fx1" id="mal-' + id + '-' + idx + '" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" title="\u5BF9\u5916\u663E\u793A\u540D"><label class="tg"><input type="checkbox" checked id="men-' + id + '-' + idx + '" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" id="tm-' + id + '-' + idx + '" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" id="rm-' + id + '-' + idx + '" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button>'
+      d.innerHTML = '<input type="text" value="' + escapeHtml(v) + '" class="fx1" id="mid-' + id + '-' + idx + '"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1" id="mal-' + id + '-' + idx + '"><label class="tg"><input type="checkbox" checked id="men-' + id + '-' + idx + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testMdl(\\'' + id + '\\',\\'' + v + '\\',' + idx + ')">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="rmMdl(\\'' + id + '\\',' + idx + ')">' + svgIcon('times', '', 14) + '</button>'
       container.appendChild(d)
-      document.getElementById('tm-' + id + '-' + idx).addEventListener('click', function() { testMdl(id, v, idx) })
-      document.getElementById('rm-' + id + '-' + idx).addEventListener('click', function() { rmMdl(id, idx) })
-      existing.add(v)
       added++
     })
-    toast('\u5DF2\u6DFB\u52A0 ' + added + ' \u4E2A\u97F3\u8272\u6A21\u578B', added ? 'success' : 'error')
+    toast('\u5DF2\u6DFB\u52A0 ' + added + ' \u4E2A\u97F3\u8272\u4E3A\u6A21\u578B', 'success')
   }
 }
 
-// \u628A\u5F53\u524D\u9009\u4E2D\u7684\u97F3\u8272\u6DFB\u52A0\u5230\u6A21\u578B\u5217\u8868
 function addTtsModel(id) {
-  const sel = document.getElementById('pv-' + id)
-  const v = (sel ? sel.value : '').trim()
-  if (!v) { toast('\u8BF7\u5148\u9009\u62E9\u97F3\u8272', 'error'); return }
-  const container = document.getElementById('ml-' + id)
-  const existing = new Set(Array.from(container.querySelectorAll('[data-idx] input[id^="mid-"]')).map(i => i.value.trim()))
-  if (existing.has(v)) { toast('\u8BE5\u97F3\u8272\u5DF2\u5728\u6A21\u578B\u5217\u8868\u4E2D', 'error'); return }
-  const idx = container.querySelectorAll('[data-idx]').length
-  const d = document.createElement('div')
-  d.className = 'fc mb-3 field-row'
-  d.dataset.idx = idx
-  d.innerHTML = '<input type="text" value="' + v + '" class="fx1" id="mid-' + id + '-' + idx + '" placeholder="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" value="' + v + '" class="fx1" id="mal-' + id + '-' + idx + '" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" title="\u5BF9\u5916\u663E\u793A\u540D"><label class="tg"><input type="checkbox" checked id="men-' + id + '-' + idx + '" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy" aria-hidden="true"></i></button><button class="icon-btn" id="tm-' + id + '-' + idx + '" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug" aria-hidden="true"></i></button><button class="icon-btn" id="rm-' + id + '-' + idx + '" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button>'
-  container.appendChild(d)
-  document.getElementById('tm-' + id + '-' + idx).addEventListener('click', function() { testMdl(id, v, idx) })
-  document.getElementById('rm-' + id + '-' + idx).addEventListener('click', function() { rmMdl(id, idx) })
-  toast('\u5DF2\u6DFB\u52A0\u97F3\u8272: ' + v, 'success')
+  const sel = document.getElementById(id === 'new' ? 'av' : 'pv-' + id)
+  const voice = sel ? sel.value.trim() : ''
+  if (!voice) { toast('\u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u97F3\u8272', 'error'); return }
+  if (id === 'new') addMdlToForm(voice)
+  else addMdlToEdit(id, voice)
+  toast('\u5DF2\u6DFB\u52A0\u97F3\u8272\u6A21\u578B\uFF1A' + voice, 'success')
 }
 
-// Azure TTS \u97F3\u8272\u8BD5\u542C: \u7528\u7BA1\u7406\u5458\u4F1A\u8BDD\u8C03\u7528 /admin/api/tts-preview \u5408\u6210\u5E76\u64AD\u653E
 async function previewTts(id) {
-  const voice = document.getElementById(id === 'new' ? 'av' : 'pv-' + id).value
-  if (!voice) { toast('\u8BF7\u5148\u9009\u62E9\u97F3\u8272', 'error'); return }
   const box = document.getElementById('ttp-' + id)
   if (!box) return
-  box.innerHTML = '<span class="form-helper">\u5408\u6210\u4E2D\u2026</span>'
+  const vEl = document.getElementById(id === 'new' ? 'av' : 'pv-' + id)
+  const voice = vEl ? vEl.value.trim() : ''
+  const rEl = document.getElementById(id === 'new' ? 'ar' : 'pr-' + id)
+  const rate = rEl ? rEl.value.trim() : ''
+  const volEl = document.getElementById(id === 'new' ? 'avol' : 'pvol-' + id)
+  const vol = volEl ? volEl.value.trim() : ''
+  const pEl = document.getElementById(id === 'new' ? 'ap' : 'pp-' + id)
+  const pitch = pEl ? pEl.value.trim() : ''
+  box.innerHTML = '<span class="mu">' + svgIcon('spinner', 'spin', 14) + ' \u6B63\u5728\u751F\u6210\u8BD5\u542C\u97F3\u9891\u2026</span>'
   try {
-    const r = await fetch('/admin/api/tts-preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: id === 'new' ? 'tts' : id, voice }),
+    const res = await fetch('/admin/api/tts/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice: voice || undefined, rate: rate || undefined, volume: vol || undefined, pitch: pitch || undefined }),
     })
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}))
-      box.innerHTML = '<span class="form-helper" style="color:var(--danger,#e5484d)">\u8BD5\u542C\u5931\u8D25: ' + (d.message || r.status) + '</span>'
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      box.innerHTML = '<div class="al al-e">' + escapeHtml(err.message || '\u751F\u6210\u8BD5\u542C\u97F3\u9891\u5931\u8D25') + '</div>'
       return
     }
-    const blob = await r.blob()
+    const blob = await res.blob()
     const url = URL.createObjectURL(blob)
-    box.innerHTML = '<audio controls autoplay style="width:100%;margin-block:8px"><source src="' + url + '" type="audio/mpeg"></audio><span class="form-helper">' + voice + '</span>'
+    box.innerHTML = '<audio controls autoplay src="' + url + '" style="width:100%;margin-top:6px;height:36px"></audio>'
   } catch (e) {
-    box.innerHTML = '<span class="form-helper" style="color:var(--danger,#e5484d)">\u8BD5\u542C\u5931\u8D25</span>'
+    box.innerHTML = '<div class="al al-e">\u8BD5\u542C\u8BF7\u6C42\u5931\u8D25</div>'
   }
 }
 
-// aid \u8F93\u5165 opencode \u65F6\u81EA\u52A8\u586B\u5145 API \u5730\u5740
-document.getElementById('aid').addEventListener('input', function() {
-  if (this.value.trim() === 'opencode') {
-    document.getElementById('aurl').value = '${OPENCODE_DEFAULT_URL}'
-  }
-})
-
-// provider api keys (add form)
+// \u2500\u2500 \u8868\u5355\u52A8\u6001\u884C\u7BA1\u7406 \u2500\u2500
 function addAKeyRow(val) {
   const c = document.getElementById('akeys')
   const d = document.createElement('div')
   d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" placeholder="sk-xxx" class="fx1 aki" aria-label="\u4E0A\u6E38 API Key" value="' + (val || '') + '"><label class="tg"><input type="checkbox" checked class="ake" aria-label="\u542F\u7528 Key"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236 Key" aria-label="\u590D\u5236 Key"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testNewAKey(this)" title="\u6D4B\u8BD5 Key" aria-label="\u6D4B\u8BD5 Key"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664 Key" aria-label="\u79FB\u9664 Key"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" placeholder="sk-xxx" class="fx1 aki" value="' + (val || '') + '"><label class="tg"><input type="checkbox" checked class="ake"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testNewAKey(this)" title="\u6D4B\u8BD5">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664">' + svgIcon('times', '', 14) + '</button>'
   c.appendChild(d)
 }
 
@@ -17507,23 +18952,20 @@ function renderModelGrid(models, editId, providerId) {
     var addFn = editId
       ? "addMdlToEdit('" + editId + "','" + modelId + "')"
       : "addMdlToForm('" + modelId + "')"
-    return '<div class="mdl-item">' +
-      '<i class="fas fa-cube"></i>' +
-			'<span class="fx1 cp ov" onclick="copyText(\\'' + modelId + '\\',this)">' + safeId + '</span>' +
-      '<button class="btn btn-gh mdl-add-btn" onclick="' + addFn + '" title="\u6DFB\u52A0\u5230\u8868\u5355">+</button></div>'
+    return '<div class="model-token" style="margin:4px">' +
+      '<span class="cp" onclick="copyText(\\'' + modelId + '\\',this)">' + safeId + '</span>' +
+      '<button class="icon-btn" style="width:20px;height:20px;margin-left:4px" onclick="' + addFn + '" title="\u6DFB\u52A0\u5230\u8868\u5355">' + svgIcon('plus', '', 10) + '</button></div>'
   }).join('')
-  return '<div class="grid-2-gap6">' + h + '</div>'
+  return '<div class="fc" style="flex-wrap:wrap;gap:4px">' + h + '</div>'
 }
 
-// \u53EF\u7528\u6A21\u578B\u9762\u677F heading\uFF08\u6DFB\u52A0\u6001\u9759\u6001 HTML \u4E0E\u7F16\u8F91\u6001\u52A8\u6001\u751F\u6210\u5171\u7528\u540C\u4E00\u7ED3\u6784\uFF09
 function modelPanelHeading(panelId) {
   return '<div class="panel-heading"><div>' +
-    '<span class="panel-heading__mark"><i class="fas fa-cube" aria-hidden="true"></i></span>' +
-    '<div><h3>\u53EF\u7528\u6A21\u578B</h3><p>\u70B9\u51FB\u201C+\u201D\u6DFB\u52A0\u5230\u914D\u7F6E\u3002</p></div></div>' +
-    '<button class="icon-btn" type="button" onclick="hideMdlPanel(\\'' + panelId + '\\')" title="\u5173\u95ED\u53EF\u7528\u6A21\u578B" aria-label="\u5173\u95ED\u53EF\u7528\u6A21\u578B"><i class="fas fa-times" aria-hidden="true"></i></button></div>'
+    '<span class="panel-heading__mark">' + svgIcon('cube', '', 16) + '</span>' +
+    '<div><h3>\u53EF\u7528\u6A21\u578B</h3><p>\u70B9\u51FB\u52A0\u53F7\u6DFB\u52A0\u5230\u914D\u7F6E\u4E2D\u3002</p></div></div>' +
+    '<button class="icon-btn" type="button" onclick="hideMdlPanel(\\'' + panelId + '\\')">' + svgIcon('times', '', 14) + '</button></div>'
 }
 
-// \u5173\u95ED\u53EF\u7528\u6A21\u578B\u9762\u677F\uFF08\u4EC5\u9690\u85CF\uFF0C\u4E0D\u6E05\u7A7A\u5DF2\u83B7\u53D6\u7684\u6A21\u578B\u6570\u636E\uFF09
 function hideMdlPanel(panelId) {
   document.getElementById(panelId).classList.add('hd')
 }
@@ -17549,171 +18991,139 @@ function testNewAKey(btn) {
   })
 }
 
-// \u6279\u91CF\u6DFB\u52A0 API Key: \u5F39\u7A97\u7C98\u8D34, \u4E00\u884C\u4E00\u4E2A
 function batchAddKeys() {
-  showM('<h3><i class="fas fa-list c-p"></i> \u6279\u91CF\u6DFB\u52A0 API Key</h3><div class="fg"><label>\u6BCF\u884C\u4E00\u4E2A Key</label><textarea id="bkText" rows="8" class="fx1" placeholder="sk-xxx1&#10;sk-xxx2&#10;sk-xxx3" style="font-family:var(--font-mono);font-size:12px"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="bkOk">\u6279\u91CF\u6DFB\u52A0</button></div>')
+  showM('<h3>' + svgIcon('key', 'c-p', 20) + ' \u6279\u91CF\u6DFB\u52A0 API Key</h3><div class="fg"><label>\u6BCF\u884C\u4E00\u4E2A Key</label><textarea id="bkText" rows="8" class="fx1" placeholder="sk-xxx1&#10;sk-xxx2"></textarea></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="bkOk">\u6279\u91CF\u6DFB\u52A0</button></div>')
   const ok = document.getElementById('bkOk')
   ok.onclick = function () {
     const text = document.getElementById('bkText').value.trim()
     if (!text) { toast('\u8BF7\u7C98\u8D34\u81F3\u5C11\u4E00\u4E2A Key', 'error'); return }
     const keys = text.split(String.fromCharCode(10)).map(function (s) { return s.trim() }).filter(Boolean)
-    // \u5148\u586B\u5DF2\u6709\u7A7A\u884C, \u4E0D\u8DB3\u518D\u8865\u65B0\u884C
     let ki = 0
     Array.from(document.querySelectorAll('#akeys .aki')).forEach(function (r) {
       if (ki >= keys.length) return
-      if (!r.value.trim()) { r.value = keys[ki]; ki++ }
+      if (!r.value.trim()) { r.value = keys[ki++]; }
     })
-    while (ki < keys.length) { addAKeyRow(keys[ki]); ki++ }
+    while (ki < keys.length) { addAKeyRow(keys[ki++]) }
     closeM()
-    toast('\u5DF2\u6DFB\u52A0 ' + keys.length + ' \u4E2A Key', 'success')
+    toast('\u5DF2\u5BFC\u5165 ' + keys.length + ' \u4E2A Key', 'success')
   }
 }
 
-// \u6279\u91CF\u6D4B\u8BD5\u6240\u6709 Key: \u9010\u4E2A\u8C03\u7528, \u7ED3\u679C\u6807\u8BB0\u5230\u884C\u5C3E
 async function batchTestKeys() {
+  const rows = Array.from(document.querySelectorAll('#akeys .aki')).map(function (el) { return el.value.trim() }).filter(Boolean)
+  if (!rows.length) { toast('\u6CA1\u6709\u9700\u8981\u6D4B\u8BD5\u7684 Key', 'error'); return }
   const url = document.getElementById('aurl').value.trim()
   if (!url) { toast('\u8BF7\u5148\u586B\u5199 API \u5730\u5740', 'error'); return }
   const apiType = document.getElementById('apt').value === 'anthropic' ? 'anthropic' : 'openai'
-  const providerId = document.getElementById('aid').value.trim()
-  const mirrorUrls = document.getElementById('amirror').value
-  const rows = Array.from(document.querySelectorAll('#akeys .field-row'))
-  const keys = rows.map(function (r) { return r.querySelector('.aki').value.trim() }).filter(Boolean)
-  if (keys.length === 0) { toast('\u8BF7\u5148\u6DFB\u52A0 API Key', 'error'); return }
-  toast('\u6B63\u5728\u6279\u91CF\u6D4B\u8BD5 ' + keys.length + ' \u4E2A Key\u2026', 'info')
-  // \u6BCF\u884C\u52A0\u72B6\u6001\u5FBD\u6807
-  rows.forEach(function (r) { r.querySelectorAll('.key-test-badge').forEach(function (b) { b.remove() }) })
-  const badge = function (r, ok, msg) {
-    r.querySelectorAll('.key-test-badge').forEach(function (b) { b.remove() })
-    const b = document.createElement('span')
-    b.className = 'key-test-badge ' + (ok ? 'bd-on' : 'bd-off')
-    b.textContent = (ok ? '\u2713 ' : '\u2717 ') + (msg || '')
-    b.style.cssText = 'font-size:11px;white-space:nowrap'
-    r.appendChild(b)
-  }
-  let okCount = 0
-  for (const r of rows) {
-    const k = r.querySelector('.aki').value.trim()
-    if (!k) continue
-    try {
-      const result = await testKeyConnection(url, apiType, k, providerId, mirrorUrls, false, provType('new'), provProject('new'))
-      if (result.success) { okCount++; badge(r, true, 'OK') }
-      else badge(r, false, 'HTTP ' + result.status)
-    } catch (e) {
-      badge(r, false, 'ERR')
-    }
-  }
-  toast('\u6279\u91CF\u6D4B\u8BD5\u5B8C\u6210: ' + okCount + '/' + keys.length + ' \u6210\u529F', okCount === keys.length ? 'success' : 'error')
-}
-
-// \u6DFB\u52A0\u8868\u5355 \u2014 \u83B7\u53D6\u514D\u8D39/\u5168\u90E8\u6A21\u578B
-async function fetchNewModels(freeOnly) {
-  const url = document.getElementById('aurl').value.trim()
-  if (!url) { toast('\u8BF7\u5148\u586B\u5199 API \u5730\u5740', 'error'); return }
-  const akeys = document.querySelectorAll('#akeys .aki')
-  const configuredKey = Array.from(akeys).map(function(inp) { return inp.value.trim() }).filter(Boolean)[0] || ''
-  const apiType = document.getElementById('apt').value === 'anthropic' ? 'anthropic' : 'openai'
-  const providerId = document.getElementById('aid').value.trim()
-  const mirrorUrls = document.getElementById('amirror').value
   const tr = document.getElementById('atestR')
   showSpinner(tr)
-  try {
-    const result = await testKeyConnection(url, apiType, configuredKey, providerId, mirrorUrls, freeOnly, provType('new'), provProject('new'))
-    showResult(tr, result.success, result.success ? '' : 'HTTP ' + result.status)
-    if (result.success && result.data) {
-      const headEl = document.querySelector('#amc .panel-heading h3')
-      if (headEl) headEl.textContent = freeOnly ? '\u514D\u8D39\u6A21\u578B' : '\u53EF\u7528\u6A21\u578B'
-      document.getElementById('amcl').innerHTML = renderModelGrid(result.data.data || [], null, providerId)
-      document.getElementById('amc').classList.remove('hd')
-    }
-  } catch (e) {
-    showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25')
+  let ok = 0
+  for (const k of rows) {
+    const res = await testKeyConnection(url, apiType, k, document.getElementById('aid').value.trim(), document.getElementById('amirror').value, false, provType('new'), provProject('new'))
+    if (res.success) ok++
   }
+  showResult(tr, ok > 0, '\u6D4B\u8BD5\u5B8C\u6210: ' + ok + ' / ' + rows.length + ' \u4E2A Key \u8FDE\u63A5\u6B63\u5E38')
 }
 
-let mdlCount = 1
 function addMdlRow() {
   const c = document.getElementById('amodels')
   const d = document.createElement('div')
   d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" placeholder="deepseek-chat" class="fx1 ami" aria-label="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1 amal" aria-label="\u5BF9\u5916\u540D" title="\u5BF9\u5916\u663E\u793A\u540D, \u7559\u7A7A\u81EA\u52A8\u53BB:free\u540E\u7F00"><label class="tg"><input type="checkbox" checked class="ame" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times"></i></button>'
+  d.innerHTML = '<input type="text" placeholder="\u6A21\u578B ID" class="fx1 ami"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1 amal"><label class="tg"><input type="checkbox" checked class="ame"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testNewMdl(this)">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="this.parentElement.remove()">' + svgIcon('times', '', 14) + '</button>'
   c.appendChild(d)
 }
 
 function addMdlToForm(mid) {
-  const c = document.getElementById('amodels')
-  const d = document.createElement('div')
-  d.className = 'fc mb-4 field-row'
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1 ami" aria-label="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1 amal" aria-label="\u5BF9\u5916\u540D" title="\u5BF9\u5916\u663E\u793A\u540D, \u7559\u7A7A\u81EA\u52A8\u53BB:free\u540E\u7F00"><label class="tg"><input type="checkbox" checked class="ame" aria-label="\u542F\u7528\u6A21\u578B"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testNewMdl(this)" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="this.parentElement.remove()" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times"></i></button>'
-  c.appendChild(d)
+  const rows = document.querySelectorAll('#amodels .ami')
+  for (let i = 0; i < rows.length; i++) {
+    if (!rows[i].value.trim()) { rows[i].value = mid; return }
+  }
+  addMdlRow()
+  const all = document.querySelectorAll('#amodels .ami')
+  all[all.length - 1].value = mid
 }
 
 function testNewMdl(btn) {
-  const inp = btn.parentElement.querySelector('.ami'), mid = inp.value.trim()
+  const mid = btn.parentElement.querySelector('.ami').value.trim()
   if (!mid) { toast('\u8BF7\u8F93\u5165\u6A21\u578B ID', 'error'); return }
   const url = document.getElementById('aurl').value.trim()
-    const akeys = document.querySelectorAll('#akeys .aki')
-    const configuredKey = Array.from(akeys).map(function(inp) { return inp.value.trim() }).filter(Boolean)[0] || ''
-    const apiType = document.getElementById('apt').value === 'anthropic' ? 'anthropic' : 'openai'
-    const mirrorUrls = document.getElementById('amirror').value
-    const tr = document.getElementById('atestR')
-    showSpinner(tr)
-  const providerId = document.getElementById('aid').value.trim()
-  const apiKey = configuredKey
-  testModelConnection(url, apiType, apiKey, mid, providerId, mirrorUrls, provType('new'), provProject('new')).then(function(result) {
-    showResult(tr, result.success, result.success ? '' : 'HTTP ' + result.status)
+  const firstKey = (document.querySelector('#akeys .aki') || {}).value || ''
+  const apiType = document.getElementById('apt').value === 'anthropic' ? 'anthropic' : 'openai'
+  const tr = document.getElementById('atestR')
+  showSpinner(tr)
+  testModelConnection(url, apiType, firstKey, mid, document.getElementById('aid').value.trim(), document.getElementById('amirror').value, provType('new'), provProject('new')).then(function(r) {
+    showResult(tr, r.success, r.success ? '' : 'HTTP ' + r.status)
   })
 }
 
+async function fetchNewModels(freeOnly) {
+  const url = document.getElementById('aurl').value.trim()
+  const firstKey = (document.querySelector('#akeys .aki') || {}).value || ''
+  const apiType = document.getElementById('apt').value === 'anthropic' ? 'anthropic' : 'openai'
+  const tr = document.getElementById('atestR')
+  showSpinner(tr)
+  const result = await testKeyConnection(url, apiType, firstKey, document.getElementById('aid').value.trim(), document.getElementById('amirror').value, freeOnly, provType('new'), provProject('new'))
+  showResult(tr, result.success, result.success ? '' : escapeHtml(result.message || '\u83B7\u53D6\u6A21\u578B\u5931\u8D25'))
+  if (result.success && result.data) {
+    document.getElementById('amcl').innerHTML = renderModelGrid(result.data.data || [], null, document.getElementById('aid').value.trim())
+    document.getElementById('amc').classList.remove('hd')
+  }
+}
+
 async function createProv() {
-  const nm = document.getElementById('anm').value.trim(), id = document.getElementById('aid').value.trim()
+  const nm = document.getElementById('anm').value.trim()
+  const id = document.getElementById('aid').value.trim()
+  let url = document.getElementById('aurl').value.trim()
   const type = document.getElementById('apt').value
   const apiType = type === 'anthropic' ? 'anthropic' : 'openai'
-  const aki = document.querySelectorAll('#akeys .aki')
-  let keys = Array.from(aki).map((inp, i) => {
-    const k = inp.value.trim()
-    const en = inp.parentElement.querySelector('.ake')?.checked ?? true
+  const isTts = type === 'azure-tts'
+  if (!nm || !id) { toast('\u8BF7\u586B\u5199\u6E20\u9053\u540D\u79F0\u548C ID', 'error'); return }
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) { toast('ID \u53EA\u80FD\u5305\u542B\u5B57\u6BCD/\u6570\u5B57/\u4E0B\u5212\u7EBF/\u8FDE\u5B57\u7B26', 'error'); return }
+  if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
+  if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
+  if (!url && type === 'devin') url = 'https://server.codeium.com'
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && !isTts) { toast('\u8BF7\u586B\u5199 API \u5730\u5740', 'error'); return }
+
+  let keys = Array.from(document.querySelectorAll('#akeys .field-row')).map(r => {
+    const k = r.querySelector('.aki').value.trim(), en = r.querySelector('.ake').checked
     return k ? { key: k, enabled: en } : null
   }).filter(Boolean)
-  const vxNewKeys = type === 'vertex' ? provVertexKeys('new') : null
-  if (vxNewKeys && vxNewKeys.length) keys = vxNewKeys.map(k => ({ key: k, enabled: true }))
-  const dvNewKeys = type === 'devin' ? provDevinKeys('new') : null
-  if (dvNewKeys && dvNewKeys.length) keys = dvNewKeys.map(k => ({ key: k, enabled: true }))
-  const ami = document.querySelectorAll('#amodels .ami')
-  const models = Array.from(ami).map(inp => {
-    const mid = inp.value.trim()
-    const en = inp.parentElement.querySelector('.ame')?.checked ?? true
-    const alEl = inp.parentElement.querySelector('.amal')
-    const alias = alEl ? alEl.value.trim() : ''
+
+  const vxKeys = type === 'vertex' ? provVertexKeys('new') : null
+  if (vxKeys && vxKeys.length) keys = vxKeys.map(k => ({ key: k, enabled: true }))
+  const dvKeys = type === 'devin' ? provDevinKeys('new') : null
+  if (dvKeys && dvKeys.length) keys = dvKeys.map(k => ({ key: k, enabled: true }))
+
+  const models = Array.from(document.querySelectorAll('#amodels .field-row')).map(r => {
+    const mid = r.querySelector('.ami').value.trim(), en = r.querySelector('.ame').checked
+    const alEl = r.querySelector('.amal'), alias = alEl ? alEl.value.trim() : ''
     if (!mid) return null
     return alias ? { id: mid, enabled: en, alias: alias } : { id: mid, enabled: en }
   }).filter(Boolean)
+
   const enabled = document.getElementById('aen').checked
   const mirrorUrls = document.getElementById('amirror').value
-  const isTts = type === 'azure-tts'
-  const isAg = type === 'antigravity'
-  const isOa = isOauthType(type) || isDeepseekType(type)
-  const url = document.getElementById('aurl').value.trim() || (isTts ? 'https://speech.platform.bing.com' : isAg ? 'https://daily-cloudcode-pa.googleapis.com' : type === 'vertex' ? 'https://aiplatform.googleapis.com' : type === 'devin' ? 'https://server.codeium.com' : (isOa || isZaiType(type)) ? OAUTH_DEFAULT_URLS[type] : '')
-  if (!nm || !id || !url) { toast('\u8BF7\u586B\u5199\u540D\u79F0\u3001ID \u548C API \u5730\u5740', 'error'); return }
   const ttsConf = isTts ? {
     voice: document.getElementById('av').value.trim() || 'zh-CN-XiaoxiaoNeural',
     rate: document.getElementById('ar').value.trim() || '+0%',
     volume: document.getElementById('avol').value.trim() || '+0%',
     pitch: document.getElementById('ap').value.trim() || '+0Hz',
   } : {}
+
   const r = await fetch('/admin/api/providers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue('new') : undefined, apiKeys: keys, models, mirrorUrls, enabled, project: provProject('new') || undefined, location: provVertexLocation('new') || undefined, ...ttsConf })
   })
   const d = await r.json()
-  if (d.success) { toast('\u5DF2\u521B\u5EFA', 'success'); location.reload() }
+  if (d.success) { toast('\u6E20\u9053\u521B\u5EFA\u6210\u529F', 'success'); location.reload() }
   else toast(d.message || '\u521B\u5EFA\u5931\u8D25', 'error')
 }
 
-// provider api keys (edit)
+// \u2500\u2500 \u7F16\u8F91\u6E20\u9053 \u2500\u2500
 function getKeys(id) {
-  const c = document.getElementById('keys-' + id)
-  const items = c.querySelectorAll('[data-kidx]')
+  const c = document.getElementById('keys-' + id), items = c.querySelectorAll('[data-kidx]')
   return Array.from(items).map(item => {
     const idx = parseInt(item.dataset.kidx)
     const k = document.getElementById('k-' + id + '-' + idx).value.trim()
@@ -17723,29 +19133,25 @@ function getKeys(id) {
 }
 
 function addKeyRow(id) {
-  const inp = document.getElementById('nk-' + id), k = inp.value.trim()
-  if (!k) { toast('\u8BF7\u8F93\u5165 API Key', 'error'); return }
-  const c = document.getElementById('keys-' + id), cnt = c.querySelectorAll('[data-kidx]').length
+  const inp = document.getElementById('nk-' + id), v = inp.value.trim()
+  if (!v) { toast('\u8BF7\u8F93\u5165 Key', 'error'); return }
+  const c = document.getElementById('keys-' + id), idx = c.querySelectorAll('[data-kidx]').length
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row'
-  d.dataset.kidx = cnt
-  d.innerHTML = '<input type="text" value="' + k + '" class="fx1" id="k-' + id + '-' + cnt + '" placeholder="API Key"><label class="tg"><input type="checkbox" checked id="ken-' + id + '-' + cnt + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236 Key" aria-label="\u590D\u5236 Key"><i class="far fa-copy"></i></button><button class="icon-btn" onclick="testKeyRow(\\'' + id + '\\',' + cnt + ')" title="\u6D4B\u8BD5 Key" aria-label="\u6D4B\u8BD5 Key"><i class="fas fa-plug"></i></button><button class="icon-btn" onclick="rmKeyRow(\\'' + id + '\\',' + cnt + ')" title="\u79FB\u9664 Key" aria-label="\u79FB\u9664 Key"><i class="fas fa-times"></i></button>'
+  d.dataset.kidx = idx
+  d.innerHTML = '<input type="text" value="' + escapeHtml(v) + '" class="fx1" id="k-' + id + '-' + idx + '"><label class="tg"><input type="checkbox" checked id="ken-' + id + '-' + idx + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testKeyRow(\\'' + id + '\\',' + idx + ')">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="rmKeyRow(\\'' + id + '\\',' + idx + ')">' + svgIcon('times', '', 14) + '</button>'
   c.appendChild(d)
   inp.value = ''
-  inp.focus()
 }
 
 function rmKeyRow(id, idx) {
-  const c = document.getElementById('keys-' + id)
-  c.querySelectorAll('[data-kidx]').forEach(item => {
-    if (parseInt(item.dataset.kidx) === idx) item.remove()
-  })
+  const el = document.querySelector('#keys-' + id + ' [data-kidx="' + idx + '"]')
+  if (el) el.remove()
 }
 
 async function testKeyRow(id, idx) {
   const k = document.getElementById('k-' + id + '-' + idx).value.trim()
   const url = document.getElementById('url-' + id).value.trim()
-  if (!k) { toast('\u8BF7\u8F93\u5165 API Key', 'error'); return }
   const ptEl = document.getElementById('pt-' + id)
   const apiType = (ptEl ? ptEl.value : 'openai') === 'anthropic' ? 'anthropic' : 'openai'
   const mirEl = document.getElementById('mir-' + id)
@@ -17754,12 +19160,8 @@ async function testKeyRow(id, idx) {
   showSpinner(tr)
   const result = await testKeyConnection(url, apiType, k, id, mirrorUrls, false, provType(id), provProject(id))
   showResult(tr, result.success, result.success ? '' : 'HTTP ' + result.status)
-  if (result.success && result.data) {
-    showEditModelsList(id, result.data.data || [])
-  }
 }
 
-// \u7F16\u8F91\u8868\u5355 \u2014 \u83B7\u53D6\u6A21\u578B\uFF08\u590D\u7528 testKeyConnection \u903B\u8F91; freeOnly=true \u65F6\u53EA\u62C9\u514D\u8D39\u6A21\u578B\uFF09
 async function fetchEditModels(id, freeOnly) {
   const url = document.getElementById('url-' + id).value.trim()
   const keys = getKeys(id)
@@ -17781,7 +19183,6 @@ function showEditModelsList(id, models, freeOnly) {
   const cid = 'mel-' + id
   let el = document.getElementById(cid)
   if (!el) {
-    // \u4EE5 API Keys fieldset \u4E3A\u951A\u70B9\u63D2\u5165\uFF0C\u7ED3\u6784\u4E0E\u6DFB\u52A0\u6001\u7684 #amc \u5BF9\u79F0
     const keysFs = document.getElementById('keys-' + id).closest('fieldset')
     el = document.createElement('aside')
     el.id = cid
@@ -17790,8 +19191,6 @@ function showEditModelsList(id, models, freeOnly) {
     keysFs.insertAdjacentElement('afterend', el)
   }
   el.classList.remove('hd')
-  const headEl = el.querySelector('.panel-heading h3')
-  if (headEl) headEl.textContent = freeOnly ? '\u514D\u8D39\u6A21\u578B' : '\u53EF\u7528\u6A21\u578B'
   document.getElementById('melc-' + id).innerHTML = renderModelGrid(models, id, id)
 }
 
@@ -17813,7 +19212,8 @@ function getMdl(id) {
 }
 
 async function save(id) {
-  const nm = document.getElementById('nm-' + id).value.trim(), urlEl = document.getElementById('url-' + id)
+  const nm = document.getElementById('nm-' + id).value.trim()
+  const urlEl = document.getElementById('url-' + id)
   let url = urlEl ? urlEl.value.trim() : ''
   const pidEl = document.getElementById('pid-' + id)
   const newId = pidEl ? pidEl.value.trim() : id
@@ -17851,7 +19251,7 @@ async function save(id) {
 }
 
 async function del(id) {
-  if (!(await cM('\u786E\u5B9A\u8981\u5220\u9664\u6B64\u6E20\u9053\uFF1F'))) return
+  if (!(await cM('\u786E\u5B9A\u8981\u5220\u9664\u6B64\u6E20\u9053\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u9006\u3002'))) return
   const r = await fetch('/admin/api/providers/' + encodeURIComponent(id), { method: 'DELETE' })
   const d = await r.json()
   if (d.success) { toast('\u5DF2\u5220\u9664', 'success'); location.reload() }
@@ -17860,92 +19260,74 @@ async function del(id) {
 
 function addMdl(id) {
   const inp = document.getElementById('nmid-' + id), mid = inp.value.trim()
-  const alInp = document.getElementById('nmal-' + id)
-  const alias = alInp ? alInp.value.trim() : ''
+  const alInp = document.getElementById('nmal-' + id), alias = alInp ? alInp.value.trim() : ''
   if (!mid) { toast('\u8BF7\u8F93\u5165\u6A21\u578B ID', 'error'); return }
-  const c = document.getElementById('ml-' + id), cnt = c.querySelectorAll('[data-idx]').length
+  const c = document.getElementById('ml-' + id), idx = c.querySelectorAll('[data-idx]').length
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row'
-  d.dataset.idx = cnt
-  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1" id="mid-' + escapeHtml(id) + '-' + cnt + '" placeholder="\u6A21\u578B ID" title="\u4E0A\u6E38\u771F\u5B9E\u6A21\u578B ID"><input type="text" value="' + escapeHtml(alias) + '" class="fx1" id="mal-' + escapeHtml(id) + '-' + cnt + '" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" title="\u5BF9\u5916\u663E\u793A\u540D, \u7559\u7A7A\u81EA\u52A8\u53BB:free\u540E\u7F00"><label class="tg"><input type="checkbox" checked id="men-' + escapeHtml(id) + '-' + cnt + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)" title="\u590D\u5236\u6A21\u578B ID" aria-label="\u590D\u5236\u6A21\u578B ID"><i class="far fa-copy"></i></button><button class="icon-btn" id="tm-' + escapeHtml(id) + '-' + cnt + '" title="\u6D4B\u8BD5\u6A21\u578B" aria-label="\u6D4B\u8BD5\u6A21\u578B"><i class="fas fa-plug"></i></button><button class="icon-btn" id="rm-' + escapeHtml(id) + '-' + cnt + '" title="\u79FB\u9664\u6A21\u578B" aria-label="\u79FB\u9664\u6A21\u578B"><i class="fas fa-times"></i></button>'
+  d.dataset.idx = idx
+  d.innerHTML = '<input type="text" value="' + escapeHtml(mid) + '" class="fx1" id="mid-' + id + '-' + idx + '"><input type="text" value="' + escapeHtml(alias) + '" placeholder="\u5BF9\u5916\u540D(\u53EF\u9009)" class="fx1" id="mal-' + id + '-' + idx + '"><label class="tg"><input type="checkbox" checked id="men-' + id + '-' + idx + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testMdl(\\'' + id + '\\',\\'' + mid + '\\',' + idx + ')">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="rmMdl(\\'' + id + '\\',' + idx + ')">' + svgIcon('times', '', 14) + '</button>'
   c.appendChild(d)
-  document.getElementById('tm-' + id + '-' + cnt).addEventListener('click', function() { testMdl(id, mid, cnt) })
-  document.getElementById('rm-' + id + '-' + cnt).addEventListener('click', function() { rmMdl(id, cnt) })
   inp.value = ''
   if (alInp) alInp.value = ''
 }
 
 function rmMdl(id, idx) {
-  const c = document.getElementById('ml-' + id)
-  c.querySelectorAll('[data-idx]').forEach(item => {
-    if (parseInt(item.dataset.idx) === idx) item.remove()
-  })
+  const el = document.querySelector('#ml-' + id + ' [data-idx="' + idx + '"]')
+  if (el) el.remove()
 }
 
 async function testMdl(id, mid, idx) {
+  const url = document.getElementById('url-' + id).value.trim()
+  const keys = getKeys(id)
+  const apiKey = keys.length > 0 ? keys[0].key : ''
+  const ptEl = document.getElementById('pt-' + id)
+  const apiType = (ptEl ? ptEl.value : 'openai') === 'anthropic' ? 'anthropic' : 'openai'
+  const mirEl = document.getElementById('mir-' + id)
+  const mirrorUrls = mirEl ? mirEl.value : undefined
   const tr = document.getElementById('tr-' + id)
   showSpinner(tr)
   try {
-    const mirEl = document.getElementById('mir-' + id)
-    const mirrorUrls = mirEl ? mirEl.value : undefined
-    const ptEl = document.getElementById('pt-' + id)
-    const type = ptEl ? ptEl.value : 'openai'
-    const apiType = type === 'anthropic' ? 'anthropic' : 'openai'
-    // antigravity\uFF1A\u7528\u8868\u5355\u5F53\u524D\u503C\u76F4\u63A5\u6D4B\uFF0C\u65E0\u9700\u5148\u4FDD\u5B58\uFF08refresh_token \u53EF\u80FD\u5728\u8868\u5355\u91CC\u521A\u586B\uFF09
-    if (type === 'antigravity') {
-      const keys = getKeys(id)
-      const apiKey = keys.length > 0 ? keys[0].key : ''
-      const url = document.getElementById('url-' + id).value.trim()
-      const r = await testModelConnection(url, apiType, apiKey, mid, id, mirrorUrls, type, provProject(id))
-      showResult(tr, r.success, r.success ? '' : (r.message || ('HTTP ' + r.status)))
-      return
-    }
-    const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/test-model', {
+    const r = await fetch('/admin/api/test-model', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modelId: mid, mirrorUrls })
+      body: JSON.stringify({ url: url, apiKey: apiKey, apiType: apiType, model: mid, providerId: id, mirrorUrls: mirrorUrls || undefined, providerType: provType(id), project: provProject(id) || undefined })
     })
     const d = await r.json()
-    if (d.success && d.data) {
-      showResult(tr, d.data.success, d.data.success ? '' : (d.data.message || '\u8FDE\u63A5\u5931\u8D25'))
-    } else {
-      showResult(tr, false, d.message || '\u6D4B\u8BD5\u5931\u8D25')
-    }
+    showResult(tr, d.success, d.message || '')
   } catch (e) { showResult(tr, false, '\u8BF7\u6C42\u5931\u8D25') }
 }
 
-// proxy keys
+// \u2500\u2500 \u4EE4\u724C\u7BA1\u7406 \u2500\u2500
 async function genKey() {
-  const name = await pM('\u8F93\u5165 Key \u540D\u79F0\uFF08\u53EF\u9009\uFF09')
+  const name = await pM('\u8F93\u5165\u4EE4\u724C\u540D\u79F0\uFF08\u4F8B\u5982\uFF1A\u5E94\u7528\u5F00\u53D1\u3001\u751F\u4EA7\u73AF\u5883\uFF09')
   if (name === null) return
-  showM('<h3><i class="fas fa-key c-p"></i> \u751F\u6210\u4EE4\u724C</h3><div class="fg"><label>\u6709\u6548\u671F</label><select id="exp"><option value="30d">30 \u5929</option><option value="90d">90 \u5929</option><option value="180d">180 \u5929</option><option value="1y">1 \u5E74</option><option value="forever" selected>\u6C38\u4E45</option></select></div><div class="fa"><button class="btn btn-s" id="gKc">\u53D6\u6D88</button><button class="btn btn-p" id="gKo">\u751F\u6210</button></div>')
+  showM('<h3>' + svgIcon('key', 'c-p', 20) + ' \u751F\u6210\u8BBF\u95EE\u4EE4\u724C</h3><div class="fg"><label>\u6709\u6548\u671F</label><select id="exp"><option value="30d">30 \u5929</option><option value="90d">90 \u5929</option><option value="180d">180 \u5929</option><option value="1y">1 \u5E74</option><option value="forever" selected>\u6C38\u4E45\u6709\u6548</option></select></div><div class="fa"><button class="btn btn-s" id="gKc">\u53D6\u6D88</button><button class="btn btn-p" id="gKo">\u7ACB\u5373\u751F\u6210</button></div>')
   document.getElementById('gKc').addEventListener('click', closeM)
   document.getElementById('gKo').addEventListener('click', function() { doGenKey(document.getElementById('exp').value, name) })
 }
 
 async function doGenKey(exp, name) {
   closeM()
-  const nm = name || ''
   const r = await fetch('/admin/api/proxy-keys', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: nm, expiresIn: exp })
+    body: JSON.stringify({ name: name || '', expiresIn: exp })
   })
   const d = await r.json()
   if (d.success && d.data) {
-    showM('<h3><i class="fas fa-check-circle c-s"></i> \u751F\u6210\u6210\u529F</h3><p>\u8BF7\u59A5\u5584\u4FDD\u5B58\uFF0C\u5207\u52FF\u6CC4\u9732\uFF1A</p><div class="mk">' + d.data.key + '</div><div class="fa"><button class="btn btn-p" onclick="closeM();location.reload()">\u5173\u95ED</button></div>')
+    showM('<h3>' + svgIcon('check', 'c-s', 20) + ' \u4EE4\u724C\u751F\u6210\u6210\u529F</h3><p>\u8BF7\u59A5\u5584\u4FDD\u5B58\u8BE5 Key\uFF0C\u51FA\u4E8E\u5B89\u5168\u539F\u56E0\u5B83\u53EA\u5C55\u793A\u4E00\u6B21\uFF1A</p><div class="endpoint-box endpoint-box--key" style="margin-top:10px"><code>' + d.data.key + '</code><button class="btn btn-s" onclick="copyText(\\'' + d.data.key + '\\',this)">' + svgIcon('copy', '', 14) + ' \u590D\u5236</button></div><div class="fa"><button class="btn btn-p" onclick="closeM();location.reload()">\u5B8C\u6210</button></div>')
   } else toast(d.message || '\u751F\u6210\u5931\u8D25', 'error')
 }
 
 async function rmKey(id) {
-  if (!(await cM('\u786E\u5B9A\u8981\u5220\u9664\u6B64 Key\uFF1F'))) return
+  if (!(await cM('\u786E\u5B9A\u8981\u5220\u9664\u6B64 Key\uFF1F\u5220\u9664\u540E\u5BA2\u6237\u7AEF\u5C06\u7ACB\u5373\u65E0\u6CD5\u63A5\u5165\u3002'))) return
   const r = await fetch('/admin/api/proxy-keys/' + encodeURIComponent(id), { method: 'DELETE' })
   const d = await r.json()
   if (d.success) { toast('\u5DF2\u5220\u9664', 'success'); location.reload() }
   else toast(d.message || '\u5220\u9664\u5931\u8D25', 'error')
 }
 
-// \u91CD\u65B0\u751F\u6210\u4EE4\u724C: \u65E7 key \u7ACB\u5373\u5931\u6548, \u751F\u6210\u65B0 key
 async function regenerateKey(id) {
   if (!(await cM('\u91CD\u65B0\u751F\u6210\u540E\u65E7 Key \u5C06\u7ACB\u5373\u5931\u6548\uFF0C\u786E\u5B9A\u7EE7\u7EED\uFF1F'))) return
   const r = await fetch('/admin/api/proxy-keys/' + encodeURIComponent(id), {
@@ -17956,14 +19338,12 @@ async function regenerateKey(id) {
   const d = await r.json()
   if (!d.success) { toast(d.message || '\u91CD\u65B0\u751F\u6210\u5931\u8D25', 'error'); return }
   const nk = d.data.key
-  // \u663E\u793A\u65B0 key \u4F9B\u590D\u5236 (\u7528\u4E8B\u4EF6\u7ED1\u5B9A\u907F\u514D\u6A21\u677F\u5B57\u7B26\u4E32\u5185\u5F15\u53F7\u8F6C\u4E49\u95EE\u9898)
-  showM('<h3><i class="fas fa-sync-alt c-p"></i> \u4EE4\u724C\u5DF2\u91CD\u65B0\u751F\u6210</h3><div class="fg"><label>\u65B0 Key\uFF08\u4EC5\u663E\u793A\u4E00\u6B21\uFF09</label><input type="text" id="rgKey" value="' + nk + '" readonly onclick="this.select()"></div><div class="fa"><button class="btn btn-p" id="rgCopyBtn">\u590D\u5236</button><button class="btn btn-s" onclick="closeM()">\u5173\u95ED</button></div>')
+  showM('<h3>' + svgIcon('refresh', 'c-p', 20) + ' \u4EE4\u724C\u5DF2\u91CD\u65B0\u751F\u6210</h3><div class="endpoint-box endpoint-box--key" style="margin-top:10px"><code>' + nk + '</code><button class="btn btn-s" id="rgCopyBtn">' + svgIcon('copy', '', 14) + ' \u590D\u5236</button></div><div class="fa"><button class="btn btn-p" onclick="closeM()">\u5173\u95ED</button></div>')
   const copyBtn = document.getElementById('rgCopyBtn')
-  if (copyBtn) copyBtn.onclick = function () { copyText(document.getElementById('rgKey').value, this); toast('\u5DF2\u590D\u5236', 'success') }
+  if (copyBtn) copyBtn.onclick = function () { copyText(nk, this); toast('\u5DF2\u590D\u5236', 'success') }
   toast('\u5DF2\u91CD\u65B0\u751F\u6210', 'success')
 }
 
-// proxy key list interactions
 async function togglePb(id, checked) {
   const pi = document.querySelector('.pi[data-id="' + id + '"]')
   if (!pi) return
@@ -17983,9 +19363,7 @@ function toggleKeyVis(id) {
   const full = el.dataset.full
   const vis = el.dataset.vis === '1'
   if (vis) {
-    el.textContent = full.length > 12
-      ? full.substring(0, 8) + '*****' + full.substring(full.length - 4)
-      : full
+    el.textContent = full.length > 12 ? full.substring(0, 8) + '*****' + full.substring(full.length - 4) : full
     el.dataset.vis = '0'
   } else {
     el.textContent = full
@@ -18003,14 +19381,14 @@ async function toggleProxyKey(id, checked) {
   if (d.success) {
     const ki = document.querySelector('.ki[data-id="' + id + '"]')
     if (ki) {
-      const b = ki.querySelector('.fc .bd')
+      const b = ki.querySelector('.key-actions .bd')
       if (b) { b.textContent = checked ? '\u5DF2\u542F\u7528' : '\u5DF2\u7981\u7528'; b.className = 'bd ' + (checked ? 'bd-on' : 'bd-off') }
     }
   } else toast(d.message || '\u64CD\u4F5C\u5931\u8D25', 'error')
 }
 
-// \u4E2D\u6587\u8BF4\u660E\uFF1A\u6839\u636E\u70B9\u51FB\u548C URL \u951A\u70B9\u540C\u6B65\u4FA7\u680F\u9009\u4E2D\u6001\uFF0C\u907F\u514D\u5BFC\u822A\u59CB\u7EC8\u505C\u7559\u5728\u201C\u6982\u89C8\u201D\u3002
-const adminNavLinks = Array.from(document.querySelectorAll('.admin-nav a[href^="#"]'))
+// \u2500\u2500 \u5BFC\u822A\u4E0E\u8DEF\u7531 \u2500\u2500
+const adminNavLinks = Array.from(document.querySelectorAll('.admin-nav a[href^="#"], .admin-topbar__nav a[href^="#"]'))
 function setActiveAdminNav(hash) {
   const targetHash = adminNavLinks.some(function (link) { return link.getAttribute('href') === hash }) ? hash : '#overview'
   adminNavLinks.forEach(function (link) {
@@ -18026,7 +19404,7 @@ adminNavLinks.forEach(function (link) {
 window.addEventListener('hashchange', function () { setActiveAdminNav(location.hash) })
 setActiveAdminNav(location.hash)
 
-// ===== \u7528\u91CF\u7EDF\u8BA1 =====
+// \u2500\u2500 \u7528\u91CF\u7EDF\u8BA1 \u2500\u2500
 const fmtNum = (n) => Number(n || 0).toLocaleString('zh-CN')
 const fmtTok = (n) => {
   const v = Number(n || 0)
@@ -18049,23 +19427,20 @@ async function loadUsage() {
     setText('u-out', fmtTok(s.totalCompletionTokens))
     setText('u-lat', s.avgLatencyMs ? fmtNum(s.avgLatencyMs) + ' ms' : '-')
 
-    // \u6BCF\u65E5\u8D8B\u52BF
     const trendEl = document.getElementById('u-trend')
     const trendWrap = document.getElementById('u-trend-wrap')
     if (s.daily && s.daily.length > 1) {
       const max = Math.max(...s.daily.map((x) => x.requests), 1)
-      trendEl.innerHTML = '<div class="fc" style="flex-direction:column;gap:8px">' + s.daily.map((x) => {
+      trendEl.innerHTML = '<div class="fc" style="flex-direction:column;gap:10px">' + s.daily.map((x) => {
         const pct = Math.max(Math.round((x.requests / max) * 100), 2)
-        return '<div class="fc" style="width:100%;gap:8px"><span style="flex:0 0 70px;font-size:11px;color:var(--color-muted)">' + x.date.slice(5) + '</span><div class="fc" style="flex:1;height:18px;background:var(--color-rule);border-radius:4px;overflow:hidden"><div class="trend-fill" style="width:' + pct + '%;height:100%;background:var(--color-accent);border-radius:4px"></div></div><span style="flex:0 0 90px;text-align:right;font-size:11px" title="\u8F93\u5165 ' + fmtTok(x.promptTokens) + ' + \u8F93\u51FA ' + fmtTok(x.completionTokens) + ' tokens">' + fmtNum(x.requests) + ' \u8BF7\u6C42 \xB7 ' + fmtTok(x.promptTokens + x.completionTokens) + ' tok</span></div>'
+        return '<div class="fc" style="width:100%;gap:12px"><span style="flex:0 0 70px;font-size:12px;color:var(--text-muted)">' + x.date.slice(5) + '</span><div style="flex:1;height:12px;background:var(--bg-surface-subtle);border-radius:var(--radius-full);overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#2563eb,#3b82f6);border-radius:var(--radius-full)"></div></div><span style="flex:0 0 120px;text-align:right;font-size:11px">' + fmtNum(x.requests) + ' \u6B21 \xB7 ' + fmtTok(x.promptTokens + x.completionTokens) + ' tok</span></div>'
       }).join('') + '</div>'
       trendWrap.classList.remove('hd')
     } else {
       trendWrap.classList.add('hd')
     }
 
-    // \u6A21\u578B\u6392\u884C
     renderRank('u-models', s.byModel, 'model')
-    // \u6E20\u9053\u6392\u884C
     renderRank('u-providers', s.byProvider, 'provider')
   } catch (e) {
     toast(e.message || '\u7528\u91CF\u52A0\u8F7D\u5931\u8D25', 'error')
@@ -18076,17 +19451,17 @@ function renderRank(elId, list, keyName) {
   const el = document.getElementById(elId)
   if (!el) return
   if (!list || list.length === 0) {
-    el.innerHTML = '<p class="mu" style="padding:8px 0">\u6682\u65E0\u6570\u636E</p>'
+    el.innerHTML = '<p class="mu" style="padding:12px 0">\u6682\u65E0\u6570\u636E</p>'
     return
   }
   const max = Math.max(...list.map((x) => x.requests), 1)
-  el.innerHTML = list.slice(0, 10).map((x, i) => {
+  el.innerHTML = list.slice(0, 10).map((x) => {
     const pct = Math.max(Math.round((x.requests / max) * 100), 3)
-    return '<div class="rk-row" style="margin-bottom:10px">' +
-      '<div class="fc" style="justify-content:space-between;gap:8px;margin-bottom:4px">' +
-      '<code style="font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(x[keyName]) + '">' + escapeHtml(x[keyName]) + '</code>' +
-      '<span style="font-size:11px;color:var(--color-muted);flex-shrink:0">' + fmtNum(x.requests) + ' \u8BF7\u6C42 \xB7 ' + fmtTok(x.promptTokens + x.completionTokens) + ' tokens</span></div>' +
-      '<div style="height:6px;background:var(--color-rule);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:var(--color-accent);border-radius:3px"></div></div></div>'
+    return '<div class="rank-row" style="margin-bottom:12px">' +
+      '<div class="quota-row__info">' +
+      '<code style="font-size:12px;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(x[keyName]) + '">' + escapeHtml(x[keyName]) + '</code>' +
+      '<span class="form-helper">' + fmtNum(x.requests) + ' \u6B21 \xB7 ' + fmtTok(x.promptTokens + x.completionTokens) + ' tok</span></div>' +
+      '<div class="rank-bar"><div class="rank-bar__fill" style="width:' + pct + '%"></div></div></div>'
   }).join('')
 }
 
@@ -18095,15 +19470,15 @@ function setText(id, text) {
   if (el) el.textContent = text
 }
 
-// ===== \u5907\u4EFD\u4E0E\u6062\u590D =====
+// \u2500\u2500 \u5907\u4EFD\u4E0E\u6062\u590D \u2500\u2500
 function bkResult(elId, ok, msg) {
   const el = document.getElementById(elId)
-  if (el) el.innerHTML = '<div class="al ' + (ok ? 'al-ok' : 'al-err') + '">' + msg + '</div>'
+  if (el) el.innerHTML = '<div class="al ' + (ok ? 'al-s' : 'al-e') + '" style="margin-top:10px">' + (ok ? svgIcon('check', '', 14) : svgIcon('alert', '', 14)) + ' <span>' + escapeHtml(msg) + '</span></div>'
 }
-// \u5F39\u7A97\u8F93\u5165\u7BA1\u7406\u5458\u5BC6\u7801, \u8FD4\u56DE SHA-256 \u54C8\u5E0C; \u53D6\u6D88\u8FD4\u56DE null
+
 function adminAuthHash() {
   return new Promise(function (resolve) {
-    showM('<h3><i class="fas fa-lock c-p"></i> \u9A8C\u8BC1\u7BA1\u7406\u5458\u5BC6\u7801</h3><p class="form-helper">\u6B64\u64CD\u4F5C\u654F\u611F\uFF0C\u9700\u8981\u8F93\u5165\u7BA1\u7406\u5458\u5BC6\u7801\u786E\u8BA4\u3002</p><div class="fg"><label>\u7BA1\u7406\u5458\u5BC6\u7801</label><input type="password" id="authPass" class="fx1" placeholder="\u8BF7\u8F93\u5165\u5BC6\u7801" autocomplete="current-password"></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="authOk">\u786E\u8BA4</button></div>')
+    showM('<h3>' + svgIcon('lock', 'c-p', 20) + ' \u9A8C\u8BC1\u7BA1\u7406\u5458\u5BC6\u7801</h3><p class="form-helper">\u6B64\u64CD\u4F5C\u654F\u611F\uFF0C\u8BF7\u8F93\u5165\u7BA1\u7406\u5458\u5BC6\u7801\u7EE7\u7EED\u3002</p><div class="fg"><label>\u7BA1\u7406\u5458\u5BC6\u7801</label><input type="password" id="authPass" class="fx1" placeholder="\u8BF7\u8F93\u5165\u5BC6\u7801" autocomplete="current-password"></div><div class="fa"><button class="btn btn-s" onclick="closeM()">\u53D6\u6D88</button><button class="btn btn-p" id="authOk">\u786E\u8BA4</button></div>')
     const ok = document.getElementById('authOk')
     ok.onclick = async function () {
       const pass = document.getElementById('authPass').value
@@ -18115,6 +19490,7 @@ function adminAuthHash() {
     }
   })
 }
+
 async function backupExport() {
   const tr = document.getElementById('bk-io-result')
   showSpinner(tr)
@@ -18131,10 +19507,10 @@ async function backupExport() {
     a.download = name
     a.click()
     URL.revokeObjectURL(a.href)
-    bkResult('bk-io-result', true, '\u5DF2\u5BFC\u51FA ' + name + '\uFF08\u6CE8\uFF1A\u4E3A\u4FDD\u62A4\u9690\u79C1\uFF0CTelegram \u901A\u77E5\u914D\u7F6E\u4E0D\u5305\u542B\u5728\u5907\u4EFD\u5185\uFF0C\u8FD8\u539F\u540E\u9700\u91CD\u65B0\u586B\u5199\uFF09')
+    bkResult('bk-io-result', true, '\u5DF2\u6210\u529F\u5BFC\u51FA\u6570\u636E\u5E93\u6587\u4EF6 ' + name)
   } catch (e) { bkResult('bk-io-result', false, '\u5BFC\u51FA\u5931\u8D25: ' + e.message) }
 }
-// \u5BFC\u5165\u6570\u636E\u5E93: \u70B9\u51FB\u6309\u94AE\u7ACB\u5373\u9A8C\u8BC1\u7BA1\u7406\u5458\u5BC6\u7801, \u901A\u8FC7\u540E\u624D\u9009\u62E9\u6587\u4EF6
+
 let bkImportHash = null
 function backupImportPick() {
   cM('\u5BFC\u5165\u5C06<strong>\u8986\u76D6</strong>\u5F53\u524D\u6240\u6709\u6570\u636E(\u6E20\u9053/\u4EE4\u724C/\u7528\u91CF)\uFF0C\u786E\u5B9A\u7EE7\u7EED\uFF1F').then(async function (ok) {
@@ -18148,6 +19524,7 @@ function backupImportPick() {
     input.click()
   })
 }
+
 function backupImport(file) {
   if (!file || !bkImportHash) return
   const reader = new FileReader()
@@ -18168,6 +19545,7 @@ function backupImport(file) {
   }
   reader.readAsText(file)
 }
+
 async function backupToR2() {
   const tr = document.getElementById('bk-r2-result')
   showSpinner(tr)
@@ -18176,6 +19554,7 @@ async function backupToR2() {
   bkResult('bk-r2-result', d.success, d.message || '\u5907\u4EFD\u5931\u8D25')
   if (d.success) backupList()
 }
+
 async function backupList() {
   const el = document.getElementById('bk-r2-result')
   showSpinner(el)
@@ -18185,13 +19564,14 @@ async function backupList() {
     if (!d.success) { bkResult('bk-r2-result', false, d.message || '\u83B7\u53D6\u5931\u8D25'); return }
     const list = d.data || []
     if (list.length === 0) { bkResult('bk-r2-result', false, 'R2 \u4E2D\u6682\u65E0\u5907\u4EFD\u5FEB\u7167'); return }
-    el.innerHTML = '<div class="panel-list" style="margin-top:6px">' + list.map(function (f, i) {
+    el.innerHTML = '<div class="panel-list" style="margin-top:10px">' + list.map(function (f) {
       const shortKey = f.key.indexOf('/') >= 0 ? f.key.slice(f.key.indexOf('/') + 1) : f.key
       const Q = String.fromCharCode(39)
-      return '<div class="fc field-row" style="justify-content:space-between;padding:6px 8px;border:1px solid var(--color-rule);border-radius:8px;margin-bottom:6px"><span style="font-family:var(--font-mono);font-size:11px;overflow:hidden;text-overflow:ellipsis">' + shortKey + '</span><span style="font-size:11px;color:var(--color-muted);flex-shrink:0">' + (f.size ? (f.size / 1024).toFixed(1) + ' KB' : '') + '</span><span class="fc" style="gap:4px;flex-shrink:0"><button class="btn btn-xs" onclick="backupRestore(' + Q + f.key + Q + ')" title="\u4ECE\u8BE5\u5FEB\u7167\u6062\u590D"><i class="fas fa-history"></i>\u6062\u590D</button><button class="btn btn-xs bd-del" onclick="backupDelete(' + Q + f.key + Q + ')" title="\u5220\u9664\u5FEB\u7167"><i class="fas fa-trash"></i></button></span></div>'
+      return '<div class="fc field-row" style="justify-content:space-between;padding:8px 12px;background:var(--bg-surface-subtle);border:1px solid var(--border-color);border-radius:var(--radius-md);margin-bottom:6px"><span style="font-family:var(--font-mono);font-size:12px;overflow:hidden;text-overflow:ellipsis">' + shortKey + '</span><span class="fc" style="gap:8px"><span style="font-size:11px;color:var(--text-muted)">' + (f.size ? (f.size / 1024).toFixed(1) + ' KB' : '') + '</span><button class="btn btn-s" onclick="backupRestore(' + Q + f.key + Q + ')" style="padding:2px 8px;font-size:11px">' + svgIcon('refresh', '', 12) + ' \u6062\u590D</button><button class="btn btn-d" onclick="backupDelete(' + Q + f.key + Q + ')" style="padding:2px 8px;font-size:11px">' + svgIcon('trash', '', 12) + '</button></span></div>'
     }).join('') + '</div>'
   } catch (e) { bkResult('bk-r2-result', false, '\u83B7\u53D6\u5931\u8D25: ' + e.message) }
 }
+
 async function backupRestore(key) {
   if (!(await cM('\u4ECE\u5FEB\u7167\u6062\u590D\u5C06<strong>\u8986\u76D6</strong>\u5F53\u524D\u6240\u6709\u6570\u636E\uFF0C\u786E\u5B9A\u7EE7\u7EED\uFF1F'))) return
   const hash = await adminAuthHash()
@@ -18208,6 +19588,7 @@ async function backupRestore(key) {
     setTimeout(function () { location.href = '/admin/login' }, 1500)
   }
 }
+
 async function backupDelete(key) {
   if (!(await cM('\u786E\u5B9A\u5220\u9664\u6B64\u5FEB\u7167\uFF1F'))) return
   const hash = await adminAuthHash()
@@ -18222,13 +19603,13 @@ async function backupDelete(key) {
   if (d.success) backupList()
 }
 
-// ===== Telegram \u5907\u4EFD =====
 function tgParams() {
   return {
     botToken: document.getElementById('tgToken').value.trim(),
     chatId: document.getElementById('tgChat').value.trim(),
   }
 }
+
 async function telegramTest() {
   const el = document.getElementById('bk-tg-result')
   showSpinner(el)
@@ -18242,12 +19623,32 @@ async function telegramTest() {
   const d = await r.json()
   bkResult('bk-tg-result', d.success, d.message || '\u6D4B\u8BD5\u5931\u8D25')
 }
+
+async function telegramSave() {
+  const el = document.getElementById('bk-tg-result')
+  showSpinner(el)
+  const p = tgParams()
+  if (!p.botToken || !p.chatId) { bkResult('bk-tg-result', false, '\u8BF7\u5148\u586B\u5199 Bot Token \u548C USER ID'); return }
+  try {
+    const r = await fetch('/admin/api/telegram/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(p),
+    })
+    const d = await r.json()
+    bkResult('bk-tg-result', d.success, d.message || (d.success ? '\u914D\u7F6E\u5DF2\u4FDD\u5B58' : '\u4FDD\u5B58\u5931\u8D25'))
+    if (d.success) toast('Telegram \u5907\u4EFD\u914D\u7F6E\u5DF2\u4FDD\u5B58', 'success')
+  } catch (e) {
+    bkResult('bk-tg-result', false, '\u4FDD\u5B58\u8BF7\u6C42\u5931\u8D25')
+  }
+}
+
 async function backupToTelegram() {
   const el = document.getElementById('bk-tg-result')
   showSpinner(el)
   const p = tgParams()
   if (!p.botToken || !p.chatId) { bkResult('bk-tg-result', false, '\u8BF7\u5148\u586B\u5199 Bot Token \u548C USER ID'); return }
-  const r = await fetch('/admin/api/backup/to-telegram', {
+  const r = await fetch('/admin/api/telegram/to-telegram', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(p),
@@ -18256,32 +19657,39 @@ async function backupToTelegram() {
   bkResult('bk-tg-result', d.success, d.message || '\u5907\u4EFD\u5931\u8D25')
 }
 
-// ===== \u4FA7\u8FB9\u680F\u6536\u7F29/\u5C55\u5F00(PC \u7AEF, \u8BB0\u5FC6\u72B6\u6001) =====
+// \u2500\u2500 \u4FA7\u8FB9\u680F\u6536\u7F29\u4E0E\u5C55\u5F00 \u2500\u2500
 function toggleRail() {
-  const shell = document.querySelector('.admin-shell')
-  const collapsed = shell.classList.toggle('is-collapsed')
+  const rail = document.querySelector('.admin-rail')
+  const collapsed = rail.classList.toggle('collapsed')
   try { localStorage.setItem('admin-rail-collapsed', collapsed ? '1' : '0') } catch (e) {}
   const btn = document.querySelector('.rail-toggle')
   if (btn) btn.title = collapsed ? '\u5C55\u5F00\u4FA7\u8FB9\u680F' : '\u6536\u7F29\u4FA7\u8FB9\u680F'
 }
-// \u6062\u590D\u4E0A\u6B21\u72B6\u6001
 try {
   if (localStorage.getItem('admin-rail-collapsed') === '1') {
-    document.querySelector('.admin-shell')?.classList.add('is-collapsed')
+    document.querySelector('.admin-rail')?.classList.add('collapsed')
     const btn = document.querySelector('.rail-toggle')
     if (btn) btn.title = '\u5C55\u5F00\u4FA7\u8FB9\u680F'
   }
 } catch (e) {}
 
-// ===== \u6A21\u5757\u5316\u5BFC\u822A: \u70B9\u51FB\u5BFC\u822A\u53EA\u663E\u793A\u5BF9\u5E94\u6A21\u5757 =====
+// \u2500\u2500 Tab \u5207\u6362 \u2500\u2500
 function showModule() {
   const hash = location.hash || '#overview'
   const mods = ['overview', 'providers', 'quota', 'proxy-keys', 'usage', 'backup']
   mods.forEach(m => {
     const el = document.getElementById(m)
-    if (el) el.style.display = (hash === '#' + m) ? '' : 'none'
+    if (el) {
+      if (hash === '#' + m) {
+        el.style.display = 'block'
+        el.classList.add('is-active')
+      } else {
+        el.style.display = 'none'
+        el.classList.remove('is-active')
+      }
+    }
   })
-  document.querySelectorAll('.admin-nav__link').forEach(a => {
+  document.querySelectorAll('.admin-nav__link, .admin-topbar__nav a').forEach(a => {
     const href = a.getAttribute('href') || ''
     a.classList.toggle('is-active', href === hash || (hash === '#overview' && href === '#overview'))
   })
@@ -18291,7 +19699,6 @@ function showModule() {
 window.addEventListener('hashchange', showModule)
 showModule()
 
-// \u8D26\u53F7\u7EA7\u300C\u67E5\u8BE2\u300D\u6309\u94AE\u8D70\u4E8B\u4EF6\u59D4\u6258\uFF08\u5185\u5BB9\u4F1A\u88AB innerHTML \u66FF\u6362\uFF0C\u59D4\u6258\u5728\u5BB9\u5668\u4E0A\uFF09
 const quotaBodyEl = document.getElementById('quotaBody')
 if (quotaBodyEl) {
   quotaBodyEl.addEventListener('click', function (e) {
@@ -18301,14 +19708,8 @@ if (quotaBodyEl) {
   })
 }
 
-// \u8FDB\u5165\u7528\u91CF section \u65F6\u52A0\u8F7D
 if (location.hash === '#usage') loadUsage()
-</script>
-</body></html>`);
-}
-
-// src/index.ts
-init_storage();
+`;
 
 // src/backup.ts
 init_storage();
@@ -18441,8 +19842,27 @@ async function handleBackupDelete(c) {
     return c.json({ success: false, message: "\u5220\u9664\u5931\u8D25" }, 500);
   }
 }
+async function getTgConfig(env) {
+  const val = await getKV(env).get("telegram:backup");
+  if (!val) return null;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return null;
+  }
+}
 async function saveTgConfig(env, botToken, chatId) {
   await getKV(env).put("telegram:backup", JSON.stringify({ botToken, chatId }));
+}
+async function handleTelegramSave(c) {
+  const { botToken, chatId } = await c.req.json();
+  if (!botToken || !chatId) return c.json({ success: false, message: "\u8BF7\u586B\u5199 Bot Token \u548C Chat ID" }, 400);
+  try {
+    await saveTgConfig(c.env, botToken, chatId);
+    return c.json({ success: true, message: "Telegram \u5907\u4EFD\u914D\u7F6E\u5DF2\u6210\u529F\u4FDD\u5B58" });
+  } catch (e) {
+    return c.json({ success: false, message: "\u4FDD\u5B58\u5931\u8D25: " + e.message }, 500);
+  }
 }
 async function handleTelegramTest(c) {
   const { botToken, chatId } = await c.req.json();
@@ -18451,7 +19871,7 @@ async function handleTelegramTest(c) {
     const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: "AI Gateway: \u8FD9\u662F\u4E00\u4E2A\u6D4B\u8BD5\u6D88\u606F\uFF0C\u914D\u7F6E\u6210\u529F\uFF01" })
+      body: JSON.stringify({ chat_id: chatId, text: "AI GATEWAY: \u8FD9\u662F\u4E00\u4E2A\u6D4B\u8BD5\u6D88\u606F\uFF0C\u914D\u7F6E\u6210\u529F\uFF01" })
     });
     const d = await r.json();
     if (d.ok) {
@@ -18473,7 +19893,7 @@ async function handleBackupToTelegram(c) {
     const filename = `ai-gateway-backup-${data.exportedAt.replace(/[:.]/g, "-")}.json`;
     const fd = new FormData();
     fd.append("chat_id", chatId);
-    fd.append("caption", `AI Gateway \u624B\u52A8\u5FEB\u7167
+    fd.append("caption", `AI GATEWAY \u624B\u52A8\u5FEB\u7167
 \u65F6\u95F4\uFF1A${data.exportedAt}
 \u6E20\u9053\u4E0E\u914D\u7F6E\uFF1A${data.kv.length} \u9879
 \u7528\u91CF\u8BB0\u5F55\uFF1A${data.usage.length} \u6761`);
@@ -18491,7 +19911,633 @@ async function handleBackupToTelegram(c) {
   }
 }
 
+// src/admin.page.ts
+function getPlatformLabel2(_env, _host) {
+  return "EdgeOne \xB7 Blob";
+}
+var AZURE_VOICE_OPTIONS = (() => {
+  const groups = /* @__PURE__ */ new Map();
+  for (const v of AZURE_TTS_VOICES) {
+    const g = v.group || voiceGroup(v.id);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(`<option value="${v.id}">${v.label} (${v.id})</option>`);
+  }
+  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
+})();
+var azureVoiceOptions = (selected) => {
+  const groups = /* @__PURE__ */ new Map();
+  for (const v of AZURE_TTS_VOICES) {
+    const g = v.group || voiceGroup(v.id);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(`<option value="${v.id}" ${v.id === selected ? "selected" : ""}>${v.label} (${v.id})</option>`);
+  }
+  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
+};
+var escapePageHtml2 = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+var cbRealmOf = (p) => {
+  if (p.region === "global") return "global";
+  if (p.region === "cn") return "cn";
+  return /workbuddy\.ai/i.test(p.baseUrl || "") ? "global" : "cn";
+};
+var H3 = (title) => `
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f8fafc">
+  <title>${title} \u2014 ${SITE_CONFIG.title}</title>
+  <link rel="icon" href="${SITE_CONFIG.favicon}">
+  <link rel="stylesheet" href="${SITE_CONFIG.faCdn}">
+  <style>${CSS_CONTENT}</style>
+</head>`;
+async function renderAdminPage(c) {
+  const providers = await getProviders(c.env);
+  const proxyKeys = await getProxyKeys(c.env);
+  const tgConfig = await getTgConfig(c.env).catch(() => null);
+  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null);
+  const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, "") : "";
+  const enabledProvidersCount = providers.filter((p) => p.enabled).length;
+  const modelsCount = providers.reduce((total, p) => total + p.models.length, 0);
+  const enabledModelsCount = providers.reduce((total, p) => total + p.models.filter((m) => m.enabled).length, 0);
+  const enabledProxyKeysCount = proxyKeys.filter((k) => k.enabled).length;
+  const agChannels = providers.filter((p) => (p.type || "") === "antigravity" && p.enabled).map((p) => ({
+    id: p.id,
+    name: p.name,
+    accountCount: p.apiKeys.filter((k) => k.enabled && k.key && k.key.trim()).length
+  }));
+  const agAccountCount = agChannels.reduce((total, ch) => total + ch.accountCount, 0);
+  const storageLabel = storageTypeLabel(c.env);
+  const apiBase = `${getExternalOrigin(c)}/v1`;
+  return c.html(`<!DOCTYPE html><html lang="zh-CN">
+${H3("\u63A7\u5236\u53F0")}
+<body class="site-page admin-page">
+<div class="admin-shell">
+  <aside class="admin-rail" aria-label="\u63A7\u5236\u53F0\u5BFC\u822A">
+    <div class="admin-rail__head">
+      <a class="brand admin-rail__brand" href="/">
+        <span class="brand__mark">${icon("cloud", "", 18)}</span>
+        <span><strong>AI GATEWAY</strong><small>CONTROL PANEL</small></span>
+      </a>
+    </div>
+    <nav class="admin-nav">
+      <a class="admin-nav__link is-active" href="#overview">${icon("overview", "", 16)}<span>\u6982\u89C8</span></a>
+      <a class="admin-nav__link" href="#providers">${icon("server", "", 16)}<span>\u6E20\u9053</span><b>${providers.length}</b></a>
+      <a class="admin-nav__link" href="#quota">${icon("gauge", "", 16)}<span>\u989D\u5EA6</span><b>${agAccountCount}</b></a>
+      <a class="admin-nav__link" href="#proxy-keys">${icon("key", "", 16)}<span>\u4EE4\u724C</span><b>${proxyKeys.length}</b></a>
+      <a class="admin-nav__link" href="#usage">${icon("chart", "", 16)}<span>\u7528\u91CF</span></a>
+      <a class="admin-nav__link" href="#backup">${icon("database", "", 16)}<span>\u5907\u4EFD</span></a>
+    </nav>
+    <div class="admin-rail__foot">
+      <button class="admin-nav__link rail-toggle" type="button" onclick="toggleRail()" title="\u6536\u7F29\u4FA7\u8FB9\u680F">${icon("anglesLeft", "", 16)}<span>\u6536\u7F29\u4FA7\u8FB9\u680F</span></button>
+      <a href="/" class="admin-nav__link">${icon("arrowLeft", "", 16)}<span>\u8FD4\u56DE\u9996\u9875</span></a>
+      <a href="/admin/logout" class="admin-nav__link">${icon("signOut", "", 16)}<span>\u9000\u51FA\u767B\u5F55</span></a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-topbar">
+      <a class="brand" href="/"><span class="brand__mark">${icon("cloud", "", 16)}</span><span class="brand__name">AI GATEWAY</span></a>
+      <nav class="admin-topbar__nav" aria-label="\u79FB\u52A8\u7AEF\u63A7\u5236\u53F0\u5BFC\u822A">
+        <a class="is-active" href="#overview">${icon("overview", "", 13)}\u6982\u89C8</a>
+        <a href="#providers">${icon("server", "", 13)}\u6E20\u9053<b>${providers.length}</b></a>
+        <a href="#quota">${icon("gauge", "", 13)}\u989D\u5EA6<b>${agAccountCount}</b></a>
+        <a href="#proxy-keys">${icon("key", "", 13)}\u4EE4\u724C<b>${proxyKeys.length}</b></a>
+        <a href="#usage">${icon("chart", "", 13)}\u7528\u91CF</a>
+        <a href="#backup">${icon("database", "", 13)}\u5907\u4EFD</a>
+      </nav>
+      <div class="admin-topbar__actions">
+        <a href="/" class="icon-btn" title="\u67E5\u770B\u524D\u53F0" aria-label="\u67E5\u770B\u524D\u53F0">${icon("external", "", 14)}</a>
+        <a class="icon-btn" href="/admin/logout" aria-label="\u9000\u51FA\u767B\u5F55" title="\u9000\u51FA\u767B\u5F55">${icon("signOut", "", 14)}</a>
+      </div>
+    </header>
+
+    <main class="admin-content">
+      <div id="toast" class="hd toast" role="status" aria-live="polite"></div>
+
+      <!-- \u6982\u89C8 Section -->
+      <section id="overview" class="admin-overview" aria-labelledby="admin-title">
+        <div class="admin-heading">
+          <div>
+            <p class="eyebrow">${icon("cloud", "", 12)}GATEWAY RUNTIME STATUS</p>
+            <h1 id="admin-title">\u7F51\u5173\u603B\u89C8\u63A7\u5236\u53F0</h1>
+            <p>\u7EDF\u4E00\u7BA1\u7406\u6A21\u578B\u8DEF\u7531\u3001\u4E0A\u6E38\u6E20\u9053\u4E0E\u4EE4\u724C\u3002\u6301\u4E45\u5316\u6570\u636E\u5B58\u50A8\u4E8E <strong>${storageLabel}</strong>\u3002</p>
+          </div>
+          <div class="admin-heading__actions">
+            <a href="/" class="btn btn-s">${icon("external", "", 14)} \u67E5\u770B\u524D\u53F0\u53EF\u7528\u6A21\u578B</a>
+          </div>
+        </div>
+
+        <div class="admin-metrics" aria-label="\u914D\u7F6E\u7EDF\u8BA1">
+          <div onclick="location.hash='#providers'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u6E20\u9053">
+            <span>${providers.length}</span><p>\u6E20\u9053</p><small>${enabledProvidersCount} \u4E2A\u5DF2\u542F\u7528</small>
+          </div>
+          <div onclick="location.hash='#providers'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u6A21\u578B">
+            <span>${modelsCount}</span><p>\u6A21\u578B</p><small>${enabledModelsCount} \u4E2A\u5F53\u524D\u53EF\u7528</small>
+          </div>
+          <div onclick="location.hash='#proxy-keys'" style="cursor:pointer" title="\u70B9\u51FB\u7BA1\u7406\u4EE4\u724C">
+            <span>${proxyKeys.length}</span><p>\u8BBF\u95EE\u4EE4\u724C</p><small>${enabledProxyKeysCount} \u4E2A\u6709\u6548\u53EF\u7528</small>
+          </div>
+          <div onclick="location.hash='#usage'" style="cursor:pointer" title="\u70B9\u51FB\u67E5\u770B\u7528\u91CF">
+            <span class="status-dot--online">\u5DF2\u8FDE\u63A5</span><p>\u5B58\u50A8\u5F15\u64CE</p><small>${storageLabel}</small>
+          </div>
+        </div>
+
+        <div class="endpoint-box endpoint-box--url" style="margin-bottom:24px" aria-label="API \u63A5\u5165\u5730\u5740">
+          <span class="endpoint-box__label">API BASE URL</span>
+          <code>${escapePageHtml2(apiBase)}</code>
+          <button class="btn btn-s copy-control" type="button" data-copy="${escapePageHtml2(apiBase)}" aria-label="\u590D\u5236 API \u5730\u5740">
+            ${icon("copy", "", 14)}<span>\u590D\u5236\u5730\u5740</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- \u6E20\u9053 Section -->
+      <section id="providers" class="workspace-section" aria-labelledby="providers-title">
+        <div class="section-heading">
+          <div><h2 id="providers-title">\u6E20\u9053\u7BA1\u7406</h2><p>\u914D\u7F6E\u4E0A\u6E38 API \u5730\u5740\u3001\u8BF7\u6C42\u534F\u8BAE\u3001\u8BBF\u95EE\u5BC6\u94A5\u4E0E\u6A21\u578B\u6620\u5C04\u3002</p></div>
+          <button class="btn btn-p" onclick="showAdd()">${icon("plus", "", 14)}\u6DFB\u52A0\u6E20\u9053</button>
+        </div>
+
+        <div class="af-w">
+          <div id="af" class="hd add-form-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="panel-heading__mark">${icon("plus", "", 16)}</span>
+                <div><h3>\u6DFB\u52A0\u65B0\u6E20\u9053</h3><p>\u914D\u7F6E\u57FA\u7840\u4FE1\u606F\u3001\u4E13\u7528\u53CD\u4EE3\u53C2\u6570\u53CA API Keys\u3002</p></div>
+              </div>
+              <button class="icon-btn" type="button" onclick="hideAdd()" aria-label="\u5173\u95ED">${icon("times", "", 14)}</button>
+            </div>
+            
+            <div class="fr">
+              <div class="fg"><label for="anm">\u6E20\u9053\u540D\u79F0</label><input type="text" id="anm" placeholder="\u4F8B\u5982\uFF1ADeepSeek \u5B98\u65B9"></div>
+              <div class="fg"><label for="aid">\u6E20\u9053 ID (\u524D\u7F00\u6807\u8BC6)</label><input type="text" id="aid" placeholder="deepseek"><span class="form-helper">\u521B\u5EFA\u540E\u4F5C\u4E3A\u6A21\u578B\u547D\u540D\u524D\u7F00\uFF0C\u4E0D\u53EF\u4FEE\u6539\u3002</span></div>
+            </div>
+            
+            <div class="fg"><label for="aurl">API \u4E0A\u6E38\u5730\u5740</label><input type="url" id="aurl" placeholder="https://api.deepseek.com"></div>
+            
+            <div class="fg" data-hide-ag><label for="amirror">\u955C\u50CF\u5907\u7528\u5730\u5740 (\u81EA\u52A8\u6545\u969C\u8F6C\u79FB)</label><textarea id="amirror" rows="2" placeholder="\u6BCF\u884C\u4E00\u4E2A\u5907\u7528 URL"></textarea></div>
+            
+            <div class="fg"><label for="apt">\u6E20\u9053\u534F\u8BAE\u7C7B\u578B</label>
+              <select id="apt" class="select-sm" onchange="onTypeChange(this, 'new')">
+                <option value="openai">OpenAI \u517C\u5BB9</option>
+                <option value="anthropic">Anthropic \u517C\u5BB9</option>
+                <option value="openai-video">OpenAI \u89C6\u9891</option>
+                <option value="agnes-video">Agnes \u5F02\u6B65\u89C6\u9891</option>
+                <option value="azure-tts">Azure TTS \u8BED\u97F3</option>
+                <option value="antigravity">Antigravity \u53CD\u4EE3</option>
+                <option value="claude">Claude OAuth \u53CD\u4EE3</option>
+                <option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option>
+                <option value="kimi">Kimi OAuth \u53CD\u4EE3</option>
+                <option value="grok">Grok OAuth \u53CD\u4EE3</option>
+                <option value="qwen">Qwen OAuth \u53CD\u4EE3</option>
+                <option value="deepseek">DeepSeek \u53CD\u4EE3</option>
+                <option value="vertex">Vertex AI \u53CD\u4EE3</option>
+                <option value="devin">Devin \u53CD\u4EE3</option>
+                <option value="zai">Z.AI (GLM \u56FD\u9645)</option>
+                <option value="codebuddy">CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option>
+                <option value="cline">Cline \u53CD\u4EE3</option>
+              </select>
+              <span class="form-helper" id="apt-hint-new">Agnes \u7B49\u805A\u5408\u5E73\u53F0\u5EFA\u8BAE\u9009 OpenAI \u517C\u5BB9, \u89C6\u9891\u6A21\u578B\u81EA\u52A8\u8D70\u5F02\u6B65\u9002\u914D\u3002</span>
+            </div>
+
+            <!-- Antigravity \u914D\u7F6E -->
+            <div class="ag-config" id="ag-new" style="display:none">
+              <div class="fg"><label>Google \u8D26\u53F7\u6388\u6743</label>
+                <div class="fc" style="gap:8px">
+                  <button class="btn btn-s" type="button" onclick="antigravityOAuth('new')">${icon("key", "", 14)} \u7528 Google \u8D26\u53F7\u6388\u6743</button>
+                  <button class="btn btn-s" type="button" onclick="fetchAgModels('new')">${icon("download", "", 14)} \u83B7\u53D6\u53EF\u7528\u6A21\u578B</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- DeepSeek \u914D\u7F6E -->
+            <div class="ag-config" id="ds-new" style="display:none">
+              <div class="fg"><label>DeepSeek \u51ED\u636E\u6258\u7BA1</label>
+                <div class="fc field-row" style="gap:8px;flex-wrap:wrap">
+                  <button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('new')">${icon("key", "", 14)} \u7C98\u8D34 userToken</button>
+                  <button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('new')">${icon("shield", "", 14)} \u8D26\u53F7\u4EE3\u767B\u5F55</button>
+                  <button class="btn btn-s" type="button" onclick="verifyDeepseek('new')">${icon("plug", "", 14)} \u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- OAuth \u914D\u7F6E -->
+            <div class="ag-config" id="oa-new" style="display:none">
+              <div class="fg"><label>OAuth \u767B\u5F55\u4E0E\u6A21\u578B\u83B7\u53D6</label>
+                <div class="fc" style="gap:8px">
+                  <button class="btn btn-s" type="button" onclick="oauthChannel('new')">${icon("key", "", 14)} \u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button>
+                  <button class="btn btn-s" type="button" onclick="fetchOAuthModels('new')">${icon("download", "", 14)} \u83B7\u53D6\u6A21\u578B\u5217\u8868</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- CodeBuddy \u914D\u7F6E -->
+            <div class="cb-config" id="cb-new" style="display:none">
+              <div class="fg"><label for="cbr-new">\u7248\u672C / \u533A\u57DF</label>
+                <select id="cbr-new" class="select-sm" onchange="cbRegionChange('new')">
+                  <option value="cn">\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option>
+                  <option value="global">\u56FD\u9645\u7248 \xB7 workbuddy.ai</option>
+                </select>
+              </div>
+              <div class="fg"><label>\u8D26\u53F7\u79EF\u5206\u4E0E\u7B7E\u5230</label>
+                <div class="fc" style="gap:8px">
+                  <button class="btn btn-s" type="button" onclick="codebuddyStatus('new')">${icon("coins", "", 14)} \u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button>
+                  <button class="btn btn-s" type="button" onclick="codebuddyCheckin('new')">${icon("calendar", "", 14)} \u6BCF\u65E5\u7B7E\u5230</button>
+                </div>
+              </div>
+              <div class="mt-1" id="cbst-new" aria-live="polite"></div>
+            </div>
+
+            <!-- Azure TTS \u914D\u7F6E -->
+            <div class="tts-config" id="tts-new" style="display:none">
+              <fieldset class="form-group"><legend>Azure TTS \u9ED8\u8BA4\u97F3\u8272\u914D\u7F6E</legend>
+                <div class="fr">
+                  <div class="fg"><label>\u97F3\u8272 Voice</label>
+                    <div class="fc" style="gap:8px">
+                      <select id="av" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${AZURE_VOICE_OPTIONS}</select>
+                      <button class="btn btn-s" type="button" onclick="previewTts('new')">${icon("play", "", 14)} \u8BD5\u542C</button>
+                    </div>
+                  </div>
+                  <div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="ar" value="+0%" placeholder="+0%"></div>
+                </div>
+                <div class="fr">
+                  <div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="avol" value="+0%" placeholder="+0%"></div>
+                  <div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="ap" value="+0Hz" placeholder="+0Hz"></div>
+                </div>
+                <div id="ttp-new"></div>
+                <button class="btn btn-s" type="button" onclick="addAllTtsModels('new')" style="margin-top:8px">${icon("microphone", "", 14)} \u6DFB\u52A0\u5168\u90E8\u97F3\u8272\u4E3A\u6A21\u578B</button>
+              </fieldset>
+            </div>
+
+            <!-- Vertex \u914D\u7F6E -->
+            <div class="vx-config" id="vx-new" style="display:none">
+              <div class="fg"><label>\u670D\u52A1\u8D26\u53F7 JSON</label><textarea id="vxs" rows="3" class="fx1" placeholder='{"type":"service_account",...}'></textarea></div>
+              <div class="fr"><div class="fg"><label>\u533A\u57DF Location</label><input type="text" id="vxl" placeholder="us-central1"></div><div class="fg"><label>\u51ED\u636E\u6821\u9A8C</label><button class="btn btn-s" type="button" onclick="verifyVertex('new')">${icon("plug", "", 14)} \u9A8C\u8BC1</button></div></div>
+            </div>
+
+            <!-- Devin \u914D\u7F6E -->
+            <div class="dv-config" id="dv-new" style="display:none">
+              <div class="fg"><label>Devin \u6388\u6743</label><button class="btn btn-s" type="button" onclick="devinOAuth('new')">${icon("key", "", 14)} Devin \u8D26\u53F7\u6388\u6743</button></div>
+              <div class="fg"><label>Session Token</label><textarea id="dvt" rows="2" class="fx1" placeholder="devin-session-token$... (\u6BCF\u884C\u4E00\u4E2A)"></textarea></div>
+              <div class="fg"><button class="btn btn-s" type="button" onclick="verifyDevin('new')">${icon("plug", "", 14)} \u6821\u9A8C\u51ED\u636E</button></div>
+            </div>
+
+            <!-- \u4E0A\u6E38 API Keys -->
+            <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend>
+              <div id="akeys">
+                <div class="fc mb-4 field-row">
+                  <input type="text" placeholder="sk-xxx" class="fx1 aki">
+                  <label class="tg"><input type="checkbox" checked class="ake"><span class="sl"></span></label>
+                  <button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button>
+                  <button class="icon-btn" onclick="testNewAKey(this)">${icon("plug", "", 14)}</button>
+                  <button class="icon-btn" onclick="this.parentElement.remove()">${icon("times", "", 14)}</button>
+                </div>
+              </div>
+              <div class="fc" style="gap:8px;flex-wrap:wrap">
+                <button class="btn btn-s" onclick="addAKeyRow()">${icon("plus", "", 14)}\u6DFB\u52A0 Key</button>
+                <button class="btn btn-s" onclick="batchAddKeys()">${icon("key", "", 14)}\u6279\u91CF\u5BFC\u5165</button>
+                <button class="btn btn-s" onclick="batchTestKeys()">${icon("plug", "", 14)}\u6279\u91CF\u6D4B\u8BD5</button>
+              </div>
+            </fieldset>
+
+            <aside id="amc" class="hd mdl-list-panel"><div class="panel-heading"><div><span class="panel-heading__mark">${icon("cube", "", 16)}</span><div><h3>\u53EF\u7528\u6A21\u578B</h3><p>\u70B9\u51FB\u6DFB\u52A0\u5230\u914D\u7F6E\u5217\u8868\u3002</p></div></div><button class="icon-btn" type="button" onclick="hideMdlPanel('amc')">${icon("times", "", 14)}</button></div><div id="amcl"></div></aside>
+
+            <div class="fc" data-hide-ag style="gap:8px;margin-bottom:12px">
+              <button class="btn btn-s" type="button" onclick="fetchNewModels(true)">${icon("gift", "", 14)} \u83B7\u53D6\u514D\u8D39\u6A21\u578B</button>
+              <button class="btn btn-s" type="button" onclick="fetchNewModels(false)">${icon("download", "", 14)} \u83B7\u53D6\u5168\u90E8\u6A21\u578B</button>
+            </div>
+
+            <!-- \u6A21\u578B ID \u5217\u8868 -->
+            <fieldset class="form-group"><legend>\u6A21\u578B\u914D\u7F6E</legend>
+              <div id="amodels">
+                <div class="fc mb-4 field-row">
+                  <input type="text" placeholder="\u6A21\u578B ID\uFF0C\u4F8B\u5982\uFF1Adeepseek-chat" class="fx1 ami">
+                  <input type="text" placeholder="\u5BF9\u5916\u522B\u540D(\u53EF\u9009)" class="fx1 amal">
+                  <label class="tg"><input type="checkbox" checked class="ame"><span class="sl"></span></label>
+                  <button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button>
+                  <button class="icon-btn" onclick="testNewMdl(this)">${icon("plug", "", 14)}</button>
+                  <button class="icon-btn" onclick="this.parentElement.remove()">${icon("times", "", 14)}</button>
+                </div>
+              </div>
+              <button class="btn btn-s" onclick="addMdlRow()">${icon("plus", "", 14)}\u6DFB\u52A0\u6A21\u578B</button>
+            </fieldset>
+
+            <div class="panel-actions">
+              <label class="fc" style="gap:8px;cursor:pointer">
+                <span class="tg"><input type="checkbox" checked id="aen"><span class="sl"></span></span>
+                <span style="font-size:13px;font-weight:500">\u521B\u5EFA\u540E\u7ACB\u5373\u542F\u7528</span>
+              </label>
+              <div>
+                <button class="btn btn-s" onclick="hideAdd()">\u53D6\u6D88</button>
+                <button class="btn btn-p" onclick="createProv()">${icon("check", "", 14)} \u521B\u5EFA\u6E20\u9053</button>
+              </div>
+            </div>
+            <div id="atestR" style="margin-top:10px" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <!-- \u6E20\u9053\u5361\u7247\u5217\u8868 -->
+        <div class="provider-list" id="plist">
+          ${providers.length ? providers.map((p) => `
+          <article class="pi" data-id="${escapePageHtml2(p.id)}">
+            <div class="ps" onclick="tog('${p.id}')" role="button" tabindex="0">
+              <div class="l">
+                <span class="provider-chevron" id="ch-${escapePageHtml2(p.id)}">${icon("chevronRight", "", 14)}</span>
+                <span class="provider-avatar">${escapePageHtml2(p.name.charAt(0).toUpperCase() || "A")}</span>
+                <div>
+                  <h3>${escapePageHtml2(p.name)}</h3>
+                  <div class="pu">
+                    <code>${escapePageHtml2(p.id)}</code>
+                    <span>${p.type === "antigravity" ? "Antigravity" : p.type === "claude" ? "Claude" : p.type === "codex" ? "Codex" : p.type === "kimi" ? "Kimi" : p.type === "grok" ? "Grok" : p.type === "qwen" ? "Qwen" : p.type === "deepseek" ? "DeepSeek" : p.type === "vertex" ? "Vertex" : p.type === "devin" ? "Devin" : p.type === "codebuddy" ? "CodeBuddy" : p.type === "cline" ? "Cline" : p.type === "zai" ? "Z.AI" : (p.apiType || "openai") === "anthropic" ? "Anthropic" : "OpenAI"}</span>
+                    <span>${p.apiKeys.length} \u4E2A Key</span>
+                    <span>${p.models.length} \u4E2A\u6A21\u578B</span>
+                  </div>
+                </div>
+              </div>
+              <div class="fc" style="gap:10px" onclick="event.stopPropagation()">
+                <label class="tg">
+                  <input type="checkbox" ${p.enabled ? "checked" : ""} id="en-${escapePageHtml2(p.id)}" onchange="togglePb('${p.id}',this.checked)">
+                  <span class="sl"></span>
+                </label>
+                <span class="bd ${p.enabled ? "bd-on" : "bd-off"}">${p.enabled ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"}</span>
+                ${(p.type || "") === "codex" && codexRelayHost ? `<span class="bd bd-info" title="\u7ECF ${escapePageHtml2(codexRelayHost)} \u4E2D\u7EE7">\u7ECF\u4E2D\u7EE7</span>` : ""}
+              </div>
+            </div>
+
+            <div class="pd" id="dt-${escapePageHtml2(p.id)}">
+              <div class="detail-heading">
+                <div><h3>\u7F16\u8F91 ${escapePageHtml2(p.name)}</h3><p>\u4FEE\u6539\u914D\u7F6E\u540E\u4FDD\u5B58\u5373\u523B\u751F\u6548\u4E8E\u540E\u7EED\u8BF7\u6C42\u3002</p></div>
+                <span class="protocol-chip">${(p.type || p.apiType || "openai").toUpperCase()}</span>
+              </div>
+
+              <div class="fr">
+                <div class="fg"><label>\u6E20\u9053\u540D\u79F0</label><input type="text" id="nm-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.name)}"></div>
+                <div class="fg"><label>\u6E20\u9053 ID</label><input type="text" id="pid-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.id)}"></div>
+              </div>
+              <div class="fg"><label>API \u5730\u5740</label><input type="url" id="url-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.baseUrl)}" ${(p.type || "openai") === "azure-tts" ? 'disabled placeholder="Azure TTS \u4E3A\u5185\u7F6E\u670D\u52A1\uFF0C\u65E0\u9700\u5730\u5740"' : ""}></div>
+              <div class="fr">
+                <div class="fg"><label>\u6E20\u9053\u7C7B\u578B</label>
+                  <select id="pt-${escapePageHtml2(p.id)}" class="select-sm" onchange="onTypeChange(this, '${escapePageHtml2(p.id)}')">
+                    <option value="openai" ${(p.type || "openai") === "openai" ? "selected" : ""}>OpenAI \u517C\u5BB9</option>
+                    <option value="anthropic" ${p.type === "anthropic" ? "selected" : ""}>Anthropic \u517C\u5BB9</option>
+                    <option value="openai-video" ${p.type === "openai-video" ? "selected" : ""}>OpenAI \u89C6\u9891</option>
+                    <option value="agnes-video" ${p.type === "agnes-video" ? "selected" : ""}>Agnes \u5F02\u6B65\u89C6\u9891</option>
+                    <option value="azure-tts" ${p.type === "azure-tts" ? "selected" : ""}>Azure TTS \u8BED\u97F3</option>
+                    <option value="antigravity" ${p.type === "antigravity" ? "selected" : ""}>Antigravity \u53CD\u4EE3</option>
+                    <option value="claude" ${p.type === "claude" ? "selected" : ""}>Claude OAuth \u53CD\u4EE3</option>
+                    <option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option>
+                    <option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi OAuth \u53CD\u4EE3</option>
+                    <option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option>
+                    <option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option>
+                    <option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option>
+                    <option value="vertex" ${p.type === "vertex" ? "selected" : ""}>Vertex AI \u53CD\u4EE3</option>
+                    <option value="devin" ${p.type === "devin" ? "selected" : ""}>Devin \u53CD\u4EE3</option>
+                    <option value="zai" ${p.type === "zai" ? "selected" : ""}>Z.AI (GLM \u56FD\u9645)</option>
+                    <option value="codebuddy" ${p.type === "codebuddy" ? "selected" : ""}>CodeBuddy (\u817E\u8BAF) \u53CD\u4EE3</option>
+                    <option value="cline" ${p.type === "cline" ? "selected" : ""}>Cline \u53CD\u4EE3</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Antigravity \u914D\u7F6E -->
+              <div class="ag-config" id="ag-${escapePageHtml2(p.id)}" ${p.type === "antigravity" ? "" : 'style="display:none"'}>
+                <div class="fg"><label>Google \u8D26\u53F7\u6388\u6743</label>
+                  <div class="fc" style="gap:8px">
+                    <button class="btn btn-s" type="button" onclick="antigravityOAuth('${escapePageHtml2(p.id)}')">${icon("key", "", 14)} \u7528 Google \u8D26\u53F7\u6388\u6743</button>
+                    <button class="btn btn-s" type="button" onclick="fetchAgModels('${escapePageHtml2(p.id)}')">${icon("download", "", 14)} \u83B7\u53D6\u53EF\u7528\u6A21\u578B</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DeepSeek \u914D\u7F6E -->
+              <div class="ag-config" id="ds-${escapePageHtml2(p.id)}" ${p.type === "deepseek" ? "" : 'style="display:none"'}>
+                <div class="fg"><label>DeepSeek \u51ED\u636E\u6258\u7BA1</label>
+                  <div class="fc field-row" style="gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-p btn-s" type="button" onclick="openDeepseekTokenDialog('${escapePageHtml2(p.id)}')">${icon("key", "", 14)} \u7C98\u8D34 userToken</button>
+                    <button class="btn btn-s" type="button" onclick="openDeepseekAccountDialog('${escapePageHtml2(p.id)}')">${icon("shield", "", 14)} \u8D26\u53F7\u4EE3\u767B\u5F55</button>
+                    <button class="btn btn-s" type="button" onclick="verifyDeepseek('${escapePageHtml2(p.id)}')">${icon("plug", "", 14)} \u9A8C\u8BC1\u5DF2\u586B\u51ED\u636E</button>
+                  </div>
+                  <script type="application/json" id="dsacc-${escapePageHtml2(p.id)}">${JSON.stringify(p.dsAccount || {}).replace(/</g, "\\u003c")}</script>
+                </div>
+              </div>
+
+              <!-- OAuth \u53CD\u4EE3\u914D\u7F6E -->
+              <div class="ag-config" id="oa-${escapePageHtml2(p.id)}" ${["claude", "codex", "kimi", "grok", "qwen", "codebuddy", "cline"].includes(p.type || "") ? "" : 'style="display:none"'}>
+                <div class="fg"><label>OAuth \u767B\u5F55\u4E0E\u6A21\u578B\u83B7\u53D6</label>
+                  <div class="fc" style="gap:8px">
+                    <button class="btn btn-s" type="button" onclick="oauthChannel('${escapePageHtml2(p.id)}')">${icon("key", "", 14)} \u6388\u6743\u767B\u5F55\u83B7\u53D6 refresh_token</button>
+                    <button class="btn btn-s" type="button" onclick="fetchOAuthModels('${escapePageHtml2(p.id)}')">${icon("download", "", 14)} \u83B7\u53D6\u6A21\u578B\u5217\u8868</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CodeBuddy \u914D\u7F6E -->
+              <div class="cb-config" id="cb-${escapePageHtml2(p.id)}" ${p.type === "codebuddy" ? "" : 'style="display:none"'}>
+                <div class="fg"><label for="cbr-${escapePageHtml2(p.id)}">\u7248\u672C / \u533A\u57DF</label>
+                  <select id="cbr-${escapePageHtml2(p.id)}" class="select-sm" onchange="cbRegionChange('${escapePageHtml2(p.id)}')">
+                    <option value="cn" ${cbRealmOf(p) === "cn" ? "selected" : ""}>\u56FD\u5185\u7248 \xB7 copilot.tencent.com</option>
+                    <option value="global" ${cbRealmOf(p) === "global" ? "selected" : ""}>\u56FD\u9645\u7248 \xB7 workbuddy.ai</option>
+                  </select>
+                </div>
+                <div class="fg"><label>\u8D26\u53F7\u79EF\u5206\u4E0E\u7B7E\u5230</label>
+                  <div class="fc" style="gap:8px">
+                    <button class="btn btn-s" type="button" onclick="codebuddyStatus('${escapePageHtml2(p.id)}')">${icon("coins", "", 14)} \u67E5\u8BE2\u79EF\u5206/\u5957\u9910</button>
+                    <button class="btn btn-s" type="button" onclick="codebuddyCheckin('${escapePageHtml2(p.id)}')">${icon("calendar", "", 14)} \u6BCF\u65E5\u7B7E\u5230</button>
+                  </div>
+                </div>
+                <div class="mt-1" id="cbst-${escapePageHtml2(p.id)}" aria-live="polite"></div>
+              </div>
+
+              <!-- Azure TTS \u914D\u7F6E -->
+              <div class="tts-config" id="tts-${escapePageHtml2(p.id)}" ${(p.type || "openai") === "azure-tts" ? "" : 'style="display:none"'}>
+                <fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u53C2\u6570</legend>
+                  <div class="fr">
+                    <div class="fg"><label>\u97F3\u8272 Voice</label>
+                      <div class="fc" style="gap:8px">
+                        <select id="pv-${escapePageHtml2(p.id)}" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${azureVoiceOptions(p.voice || "zh-CN-XiaoxiaoNeural")}</select>
+                        <button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml2(p.id)}')">${icon("play", "", 14)} \u8BD5\u542C</button>
+                      </div>
+                    </div>
+                    <div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="pr-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.rate || "+0%")}"></div>
+                  </div>
+                  <div class="fr">
+                    <div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="pvol-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.volume || "+0%")}"></div>
+                    <div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="pp-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.pitch || "+0Hz")}"></div>
+                  </div>
+                  <div id="ttp-${escapePageHtml2(p.id)}"></div>
+                  <div class="fc" style="gap:8px;margin-top:8px">
+                    <button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml2(p.id)}')">${icon("plus", "", 14)} \u6DFB\u52A0\u5F53\u524D\u97F3\u8272\u4E3A\u6A21\u578B</button>
+                    <button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml2(p.id)}')">${icon("microphone", "", 14)} \u6DFB\u52A0\u5168\u90E8\u97F3\u8272</button>
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- \u955C\u50CF\u5730\u5740 -->
+              <div class="fg" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""}><label>\u955C\u50CF\u5907\u7528\u5730\u5740</label><textarea id="mir-${escapePageHtml2(p.id)}" rows="2">${(p.mirrorUrls || []).map(escapePageHtml2).join("\\n")}</textarea></div>
+
+              <!-- \u4E0A\u6E38 API Keys \u5217\u8868 -->
+              <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend>
+                <div id="keys-${escapePageHtml2(p.id)}">${p.apiKeys.map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml2(k.key)}" class="fx1" id="k-${escapePageHtml2(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml2(p.id)}-${ki}"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})">${icon("times", "", 14)}</button></div>`).join("")}</div>
+                <div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml2(p.id)}" placeholder="\u6DFB\u52A0\u65B0\u7684 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${p.id}')">${icon("plus", "", 14)}\u6DFB\u52A0</button></div>
+              </fieldset>
+
+              <!-- \u6A21\u578B\u5217\u8868 -->
+              <fieldset class="form-group"><legend>\u6A21\u578B\u914D\u7F6E</legend>
+                <div id="ml-${escapePageHtml2(p.id)}">${p.models.map((m, mi) => `<div class="fc mb-3 field-row" data-idx="${mi}"><input type="text" value="${escapePageHtml2(m.id)}" class="fx1" id="mid-${escapePageHtml2(p.id)}-${mi}"><input type="text" value="${escapePageHtml2(m.alias || "")}" class="fx1" id="mal-${escapePageHtml2(p.id)}-${mi}" placeholder="\u5BF9\u5916\u522B\u540D(\u53EF\u9009)"><label class="tg"><input type="checkbox" ${m.enabled ? "checked" : ""} id="men-${escapePageHtml2(p.id)}-${mi}"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testMdl('${p.id}','${m.id}',${mi})">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmMdl('${p.id}',${mi})">${icon("times", "", 14)}</button></div>`).join("")}</div>
+                <div class="fc mt-1 field-row"><input type="text" id="nmid-${escapePageHtml2(p.id)}" placeholder="\u6A21\u578B ID" class="fx1"><input type="text" id="nmal-${escapePageHtml2(p.id)}" placeholder="\u5BF9\u5916\u522B\u540D(\u53EF\u9009)" class="fx1"><button class="btn btn-s" onclick="addMdl('${p.id}')">${icon("plus", "", 14)}\u6DFB\u52A0</button></div>
+              </fieldset>
+
+              <div class="detail-actions">
+                <div id="tr-${escapePageHtml2(p.id)}" aria-live="polite"></div>
+                <div>
+                  <button class="btn btn-s" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""} onclick="fetchEditModels('${p.id}', false)">${icon("download", "", 14)} \u83B7\u53D6\u6A21\u578B</button>
+                  <button class="btn btn-s" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""} onclick="fetchEditModels('${p.id}', true)">${icon("gift", "", 14)} \u83B7\u53D6\u514D\u8D39\u6A21\u578B</button>
+                  <button class="btn btn-d" onclick="del('${p.id}')">${icon("trash", "", 14)} \u5220\u9664\u6E20\u9053</button>
+                  <button class="btn btn-p" onclick="save('${p.id}')">${icon("save", "", 14)} \u4FDD\u5B58\u66F4\u6539</button>
+                </div>
+              </div>
+            </div>
+          </article>`).join("") : `<div class="empty-state">${icon("server", "", 36)}<h3>\u6682\u672A\u914D\u7F6E\u4E0A\u6E38\u6E20\u9053</h3><p>\u6DFB\u52A0\u7B2C\u4E00\u4E2A\u6E20\u9053\uFF0C\u5F00\u542F\u7EDF\u4E00\u5927\u6A21\u578B\u8DEF\u7531\u3002</p><button class="btn btn-p" onclick="showAdd()" style="margin-top:12px">\u6DFB\u52A0\u6E20\u9053</button></div>`}
+        </div>
+      </section>
+
+      <!-- \u989D\u5EA6 Section -->
+      <section id="quota" class="workspace-section" aria-labelledby="quota-title">
+        <div class="section-heading">
+          <div><h2 id="quota-title">\u989D\u5EA6\u7BA1\u7406</h2><p>Antigravity \u4E0E Cline \u8D26\u53F7\u7684\u5269\u4F59\u989D\u5EA6\u3001\u5957\u9910\u8BA2\u9605\u5C42\u4E0E\u91CD\u7F6E\u5012\u8BA1\u65F6\uFF08\u5171 ${agAccountCount} \u4E2A Google \u8D26\u53F7\uFF09\u3002</p></div>
+          <div class="fc" style="gap:8px;flex-wrap:wrap">
+            <button class="btn btn-p" onclick="queryAllAgQuota()">${icon("gauge", "", 14)} \u67E5\u8BE2\u5168\u90E8\u989D\u5EA6</button>
+            <button class="btn btn-s" onclick="refreshAgAccounts()">${icon("refresh", "", 14)} \u5237\u65B0\u8D26\u53F7\u5217\u8868</button>
+          </div>
+        </div>
+        <div id="quotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u51FB\u4E0A\u65B9\u300C\u67E5\u8BE2\u5168\u90E8\u989D\u5EA6\u300D\u6216\u5355\u8D26\u53F7\u65C1\u7684\u300C\u67E5\u8BE2\u300D\u6309\u94AE\u83B7\u53D6\u6700\u65B0\u5B9E\u65F6\u989D\u5EA6\u3002</div></div>
+
+        <div class="section-heading" style="margin-top:36px">
+          <div><h3 style="font-size:16px;font-weight:600">Cline \u8D26\u53F7\u989D\u5EA6\u4E0E\u7528\u91CF</h3><p>\u67E5\u770B\u6BCF\u4E2A Cline \u51ED\u636E\u7684\u4F59\u989D\u53CA\u5404\u6A21\u578B\u4ECA\u65E5\u8C03\u7528\u6B21\u6570\u4E0E 429 \u51B7\u5374\u72B6\u6001\u3002</p></div>
+          <button class="btn btn-p" onclick="queryAllClineQuota()">${icon("gauge", "", 14)} \u67E5\u8BE2 Cline \u8D26\u53F7</button>
+        </div>
+        <div id="clineQuotaBody" class="quota-grid"><div class="form-helper" style="padding:12px 0;grid-column:1/-1">\u70B9\u51FB\u4E0A\u65B9\u300C\u67E5\u8BE2 Cline \u8D26\u53F7\u300D\u83B7\u53D6\u4F59\u989D\u4E0E\u51B7\u5374\u72B6\u6001\u3002</div></div>
+      </section>
+
+      <!-- \u4EE4\u724C Section -->
+      <section id="proxy-keys" class="workspace-section" aria-labelledby="proxy-keys-title">
+        <div class="section-heading">
+          <div><h2 id="proxy-keys-title">\u5BA2\u6237\u7AEF\u4EE4\u724C (Proxy Keys)</h2><p>\u5BA2\u6237\u7AEF\uFF08\u5982 Cherry Studio, NextChat, \u81EA\u52A8\u5316\u811A\u672C\uFF09\u4F7F\u7528\u6B64\u7C7B\u4EE4\u724C\u8FDE\u63A5 <code>/v1</code> \u63A5\u53E3\u3002</p></div>
+          <button class="btn btn-p" onclick="genKey()">${icon("plus", "", 14)} \u751F\u6210\u4EE4\u724C</button>
+        </div>
+        <div class="key-list">
+          ${proxyKeys.length === 0 ? `<div class="empty-state">${icon("key", "", 36)}<h3>\u6682\u65E0\u8BBF\u95EE\u4EE4\u724C</h3><p>\u751F\u6210\u4EE4\u724C\u540E\u5373\u53EF\u6388\u6743\u5916\u90E8\u5BA2\u6237\u7AEF\u8C03\u7528\u672C\u7F51\u5173\u3002</p><button class="btn btn-p" onclick="genKey()" style="margin-top:12px">\u751F\u6210\u4EE4\u724C</button></div>` : ""}
+          ${proxyKeys.map((k) => `<article class="ki" data-id="${escapePageHtml2(k.id)}">
+            <div class="key-main">
+              <span class="key-icon">${icon("key", "", 18)}</span>
+              <div>
+                <div class="kv">
+                  <span class="kv__value" id="kv-${escapePageHtml2(k.id)}" data-full="${escapePageHtml2(k.key)}" data-vis="0">${escapePageHtml2(k.key.length > 12 ? k.key.substring(0, 8) + "*****" + k.key.substring(k.key.length - 4) : k.key)}</span>
+                  <button class="icon-btn" onclick="toggleKeyVis('${k.id}')" title="\u660E\u6587\u5207\u6362">${icon("eye", "", 14)}</button>
+                  <button class="icon-btn" onclick='copyText("${escapePageHtml2(k.key)}",this)' title="\u590D\u5236">${icon("copy", "", 14)}</button>
+                  <button class="icon-btn" onclick="regenerateKey('${k.id}')" title="\u91CD\u65B0\u751F\u6210">${icon("refresh", "", 14)}</button>
+                </div>
+                <div class="key-meta">
+                  <h3>${escapePageHtml2(k.name || "\u672A\u547D\u540D\u4EE4\u724C")}</h3>
+                  <span>\xB7</span>
+                  <p>\u521B\u5EFA\u4E8E ${new Date(k.createdAt).toLocaleDateString()} \xB7 ${k.expiresAt ? "\u6709\u6548\u81F3 " + new Date(k.expiresAt).toLocaleDateString() : "\u6C38\u4E45\u6709\u6548"}</p>
+                </div>
+              </div>
+            </div>
+            <div class="key-actions">
+              <label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} onchange="toggleProxyKey('${k.id}',this.checked)"><span class="sl"></span></label>
+              <span class="bd ${k.enabled ? "bd-on" : "bd-off"}">${k.enabled ? "\u5DF2\u542F\u7528" : "\u5DF2\u7981\u7528"}</span>
+              <button class="icon-btn bd-del" onclick="rmKey('${k.id}')" title="\u5220\u9664\u4EE4\u724C">${icon("trash", "", 14)}</button>
+            </div>
+          </article>`).join("")}
+        </div>
+      </section>
+
+      <!-- \u7528\u91CF Section -->
+      <section id="usage" class="workspace-section" aria-labelledby="usage-title">
+        <div class="section-heading">
+          <div><h2 id="usage-title">\u7528\u91CF\u5206\u6790\u4E0E\u6392\u884C\u699C</h2><p>\u5206\u6790 Token \u6D88\u8017\u8D8B\u52BF\u4E0E\u5404\u6A21\u578B\u8C03\u7528\u5360\u6BD4\uFF0C\u6570\u636E\u81EA\u52A8\u6EDA\u52A8\u4FDD\u7559 30 \u5929\u3002</p></div>
+          <select id="usage-days" class="select-sm" onchange="loadUsage()" aria-label="\u65F6\u95F4\u8DE8\u5EA6">
+            <option value="1" selected>\u4ECA\u5929</option>
+            <option value="7">\u8FD1 7 \u5929</option>
+            <option value="14">\u8FD1 14 \u5929</option>
+            <option value="30">\u8FD1 30 \u5929</option>
+          </select>
+        </div>
+        <div class="admin-metrics" aria-label="\u7528\u91CF\u6307\u6807\u770B\u677F">
+          <div><span id="u-req">-</span><p>\u8BF7\u6C42\u603B\u6570</p><small id="u-ok">- \u6210\u529F</small></div>
+          <div><span id="u-in">-</span><p>\u8F93\u5165 Tokens</p><small>\u63D0\u793A\u8BCD\u6D88\u8017</small></div>
+          <div><span id="u-out">-</span><p>\u8F93\u51FA Tokens</p><small>\u6A21\u578B\u56DE\u590D\u751F\u6210</small></div>
+          <div><span id="u-lat">-</span><p>\u5E73\u5747\u8017\u65F6</p><small>\u7AEF\u5230\u7AEF\u5EF6\u65F6 (\u6BEB\u79D2)</small></div>
+        </div>
+        <div id="u-trend-wrap" class="hd add-form-panel">
+          <div class="panel-heading"><div><span class="panel-heading__mark">${icon("chart", "", 16)}</span><div><h3>\u6BCF\u65E5\u8BF7\u6C42\u8D8B\u52BF</h3></div></div></div>
+          <div id="u-trend" style="padding:16px"></div>
+        </div>
+        <div class="rank-grid">
+          <div class="rank-card">
+            <div class="panel-heading" style="border:none;padding:0;margin-bottom:14px"><div><span class="panel-heading__mark">${icon("cube", "", 16)}</span><div><h3>\u6A21\u578B\u6D88\u8017\u6392\u884C Top 10</h3></div></div></div>
+            <div id="u-models"></div>
+          </div>
+          <div class="rank-card">
+            <div class="panel-heading" style="border:none;padding:0;margin-bottom:14px"><div><span class="panel-heading__mark">${icon("server", "", 16)}</span><div><h3>\u6E20\u9053\u8C03\u7528\u6392\u884C Top 10</h3></div></div></div>
+            <div id="u-providers"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- \u5907\u4EFD Section -->
+      <section id="backup" class="workspace-section" aria-labelledby="backup-title">
+        <div class="section-heading">
+          <div><h2 id="backup-title">\u6570\u636E\u5907\u4EFD\u4E0E\u5FEB\u7167\u6062\u590D</h2><p>\u652F\u6301\u672C\u5730 JSON \u5B8C\u6574\u5BFC\u51FA/\u5BFC\u5165\u3001Cloudflare R2 \u81EA\u52A8\u5316\u5BF9\u8C61\u5B58\u50A8\u5FEB\u7167\u4EE5\u53CA Telegram \u673A\u5668\u4EBA\u5B89\u5168\u63A8\u9001\u3002</p></div>
+        </div>
+        <div class="rank-grid">
+          <div class="rank-card">
+            <div class="panel-heading" style="border:none;padding:0;margin-bottom:14px"><div><span class="panel-heading__mark">${icon("download", "", 16)}</span><div><h3>\u672C\u5730 JSON \u5BFC\u51FA\u4E0E\u6062\u590D</h3><p>\u5168\u91CF\u5BFC\u51FA\u6E20\u9053\u914D\u7F6E\u3001API Key \u4E0E\u7528\u91CF\u3002</p></div></div></div>
+            <div class="fc" style="gap:8px;flex-wrap:wrap">
+              <button class="btn btn-p" onclick="backupExport()">${icon("download", "", 14)} \u5BFC\u51FA\u6570\u636E\u5E93</button>
+              <button class="btn btn-s" onclick="backupImportPick()">${icon("upload", "", 14)} \u5BFC\u5165\u6570\u636E\u5E93\u6587\u4EF6</button>
+            </div>
+            <div id="bk-io-result" aria-live="polite"></div>
+          </div>
+          <div class="rank-card">
+            <div class="panel-heading" style="border:none;padding:0;margin-bottom:14px"><div><span class="panel-heading__mark">${icon("cloud", "", 16)}</span><div><h3>Cloudflare R2 \u5FEB\u7167</h3><p>\u5B58\u5165 R2 \u5B58\u50A8\u6876\uFF0C\u81EA\u52A8\u4FDD\u7559\u6700\u65B0 30 \u4EFD\u5FEB\u7167\u3002</p></div></div></div>
+            <div class="fc" style="gap:8px;flex-wrap:wrap">
+              <button class="btn btn-p" onclick="backupToR2()">${icon("cloud", "", 14)} \u7ACB\u5373\u5907\u4EFD\u5230 R2</button>
+              <button class="btn btn-s" onclick="backupList()">${icon("refresh", "", 14)} \u5237\u65B0\u5FEB\u7167\u5217\u8868</button>
+            </div>
+            <div id="bk-r2-result" aria-live="polite"></div>
+          </div>
+          <div class="rank-card">
+            <div class="panel-heading" style="border:none;padding:0;margin-bottom:14px"><div><span class="panel-heading__mark">${icon("paperPlane", "", 16)}</span><div><h3>Telegram \u81EA\u52A8\u5316\u5907\u4EFD</h3><p>\u901A\u8FC7 Bot \u5C06\u52A0\u5BC6\u5907\u4EFD\u63A8\u9001\u5230\u6307\u5B9A\u4F1A\u8BDD\u3002</p></div></div></div>
+            <div class="fg"><label>Telegram Bot Token</label><input type="password" id="tgToken" value="${escapePageHtml2(tgConfig?.botToken || "")}" placeholder="123456:ABC-DEF..." autocomplete="off"></div>
+            <div class="fg"><label>Telegram Chat ID</label><input type="text" id="tgChat" value="${escapePageHtml2(tgConfig?.chatId || "")}" placeholder="\u4F8B\u5982\uFF1A987654321"></div>
+            <div class="fc" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="btn btn-s" onclick="telegramTest()">${icon("plug", "", 14)} \u6D4B\u8BD5\u901A\u9053</button>
+              <button class="btn btn-s" onclick="telegramSave()">${icon("save", "", 14)} \u4FDD\u5B58\u914D\u7F6E</button>
+              <button class="btn btn-p" onclick="backupToTelegram()">${icon("paperPlane", "", 14)} \u63A8\u9001\u5907\u4EFD</button>
+            </div>
+            <div id="bk-tg-result" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    ${renderSiteFooter(SITE_CONFIG.title, getPlatformLabel2(c.env, c.req.header("host")))}
+  </div>
+</div>
+
+<div id="modal" class="modal-o hd" role="presentation" onclick="if(event.target===this)closeM()"><div class="modal" id="mc" role="dialog" aria-modal="true" aria-live="polite"></div></div>
+
+<script>${SHARED_JS}
+let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
+const AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
+${ADMIN_CLIENT_SCRIPT}
+</script>
+</body></html>`);
+}
+
 // src/index.ts
+init_storage();
 var app = new Hono2();
 app.use("*", cors());
 app.use("*", logger());
@@ -18567,6 +20613,7 @@ app.get("/admin/api/backup/list", handleBackupList);
 app.post("/admin/api/backup/restore", handleBackupRestore);
 app.post("/admin/api/backup/delete", handleBackupDelete);
 app.post("/admin/api/telegram/test", handleTelegramTest);
+app.post("/admin/api/telegram/save", handleTelegramSave);
 app.get("/admin/api/ds-probe", async (c) => {
   try {
     return c.json(await probeDeepSeek());
