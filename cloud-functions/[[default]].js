@@ -13743,7 +13743,7 @@ init_storage_adapter();
 function isInternalHost(host) {
   return /qcloudteo\.com$|pages-scf-|pages-pro-/i.test(host);
 }
-function getExternalOrigin2(c) {
+function getExternalOrigin(c) {
   const candidates = [
     c.req.header("eo-pages-host"),
     c.req.header("x-forwarded-host"),
@@ -14225,7 +14225,7 @@ async function handleStatus(c) {
       enabledModelsCount: enabledModels,
       proxyKeysCount: proxyKeys.filter((k) => k.enabled).length,
       adminConfigured: !!(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD) || await getAdminCredentials(c.env) !== null,
-      baseUrl: getExternalOrigin2(c)
+      baseUrl: getExternalOrigin(c)
     }
   });
 }
