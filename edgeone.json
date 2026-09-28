@@ -1,5 +1,8 @@
 {
   "cloudFunctions": {
-    "maxDuration": 120
+    "maxDuration": 120,
+    "regions": {
+      "overseas": ["ap-tokyo"]
+    }
   }
 }
