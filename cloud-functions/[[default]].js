@@ -13743,7 +13743,7 @@ init_storage_adapter();
 function isInternalHost(host) {
   return /qcloudteo\.com$|pages-scf-|pages-pro-/i.test(host);
 }
-function getExternalOrigin(c) {
+function getExternalOrigin2(c) {
   const candidates = [
     c.req.header("eo-pages-host"),
     c.req.header("x-forwarded-host"),
@@ -14225,7 +14225,7 @@ async function handleStatus(c) {
       enabledModelsCount: enabledModels,
       proxyKeysCount: proxyKeys.filter((k) => k.enabled).length,
       adminConfigured: !!(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD) || await getAdminCredentials(c.env) !== null,
-      baseUrl: getExternalOrigin(c)
+      baseUrl: getExternalOrigin2(c)
     }
   });
 }
@@ -16119,6 +16119,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   background-color: var(--bg-surface-subtle);
@@ -16141,20 +16142,26 @@ textarea {
   color: var(--text-muted);
 }
 
-/* \u79FB\u52A8\u7AEF\uFF1A\u7AEF\u70B9\u6761\u76EE\u6539\u4E3A\u300C\u534F\u8BAE\u8DEF\u5F84\u5728\u4E0A\u3001\u4E2D\u6587\u8BF4\u660E\u5728\u4E0B\u300D\u7684\u4E24\u884C\u5361\u7247\uFF0C\u907F\u514D\u6362\u884C\u9519\u4F4D */
+/* \u7AEF\u70B9\u6761\u76EE\uFF1A\u59CB\u7EC8\u5355\u884C\uFF08\u65B9\u6CD5+\u8DEF\u5F84\u5DE6\u3001\u4E2D\u6587\u8BF4\u660E\u53F3\uFF09\uFF0C\u8DEF\u5F84\u8FC7\u957F\u65F6\u7701\u7565\u53F7\u622A\u65AD */
+.ep-item {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.ep-item code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep-item small {
+  flex-shrink: 0;
+}
+
 @media (max-width: 640px) {
   .ep-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 8px 12px;
-  }
-  .ep-item small {
-    padding-left: 2px;
-  }
-  .ep-item code {
-    max-width: 100%;
-    overflow-wrap: anywhere;
+    padding: 7px 10px;
+    gap: 8px;
   }
 }
 
@@ -17319,16 +17326,16 @@ fieldset.form-group legend {
   gap: 12px;
 }
 
-/* \u4EE4\u724C\u5361\u7247\uFF1A\u53C2\u7167\u8001\u7AD9\u300C\u4E0A\u4FE1\u606F / \u4E0B\u64CD\u4F5C\u300D\u7684\u7AD6\u5411\u5E03\u5C40\uFF0C\u6837\u5F0F\u7EF4\u6301\u65B0\u7248\u8D28\u611F */
+/* \u4EE4\u724C\u5361\u7247\uFF1A\u4E24\u884C\u6392\u5E03\uFF08\u5DE6\u4FA7\u56FE\u6807\u5927\u53F7 42px\uFF0C\u7B2C\u4E00\u884C\u5BC6\u94A5\u503C\uFF0C\u7B2C\u4E8C\u884C\u540D\u79F0\u4E0E\u65F6\u95F4\uFF0C\u53F3\u4FA7\u64CD\u4F5C\u533A\u7EDD\u4E0D\u5F80\u4E0B\u9876\uFF09 */
 .ki {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
+  padding: 12px 18px;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
 }
@@ -17338,14 +17345,10 @@ fieldset.form-group legend {
   box-shadow: var(--shadow-md);
 }
 
-.key-main {
+.ki-main-wrap {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-}
-
-.key-main > div {
+  align-items: center;
+  gap: 14px;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -17354,62 +17357,151 @@ fieldset.form-group legend {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-md);
   background-color: var(--primary-light);
   color: var(--primary);
   border: 1px solid var(--primary-border);
+  flex-shrink: 0;
+}
+
+.ki-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ki-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .kv {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  gap: 4px;
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 3px 8px;
+  flex-shrink: 0;
 }
 
 .kv__value {
-  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.kv .icon-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.kv .icon-btn:hover {
+  background-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .key-meta {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--text-muted);
+  margin-top: 2px;
 }
 
-.key-meta h3 {
-  font-size: 12px;
+.key-name {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  max-width: 100%;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.key-meta__sep {
+  color: var(--border-strong);
+  flex-shrink: 0;
+}
+
+.key-meta p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.key-meta p {
-  min-width: 0;
+.key-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.key-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
+.key-actions .tg {
+  height: 20px;
+}
+
+.key-actions .icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 768px) {
+  .ki {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .ki-main-wrap {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ki-content {
+    width: 100%;
+    min-width: 0;
+  }
+  .kv {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .kv__value {
+    max-width: unset;
+    flex: 1;
+  }
+  .key-meta {
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+  .key-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-light);
+  }
 }
 
 /* ==========================================================================
@@ -17541,6 +17633,12 @@ var SVG_ICONS = {
   alert: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
   anglesLeft: `<svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`
 };
+var CLIENT_ICONS = JSON.stringify({
+  copy: SVG_ICONS.copy,
+  check: SVG_ICONS.check,
+  eye: SVG_ICONS.eye,
+  eyeSlash: SVG_ICONS.eyeSlash
+});
 function icon(name, cls = "", size = 16) {
   const code = SVG_ICONS[name] || SVG_ICONS.info;
   return `<span class="svg-icon ${cls}" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;min-width:${size}px;min-height:${size}px;line-height:1;vertical-align:middle;flex-shrink:0;" aria-hidden="true">${code}</span>`;
@@ -17693,7 +17791,7 @@ ${H("\u9996\u9875")}
         <span class="endpoint-box__label">API BASE URL</span>
         <code>${escapePageHtml(apiBase)}</code>
         <button class="btn btn-s copy-control" type="button" data-copy="${escapePageHtml(apiBase)}" aria-label="\u590D\u5236 API \u5730\u5740">
-          ${icon("copy", "", 14)}<span>\u590D\u5236\u5730\u5740</span>
+          ${icon("copy", "", 14)}<span class="copy-label">\u590D\u5236\u5730\u5740</span>
         </button>
       </div>
     </div>
@@ -17791,9 +17889,10 @@ ${H("\u9996\u9875")}
 ${renderSiteFooter(SITE_CONFIG.title, getPlatformLabel(c.env, c.req.header("host")))}
 
 <script>
+window.SVG_ICONS = ${CLIENT_ICONS};
 (function () {
   document.querySelectorAll('.copy-control').forEach(function (button) {
-    var label = button.querySelector('span')
+    var label = button.querySelector('.copy-label')
     var originalLabel = label ? label.textContent : ''
     button.addEventListener('click', async function () {
       var text = button.getAttribute('data-copy') || ''
@@ -17918,6 +18017,7 @@ ${H2("\u767B\u5F55")}
 </main>
 
 <script>
+window.SVG_ICONS = ${CLIENT_ICONS};
 (function () {
   var form = document.getElementById('login-form')
   var username = document.getElementById('u')
@@ -19709,6 +19809,29 @@ if (quotaBodyEl) {
 }
 
 if (location.hash === '#usage') loadUsage()
+
+// \u2500\u2500 \u901A\u7528\u590D\u5236\u6309\u94AE\uFF08\u6982\u89C8 API BASE URL \u7B49\uFF09\uFF1A\u56FE\u6807\u6362\u5BF9\u52FE + \u6587\u5B57\u53D8\u5DF2\u590D\u5236\uFF0C1.8s \u8FD8\u539F \u2500\u2500
+document.querySelectorAll('.copy-control').forEach(function (button) {
+  button.addEventListener('click', async function () {
+    var text = button.getAttribute('data-copy') || ''
+    var iconWrap = button.querySelector('.svg-icon')
+    var label = button.querySelector('.copy-label')
+    var originalLabel = label ? label.textContent : ''
+    try {
+      await navigator.clipboard.writeText(text)
+      button.setAttribute('data-state', 'success')
+      if (iconWrap && window.SVG_ICONS && window.SVG_ICONS.check) iconWrap.innerHTML = window.SVG_ICONS.check
+      if (label) label.textContent = '\u5DF2\u590D\u5236'
+      setTimeout(function () {
+        button.removeAttribute('data-state')
+        if (iconWrap && window.SVG_ICONS && window.SVG_ICONS.copy) iconWrap.innerHTML = window.SVG_ICONS.copy
+        if (label) label.textContent = originalLabel
+      }, 1800)
+    } catch (e) {
+      button.setAttribute('data-state', 'error')
+    }
+  })
+})
 `;
 
 // src/backup.ts
@@ -20045,7 +20168,7 @@ ${H3("\u63A7\u5236\u53F0")}
           <span class="endpoint-box__label">API BASE URL</span>
           <code>${escapePageHtml2(apiBase)}</code>
           <button class="btn btn-s copy-control" type="button" data-copy="${escapePageHtml2(apiBase)}" aria-label="\u590D\u5236 API \u5730\u5740">
-            ${icon("copy", "", 14)}<span>\u590D\u5236\u5730\u5740</span>
+            ${icon("copy", "", 14)}<span class="copy-label">\u590D\u5236\u5730\u5740</span>
           </button>
         </div>
       </section>
@@ -20427,18 +20550,20 @@ ${H3("\u63A7\u5236\u53F0")}
         <div class="key-list">
           ${proxyKeys.length === 0 ? `<div class="empty-state">${icon("key", "", 36)}<h3>\u6682\u65E0\u8BBF\u95EE\u4EE4\u724C</h3><p>\u751F\u6210\u4EE4\u724C\u540E\u5373\u53EF\u6388\u6743\u5916\u90E8\u5BA2\u6237\u7AEF\u8C03\u7528\u672C\u7F51\u5173\u3002</p><button class="btn btn-p" onclick="genKey()" style="margin-top:12px">\u751F\u6210\u4EE4\u724C</button></div>` : ""}
           ${proxyKeys.map((k) => `<article class="ki" data-id="${escapePageHtml2(k.id)}">
-            <div class="key-main">
-              <span class="key-icon">${icon("key", "", 18)}</span>
-              <div>
-                <div class="kv">
-                  <span class="kv__value" id="kv-${escapePageHtml2(k.id)}" data-full="${escapePageHtml2(k.key)}" data-vis="0">${escapePageHtml2(k.key.length > 12 ? k.key.substring(0, 8) + "*****" + k.key.substring(k.key.length - 4) : k.key)}</span>
-                  <button class="icon-btn" onclick="toggleKeyVis('${k.id}')" title="\u660E\u6587\u5207\u6362">${icon("eye", "", 14)}</button>
-                  <button class="icon-btn" onclick='copyText("${escapePageHtml2(k.key)}",this)' title="\u590D\u5236">${icon("copy", "", 14)}</button>
-                  <button class="icon-btn" onclick="regenerateKey('${k.id}')" title="\u91CD\u65B0\u751F\u6210">${icon("refresh", "", 14)}</button>
+            <div class="ki-main-wrap">
+              <span class="key-icon">${icon("key", "", 22)}</span>
+              <div class="ki-content">
+                <div class="ki-top-row">
+                  <div class="kv">
+                    <span class="kv__value" id="kv-${escapePageHtml2(k.id)}" data-full="${escapePageHtml2(k.key)}" data-vis="0">${escapePageHtml2(k.key.length > 12 ? k.key.substring(0, 8) + "*****" + k.key.substring(k.key.length - 4) : k.key)}</span>
+                    <button class="icon-btn" onclick="toggleKeyVis('${k.id}')" title="\u660E\u6587\u5207\u6362">${icon("eye", "", 13)}</button>
+                    <button class="icon-btn" onclick='copyText("${escapePageHtml2(k.key)}",this)' title="\u590D\u5236">${icon("copy", "", 13)}</button>
+                    <button class="icon-btn" onclick="regenerateKey('${k.id}')" title="\u91CD\u65B0\u751F\u6210">${icon("refresh", "", 13)}</button>
+                  </div>
                 </div>
                 <div class="key-meta">
-                  <h3>${escapePageHtml2(k.name || "\u672A\u547D\u540D\u4EE4\u724C")}</h3>
-                  <span>\xB7</span>
+                  <h3 class="key-name" title="${escapePageHtml2(k.name || "\u672A\u547D\u540D\u4EE4\u724C")}">${escapePageHtml2(k.name || "\u672A\u547D\u540D\u4EE4\u724C")}</h3>
+                  <span class="key-meta__sep">\xB7</span>
                   <p>\u521B\u5EFA\u4E8E ${new Date(k.createdAt).toLocaleDateString()} \xB7 ${k.expiresAt ? "\u6709\u6548\u81F3 " + new Date(k.expiresAt).toLocaleDateString() : "\u6C38\u4E45\u6709\u6548"}</p>
                 </div>
               </div>
@@ -20446,7 +20571,7 @@ ${H3("\u63A7\u5236\u53F0")}
             <div class="key-actions">
               <label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} onchange="toggleProxyKey('${k.id}',this.checked)"><span class="sl"></span></label>
               <span class="bd ${k.enabled ? "bd-on" : "bd-off"}">${k.enabled ? "\u5DF2\u542F\u7528" : "\u5DF2\u7981\u7528"}</span>
-              <button class="icon-btn bd-del" onclick="rmKey('${k.id}')" title="\u5220\u9664\u4EE4\u724C">${icon("trash", "", 14)}</button>
+              <button class="icon-btn bd-del" onclick="rmKey('${k.id}')" title="\u5220\u9664\u4EE4\u724C">${icon("trash", "", 13)}</button>
             </div>
           </article>`).join("")}
         </div>
