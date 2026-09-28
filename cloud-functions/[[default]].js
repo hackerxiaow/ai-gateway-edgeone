@@ -6316,6 +6316,8 @@ __export(codex_exports, {
   exchangeCodexCode: () => exchangeCodexCode,
   getCodexUpstreamRelay: () => getCodexUpstreamRelay,
   handleCodexRequest: () => handleCodexRequest,
+  orderByCooldown: () => orderByCooldown2,
+  parseQuotaResetMs: () => parseQuotaResetMs2,
   testCodex: () => testCodex
 });
 async function getCodexUpstreamRelay(env) {
@@ -6460,6 +6462,66 @@ function apiHeaders2(accessToken, accountId, stream) {
   if (accountId) headers["Chatgpt-Account-Id"] = accountId;
   return headers;
 }
+async function sha256Hex4(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function readCodexHealth(env, providerId) {
+  try {
+    const raw2 = await getKV(env).get(CODEX_HEALTH_PREFIX + providerId);
+    return raw2 ? JSON.parse(raw2) : {};
+  } catch {
+    return {};
+  }
+}
+async function writeCodexHealth(env, providerId, health) {
+  const now = Date.now();
+  const kept = {};
+  for (const [k, v] of Object.entries(health)) {
+    if (v && v.cooldownUntil > now) kept[k] = v;
+  }
+  try {
+    if (Object.keys(kept).length > 0) {
+      await getKV(env).put(CODEX_HEALTH_PREFIX + providerId, JSON.stringify(kept));
+    } else {
+      await getKV(env).delete(CODEX_HEALTH_PREFIX + providerId);
+    }
+  } catch {
+  }
+}
+function parseQuotaResetMs2(text) {
+  const m = /reset[s]?\s+in\s+(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?/i.exec(text || "");
+  if (!m) return null;
+  const h = Number(m[1] || 0);
+  const mi = Number(m[2] || 0);
+  const s = Number(m[3] || 0);
+  const ms = ((h * 60 + mi) * 60 + s) * 1e3;
+  return ms > 0 ? ms : null;
+}
+function orderByCooldown2(accounts, health) {
+  const now = Date.now();
+  const healthy = [];
+  const probation = [];
+  const cooling = [];
+  for (const a of accounts) {
+    const h = health[a.hash];
+    if (!h?.cooldownUntil) healthy.push(a);
+    else if (now >= h.cooldownUntil) probation.push(a);
+    else cooling.push(a);
+  }
+  const shuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+  };
+  shuffle(healthy);
+  shuffle(probation);
+  shuffle(cooling);
+  return [...healthy, ...probation, ...cooling];
+}
 async function handleCodexRequest(p, subPath) {
   const relay = await getCodexUpstreamRelay(p.env);
   const tokens = (p.refreshTokens || []).filter((t) => t && t.trim());
@@ -6475,8 +6537,34 @@ async function handleCodexRequest(p, subPath) {
   request.stream = true;
   let lastError = "";
   let lastStatus = 502;
-  const attempts = relay ? [""] : tokens;
-  for (const refreshToken of attempts) {
+  const attempts = relay ? [{ token: "", index: 0, hash: "" }] : await Promise.all(tokens.map(async (raw2, i) => ({ token: raw2, index: i + 1, hash: await sha256Hex4(raw2) })));
+  const health = relay ? {} : await readCodexHealth(p.env, p.providerId);
+  const ordered = relay ? attempts : orderByCooldown2(attempts, health);
+  let healthChanged = false;
+  const markFailed = (hash, reason, cooldownMs) => {
+    if (!hash) return;
+    health[hash] = { cooldownUntil: Date.now() + Math.min(cooldownMs, CODEX_COOLDOWN_MAX_MS), reason };
+    healthChanged = true;
+  };
+  const markOk = (hash) => {
+    if (hash && health[hash]) {
+      delete health[hash];
+      healthChanged = true;
+    }
+  };
+  const persistHealth = async () => {
+    if (!healthChanged) return;
+    healthChanged = false;
+    await writeCodexHealth(p.env, p.providerId, health);
+  };
+  const coolingCount = ordered.filter((a) => {
+    const h = health[a.hash];
+    return !!h?.cooldownUntil && Date.now() < h.cooldownUntil;
+  }).length;
+  if (coolingCount > 0) {
+    console.log(`[codex] ${p.providerId}: ${coolingCount}/${ordered.length} account(s) in cooldown, tried last`);
+  }
+  for (const { token: refreshToken, index: accountIndex, hash } of ordered) {
     try {
       let endpoint = `${CODEX_API_BASE}/responses`;
       let headers;
@@ -6496,16 +6584,33 @@ async function handleCodexRequest(p, subPath) {
       if (!upstream.ok) {
         lastStatus = upstream.status;
         lastError = `HTTP ${upstream.status}: ${(await readErrorBody(upstream)).slice(0, 300)}`;
-        if ([401, 403, 429].includes(upstream.status) || upstream.status >= 500) continue;
+        if (upstream.status === 429) {
+          const retryAfter = Number(upstream.headers.get("retry-after"));
+          const reset = (retryAfter > 0 ? retryAfter * 1e3 : 0) || parseQuotaResetMs2(lastError) || 0;
+          markFailed(hash, `429 ${lastError.slice(0, 120)}`, reset > 0 ? reset + 6e4 : CODEX_COOLDOWN_QUOTA_MS);
+          continue;
+        }
+        if (upstream.status === 401 || upstream.status === 403) {
+          markFailed(hash, lastError.slice(0, 120), CODEX_COOLDOWN_AUTH_MS);
+          continue;
+        }
+        if (upstream.status >= 500) {
+          markFailed(hash, lastError.slice(0, 120), CODEX_COOLDOWN_TRANSIENT_MS);
+          continue;
+        }
+        await persistHealth();
         return oauthErrorResponse(lastError, upstream.status, "upstream_error");
       }
+      markOk(hash);
+      defer(p, persistHealth());
+      const extraHeaders = relay ? {} : { "x-codex-account": String(accountIndex), "x-codex-cooldown": String(coolingCount) };
       if (wantStream && upstream.body) {
         const stream = createOpenAIStreamFromResponses(upstream.body, p.requestedModel, (usage) => {
           defer(p, recordOAuthUsage(p, usage, true, 200));
         });
         return new Response(stream, {
           status: 200,
-          headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", Connection: "keep-alive" }
+          headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", Connection: "keep-alive", ...extraHeaders }
         });
       }
       if (!upstream.body) return oauthErrorResponse("\u4E0A\u6E38\u672A\u8FD4\u56DE\u54CD\u5E94\u4F53", 502, "upstream_error");
@@ -6521,14 +6626,16 @@ async function handleCodexRequest(p, subPath) {
       }, true, 200));
       return new Response(JSON.stringify(openai), {
         status: 200,
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...extraHeaders }
       });
     } catch (err) {
       lastError = err.message || "\u672A\u77E5\u9519\u8BEF";
       lastStatus = err instanceof CodexAuthError ? 401 : 502;
+      markFailed(hash, `exception ${lastError.slice(0, 120)}`, err instanceof CodexAuthError ? CODEX_COOLDOWN_AUTH_MS : CODEX_COOLDOWN_TRANSIENT_MS);
       continue;
     }
   }
+  await persistHealth();
   return oauthErrorResponse(`\u6240\u6709 Codex \u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError || "\u672A\u77E5"}`, lastStatus, lastStatus === 401 ? "authentication_error" : "key_exhausted");
 }
 async function forwardResponsesNative(p, refreshToken, wantStream, relay) {
@@ -6615,7 +6722,7 @@ async function testCodex(env, refreshToken, modelId, providerId) {
     return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
   }
 }
-var CODEX_CLIENT_ID, CODEX_AUTH_URL, CODEX_TOKEN_URL, CODEX_REDIRECT_URI, CODEX_SCOPE, CODEX_API_BASE, CODEX_UA, CODEX_ORIGINATOR, AT_PREFIX3, STATE_PREFIX2, UPSTREAM_RELAY_KEY, CodexAuthError;
+var CODEX_CLIENT_ID, CODEX_AUTH_URL, CODEX_TOKEN_URL, CODEX_REDIRECT_URI, CODEX_SCOPE, CODEX_API_BASE, CODEX_UA, CODEX_ORIGINATOR, AT_PREFIX3, STATE_PREFIX2, UPSTREAM_RELAY_KEY, CodexAuthError, CODEX_HEALTH_PREFIX, CODEX_COOLDOWN_QUOTA_MS, CODEX_COOLDOWN_AUTH_MS, CODEX_COOLDOWN_TRANSIENT_MS, CODEX_COOLDOWN_MAX_MS;
 var init_codex = __esm({
   "src/codex.ts"() {
     "use strict";
@@ -6635,6 +6742,11 @@ var init_codex = __esm({
     UPSTREAM_RELAY_KEY = "codex:upstream";
     CodexAuthError = class extends Error {
     };
+    CODEX_HEALTH_PREFIX = "codex:health:";
+    CODEX_COOLDOWN_QUOTA_MS = 30 * 60 * 1e3;
+    CODEX_COOLDOWN_AUTH_MS = 60 * 60 * 1e3;
+    CODEX_COOLDOWN_TRANSIENT_MS = 5 * 60 * 1e3;
+    CODEX_COOLDOWN_MAX_MS = 6 * 60 * 60 * 1e3;
   }
 });
 
