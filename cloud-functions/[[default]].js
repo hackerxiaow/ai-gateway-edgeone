@@ -12846,6 +12846,51 @@ async function aggregateOpenCodeStream(response, modelId) {
     }
   });
 }
+function sanitizeFailureResponse(failure) {
+  const contentType = failure.headers.get("content-type") || "";
+  const isHtml = contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+  if (isHtml || failure.status === 404) {
+    try {
+      const text = new TextDecoder().decode(failure.body).trim();
+      if (text.startsWith("<!DOCTYPE html>") || text.startsWith("<html") || text.includes("<html") || text.includes("og:image") || text.includes("<title>")) {
+        const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].trim() : "\u9875\u9762\u672A\u627E\u5230";
+        const friendlyMessage = `OpenCode \u4E0A\u6E38\u8FD4\u56DE HTML \u9875\u9762\uFF08HTTP ${failure.status}: ${title}\uFF09\uFF0C\u5B98\u65B9/\u955C\u50CF\u6E90\u7AD9\u53EF\u80FD\u6682\u65F6\u6296\u52A8\u6216\u672A\u5F00\u653E\u8BE5\u8DEF\u5F84`;
+        return new Response(JSON.stringify({
+          error: {
+            message: friendlyMessage,
+            type: "upstream_error",
+            status: failure.status
+          }
+        }), {
+          status: failure.status === 404 ? 502 : failure.status,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store"
+          }
+        });
+      }
+    } catch {
+    }
+  }
+  return restoreFailure(failure);
+}
+function formatOpenCodeErrorMessage(status, rawBody) {
+  const text = (rawBody || "").trim();
+  if (!text) return `HTTP ${status}: \u7A7A\u54CD\u5E94`;
+  if (text.startsWith("<!DOCTYPE html>") || text.startsWith("<html") || text.includes("<html") || text.includes("og:image") || text.includes("<title>")) {
+    const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : "\u9875\u9762\u672A\u627E\u5230";
+    return `HTTP ${status}: \u4E0A\u6E38\u8FD4\u56DE HTML \u9875\u9762\uFF08${title}\uFF09\uFF0C\u7591\u4F3C\u5B98\u65B9\u6216\u955C\u50CF\u6E90\u7AD9\u670D\u52A1\u6296\u52A8`;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed.error?.message) return `HTTP ${status}: ${parsed.error.message}`;
+    if (parsed.message) return `HTTP ${status}: ${parsed.message}`;
+  } catch {
+  }
+  return `HTTP ${status}: ${text.substring(0, 200)}`;
+}
 async function proxyOpenCodeRequest(options) {
   const fetcher = options.fetcher ?? fetch;
   const random = options.random ?? Math.random;
@@ -12884,12 +12929,36 @@ async function proxyOpenCodeRequest(options) {
   };
   const enabledKeys = options.apiKeys.filter((entry) => entry.enabled && entry.key);
   const officialUrl = buildUrl(options.baseUrl, options.subPath, options.search);
-  for (const entry of enabledKeys) {
+  if (enabledKeys.length > 0) {
+    for (const entry of enabledKeys) {
+      try {
+        const response = await requestUpstream(
+          fetcher,
+          officialUrl,
+          entry.key,
+          upstreamOptions,
+          requestId,
+          sessionId
+        );
+        if (response.ok) {
+          if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
+            return aggregateOpenCodeStream(response, requestedModel);
+          }
+          return response;
+        }
+        officialFailure = await storeFailure(response);
+        if (response.status !== 401 && response.status !== 403 && response.status !== 429) break;
+      } catch (error) {
+        lastTransportError = error;
+        break;
+      }
+    }
+  } else {
     try {
       const response = await requestUpstream(
         fetcher,
         officialUrl,
-        entry.key,
+        "public",
         upstreamOptions,
         requestId,
         sessionId
@@ -12901,10 +12970,8 @@ async function proxyOpenCodeRequest(options) {
         return response;
       }
       officialFailure = await storeFailure(response);
-      if (response.status !== 401 && response.status !== 403 && response.status !== 429) break;
     } catch (error) {
       lastTransportError = error;
-      break;
     }
   }
   for (const mirror of getMirrorOrder(options.mirrorUrls, random)) {
@@ -12928,8 +12995,8 @@ async function proxyOpenCodeRequest(options) {
       lastTransportError = error;
     }
   }
-  if (officialFailure) return restoreFailure(officialFailure);
-  if (mirrorFailure) return restoreFailure(mirrorFailure);
+  const finalFailure = mirrorFailure || officialFailure;
+  if (finalFailure) return sanitizeFailureResponse(finalFailure);
   return transportErrorResponse(lastTransportError);
 }
 async function testOpenCodeModel(baseUrl, apiKeys, modelId, mirrorUrls, fetcher) {
@@ -12952,7 +13019,7 @@ async function testOpenCodeModel(baseUrl, apiKeys, modelId, mirrorUrls, fetcher)
   const body = await response.text();
   return {
     success: false,
-    message: `HTTP ${response.status}: ${body.substring(0, 200)}`,
+    message: formatOpenCodeErrorMessage(response.status, body),
     statusCode: response.status
   };
 }
@@ -12966,22 +13033,31 @@ async function fetchOpenCodeModels(baseUrl, apiKeys, mirrorUrls, fetcher) {
     fetcher
   });
   if (!response.ok) {
+    const body = await response.text();
     return {
       success: false,
-      message: `HTTP ${response.status}: ${(await response.text()).substring(0, 200)}`,
+      message: formatOpenCodeErrorMessage(response.status, body),
       statusCode: response.status
     };
   }
-  const data = await response.json();
-  return {
-    success: true,
-    message: "\u8FDE\u63A5\u6210\u529F",
-    statusCode: response.status,
-    data: {
-      ...data,
-      data: Array.isArray(data.data) ? filterOpenCodeModels(data.data) : []
-    }
-  };
+  try {
+    const data = await response.json();
+    return {
+      success: true,
+      message: "\u8FDE\u63A5\u6210\u529F",
+      statusCode: response.status,
+      data: {
+        ...data,
+        data: Array.isArray(data.data) ? filterOpenCodeModels(data.data) : []
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `\u4E0A\u6E38\u8FD4\u56DE\u975E JSON \u54CD\u5E94: ${err.message || "\u89E3\u6790\u5931\u8D25"}`,
+      statusCode: response.status
+    };
+  }
 }
 
 // src/llm-proxy.ts
@@ -14535,9 +14611,10 @@ async function handleTestKeyNew(c) {
       } catch {
       }
     }
+    const normalized = normalizeModelsResponse(data);
     return c.json({
       success: true,
-      data: { success: response.ok, statusCode: response.status, data: freeOnly ? filterFreeModels(data) : data }
+      data: { success: response.ok, statusCode: response.status, data: freeOnly ? filterFreeModels(normalized) : normalized }
     });
   } catch (err) {
     return c.json({
@@ -14545,6 +14622,27 @@ async function handleTestKeyNew(c) {
       data: { success: false, statusCode: 0, message: err.message || "\u8FDE\u63A5\u5931\u8D25" }
     });
   }
+}
+function normalizeModelsResponse(raw2) {
+  if (!raw2 || typeof raw2 !== "object") return { object: "list", data: [] };
+  let list = [];
+  if (Array.isArray(raw2)) {
+    list = raw2;
+  } else if (Array.isArray(raw2.data)) {
+    list = raw2.data;
+  } else if (Array.isArray(raw2.models)) {
+    list = raw2.models;
+  }
+  const normalized = list.map((item) => {
+    if (typeof item === "string") return { id: item };
+    if (item && typeof item === "object") {
+      const rec = item;
+      const id = String(rec.id || rec.name || rec.model || "");
+      return { ...rec, id };
+    }
+    return { id: String(item) };
+  }).filter((item) => Boolean(item.id));
+  return { object: "list", data: normalized };
 }
 function filterFreeModels(data) {
   if (!data || typeof data !== "object") return data;
