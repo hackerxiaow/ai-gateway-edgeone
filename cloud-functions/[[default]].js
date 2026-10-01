@@ -848,14 +848,17 @@ var init_storage_adapter = __esm({
 
 // src/storage.ts
 async function getProviders(env) {
+  if (providersCache) return providersCache;
   const data = await getKV(env).get(KV_KEYS.PROVIDERS);
-  return data ? JSON.parse(data) : [];
+  providersCache = data ? JSON.parse(data) : [];
+  return providersCache;
 }
 async function getProvider(env, id) {
   const providers = await getProviders(env);
   return providers.find((p) => p.id === id) ?? null;
 }
 async function setProviders(env, providers) {
+  providersCache = providers;
   await getKV(env).put(KV_KEYS.PROVIDERS, JSON.stringify(providers));
 }
 async function addProvider(env, provider) {
@@ -999,13 +1002,14 @@ async function addUsageRecord(env, record) {
 async function getUsageSummary(env, days) {
   return await getUsageSummaryBlob(env, days);
 }
-var ADMIN_CRED_KEY;
+var providersCache, ADMIN_CRED_KEY;
 var init_storage = __esm({
   "src/storage.ts"() {
     "use strict";
     init_config();
     init_storage_adapter();
     init_config();
+    providersCache = null;
     ADMIN_CRED_KEY = "admin:credentials";
   }
 });
@@ -14318,9 +14322,79 @@ function redactProvider(p) {
     }
   };
 }
+var KEY_PREVIEW = 10;
 async function handleGetProviders(c) {
   const providers = await getProviders(c.env);
-  return c.json({ success: true, data: providers.map(redactProvider) });
+  const full = c.req.query("full") === "1";
+  const data = providers.map((p) => {
+    const rp = { ...redactProvider(p) };
+    const total = (rp.apiKeys || []).length;
+    rp.apiKeysTotal = total;
+    if (!full && total > KEY_PREVIEW) {
+      rp.apiKeys = rp.apiKeys.slice(0, KEY_PREVIEW);
+      rp.apiKeysTruncated = true;
+    }
+    return rp;
+  });
+  return c.json({ success: true, data });
+}
+async function handleListProviderKeys(c) {
+  const id = c.req.param("id");
+  const provider = await getProvider(c.env, id);
+  if (!provider) return c.json({ success: false, message: "\u6E20\u9053\u4E0D\u5B58\u5728" }, 404);
+  const size = Math.min(500, Math.max(1, parseInt(c.req.query("size") || "100", 10) || 100));
+  const q = (c.req.query("q") || "").toLowerCase();
+  const all = provider.apiKeys || [];
+  const filtered = q ? all.filter((k) => k.key.toLowerCase().includes(q)) : all;
+  const offsetQ = c.req.query("offset");
+  const start = offsetQ !== void 0 && offsetQ !== null && !isNaN(parseInt(offsetQ, 10)) ? Math.max(0, parseInt(offsetQ, 10)) : (Math.max(1, parseInt(c.req.query("page") || "1", 10) || 1) - 1) * size;
+  const keys = filtered.slice(start, start + size);
+  return c.json({
+    success: true,
+    data: { keys, total: all.length, matched: filtered.length, offset: start, size, hasMore: start + size < filtered.length }
+  });
+}
+async function handleUpdateProviderKeys(c) {
+  const id = c.req.param("id");
+  const provider = await getProvider(c.env, id);
+  if (!provider) return c.json({ success: false, message: "\u6E20\u9053\u4E0D\u5B58\u5728" }, 404);
+  const body = await c.req.json();
+  const map = /* @__PURE__ */ new Map();
+  for (const k of provider.apiKeys || []) map.set(k.key, { key: k.key, enabled: !!k.enabled });
+  let changed = 0;
+  for (const raw2 of body.add || []) {
+    const key = String(raw2 || "").trim();
+    if (key && !map.has(key)) {
+      map.set(key, { key, enabled: true });
+      changed++;
+    }
+  }
+  for (const raw2 of body.remove || []) {
+    if (map.delete(String(raw2 || "").trim())) changed++;
+  }
+  for (const raw2 of body.enable || []) {
+    const it = map.get(String(raw2 || "").trim());
+    if (it && !it.enabled) {
+      it.enabled = true;
+      changed++;
+    }
+  }
+  for (const raw2 of body.disable || []) {
+    const it = map.get(String(raw2 || "").trim());
+    if (it && it.enabled) {
+      it.enabled = false;
+      changed++;
+    }
+  }
+  if (!changed) {
+    return c.json({ success: true, data: { total: map.size, changed: 0 } });
+  }
+  const updated = await updateProvider(c.env, id, {
+    apiKeys: Array.from(map.values()),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  if (!updated) return c.json({ success: false, message: "\u6E20\u9053\u4E0D\u5B58\u5728" }, 404);
+  return c.json({ success: true, data: { total: updated.apiKeys.length, changed } });
 }
 async function handleSaveDsAccount(c) {
   const id = c.req.param("id");
@@ -19330,21 +19404,72 @@ function getKeys(id) {
   }).filter(Boolean)
 }
 
-function addKeyRow(id) {
-  const inp = document.getElementById('nk-' + id), v = inp.value.trim()
-  if (!v) { toast('\u8BF7\u8F93\u5165 Key', 'error'); return }
-  const c = document.getElementById('keys-' + id), idx = c.querySelectorAll('[data-kidx]').length
+function keyRowHtml(id, idx, key, enabled) {
   const d = document.createElement('div')
   d.className = 'fc mb-3 field-row'
   d.dataset.kidx = idx
-  d.innerHTML = '<input type="text" value="' + escapeHtml(v) + '" class="fx1" id="k-' + id + '-' + idx + '"><label class="tg"><input type="checkbox" checked id="ken-' + id + '-' + idx + '"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testKeyRow(\\'' + id + '\\',' + idx + ')">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="rmKeyRow(\\'' + id + '\\',' + idx + ')">' + svgIcon('times', '', 14) + '</button>'
-  c.appendChild(d)
-  inp.value = ''
+  d.innerHTML = '<input type="text" value="' + escapeHtml(key || '') + '" class="fx1" id="k-' + id + '-' + idx + '"><label class="tg"><input type="checkbox" ' + (enabled ? 'checked' : '') + ' id="ken-' + id + '-' + idx + '" onchange="keyToggle('' + id + '', this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">' + svgIcon('copy', '', 14) + '</button><button class="icon-btn" onclick="testKeyRow('' + id + '',' + idx + ')">' + svgIcon('plug', '', 14) + '</button><button class="icon-btn" onclick="rmKeyRow('' + id + '',' + idx + ', this)">' + svgIcon('times', '', 14) + '</button>'
+  return d
 }
 
-function rmKeyRow(id, idx) {
-  const el = document.querySelector('#keys-' + id + ' [data-kidx="' + idx + '"]')
-  if (el) el.remove()
+async function keysDelta(id, payload) {
+  const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/keys', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+  })
+  const d = await r.json()
+  if (!d.success) { toast(d.message || '\u64CD\u4F5C\u5931\u8D25', 'error'); return null }
+  return d.data
+}
+
+async function addKeyRow(id) {
+  const inp = document.getElementById('nk-' + id), v = inp.value.trim()
+  if (!v) { toast('\u8BF7\u8F93\u5165 Key', 'error'); return }
+  const res = await keysDelta(id, { add: [v] })
+  if (!res) return
+  const c = document.getElementById('keys-' + id), idx = c.querySelectorAll('[data-kidx]').length
+  c.appendChild(keyRowHtml(id, idx, v, true))
+  inp.value = ''
+  toast('\u5DF2\u6DFB\u52A0 (\u5171 ' + res.total + ' \u4E2A)', 'success')
+}
+
+async function rmKeyRow(id, idx, el) {
+  const row = el && el.closest ? el.closest('[data-kidx]') : document.querySelector('#keys-' + id + ' [data-kidx="' + idx + '"]')
+  const key = row ? (row.querySelector('input.fx1') || {}).value || '' : ''
+  if (!key) { if (row) row.remove(); return }
+  const res = await keysDelta(id, { remove: [key] })
+  if (!res) return
+  if (row) row.remove()
+  toast('\u5DF2\u5220\u9664 (\u5269\u4F59 ' + res.total + ' \u4E2A)', 'success')
+}
+
+async function keyToggle(id, cb) {
+  const row = cb.closest('[data-kidx]')
+  const key = (row.querySelector('input.fx1') || {}).value || ''
+  if (!key) return
+  const res = await keysDelta(id, cb.checked ? { enable: [key] } : { disable: [key] })
+  if (!res) { cb.checked = !cb.checked; return }
+  toast(cb.checked ? '\u5DF2\u542F\u7528' : '\u5DF2\u505C\u7528', 'success')
+}
+
+async function loadMoreKeys(id) {
+  const c = document.getElementById('keys-' + id)
+  const btnBox = document.getElementById('kmore-' + id)
+  const btn = btnBox ? btnBox.querySelector('button') : null
+  if (btn) { btn.disabled = true; btn.textContent = '\u52A0\u8F7D\u4E2D\u2026' }
+  try {
+    const offset = c.querySelectorAll('[data-kidx]').length
+    const r = await fetch('/admin/api/providers/' + encodeURIComponent(id) + '/keys?offset=' + offset + '&size=100')
+    const d = await r.json()
+    if (!d.success) { toast(d.message || '\u52A0\u8F7D\u5931\u8D25', 'error'); return }
+    const start = offset
+    d.data.keys.forEach(function (k, i) { c.appendChild(keyRowHtml(id, start + i, k.key, k.enabled)) })
+    window.__keysTotal = window.__keysTotal || {}
+    window.__keysTotal[id] = d.data.total
+    if (btnBox) {
+      if (d.data.hasMore) btn.textContent = '\u67E5\u770B\u66F4\u591A(\u5DF2\u663E\u793A ' + c.querySelectorAll('[data-kidx]').length + ' / \u5171 ' + d.data.total + ')'
+      else btnBox.remove()
+    }
+  } catch (e) { toast('\u52A0\u8F7D\u5931\u8D25: ' + e, 'error') } finally { if (btn) btn.disabled = false }
 }
 
 async function testKeyRow(id, idx) {
@@ -19441,7 +19566,7 @@ async function save(id) {
   const r = await fetch('/admin/api/providers/' + encodeURIComponent(id), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue(id) : undefined, apiKeys: keys, models, mirrorUrls, enabled, newId, project: provProject(id) || undefined, location: provVertexLocation(id) || undefined, ...ttsConf })
+    body: JSON.stringify({ name: nm, baseUrl: url, apiType, type, region: isCodebuddyType(type) ? cbRegionValue(id) : undefined, apiKeys: (type !== 'vertex' && type !== 'devin') ? undefined : keys, models, mirrorUrls, enabled, newId, project: provProject(id) || undefined, location: provVertexLocation(id) || undefined, ...ttsConf })
   })
   const d = await r.json()
   if (d.success) { toast('\u5DF2\u4FDD\u5B58', 'success'); location.reload() }
@@ -20145,15 +20270,6 @@ var AZURE_VOICE_OPTIONS = (() => {
   }
   return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
 })();
-var azureVoiceOptions = (selected) => {
-  const groups = /* @__PURE__ */ new Map();
-  for (const v of AZURE_TTS_VOICES) {
-    const g = v.group || voiceGroup(v.id);
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(`<option value="${v.id}" ${v.id === selected ? "selected" : ""}>${v.label} (${v.id})</option>`);
-  }
-  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
-};
 var escapePageHtml2 = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 var cbRealmOf = (p) => {
   if (p.region === "global") return "global";
@@ -20570,35 +20686,10 @@ ${H3("\u63A7\u5236\u53F0")}
 
               <!-- Azure TTS \u914D\u7F6E -->
               <div class="tts-config" id="tts-${escapePageHtml2(p.id)}" ${(p.type || "openai") === "azure-tts" ? "" : 'style="display:none"'}>
-                <fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u53C2\u6570</legend>
-                  <div class="fr">
-                    <div class="fg"><label>\u97F3\u8272 Voice</label>
-                      <div class="fc" style="gap:8px">
-                        <select id="pv-${escapePageHtml2(p.id)}" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${azureVoiceOptions(p.voice || "zh-CN-XiaoxiaoNeural")}</select>
-                        <button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml2(p.id)}')">${icon("play", "", 14)} \u8BD5\u542C</button>
-                      </div>
-                    </div>
-                    <div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="pr-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.rate || "+0%")}"></div>
-                  </div>
-                  <div class="fr">
-                    <div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="pvol-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.volume || "+0%")}"></div>
-                    <div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="pp-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.pitch || "+0Hz")}"></div>
-                  </div>
-                  <div id="ttp-${escapePageHtml2(p.id)}"></div>
-                  <div class="fc" style="gap:8px;margin-top:8px">
-                    <button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml2(p.id)}')">${icon("plus", "", 14)} \u6DFB\u52A0\u5F53\u524D\u97F3\u8272\u4E3A\u6A21\u578B</button>
-                    <button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml2(p.id)}')">${icon("microphone", "", 14)} \u6DFB\u52A0\u5168\u90E8\u97F3\u8272</button>
-                  </div>
-                </fieldset>
-              </div>
-
-              <!-- \u955C\u50CF\u5730\u5740 -->
-              <div class="fg" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""}><label>\u955C\u50CF\u5907\u7528\u5730\u5740</label><textarea id="mir-${escapePageHtml2(p.id)}" rows="2">${(p.mirrorUrls || []).map(escapePageHtml2).join("\\n")}</textarea></div>
-
-              <!-- \u4E0A\u6E38 API Keys \u5217\u8868 -->
-              <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys</legend>
-                <div id="keys-${escapePageHtml2(p.id)}">${p.apiKeys.map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml2(k.key)}" class="fx1" id="k-${escapePageHtml2(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml2(p.id)}-${ki}"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testKeyRow('${p.id}',${ki})">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmKeyRow('${p.id}',${ki})">${icon("times", "", 14)}</button></div>`).join("")}</div>
-                <div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml2(p.id)}" placeholder="\u6DFB\u52A0\u65B0\u7684 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${p.id}')">${icon("plus", "", 14)}\u6DFB\u52A0</button></div>
+                <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys<span style="font-weight:400;color:#888"> (\u5171 ${(p.apiKeys || []).length} \u4E2A)</span></legend>
+                <div id="keys-${escapePageHtml2(p.id)}" data-shown="${(p.apiKeys || []).length > 10 ? 10 : (p.apiKeys || []).length}">${(p.apiKeys || []).slice(0, 10).map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml2(k.key)}" class="fx1" id="k-${escapePageHtml2(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml2(p.id)}-${ki}" onchange="keyToggle('${escapePageHtml2(p.id)}', this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testKeyRow('${escapePageHtml2(p.id)}',${ki})">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmKeyRow('${escapePageHtml2(p.id)}',${ki},this)">${icon("times", "", 14)}</button></div>`).join("")}</div>
+                ${(p.apiKeys || []).length > 10 ? `<div class="fc mb-3 field-row" id="kmore-${escapePageHtml2(p.id)}"><button class="btn btn-s" onclick="loadMoreKeys('${escapePageHtml2(p.id)}')">\u67E5\u770B\u66F4\u591A(\u5DF2\u663E\u793A 10 / \u5171 ${(p.apiKeys || []).length})</button></div>` : ""}
+                <div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml2(p.id)}" placeholder="\u6DFB\u52A0\u65B0\u7684 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${escapePageHtml2(p.id)}')">${icon("plus", "", 14)}\u6DFB\u52A0</button></div>
               </fieldset>
 
               <!-- \u6A21\u578B\u5217\u8868 -->
@@ -20802,6 +20893,8 @@ app.get("/admin/api/selftest/delay", (c) => {
   });
 });
 app.get("/admin/api/providers", handleGetProviders);
+app.get("/admin/api/providers/:id/keys", handleListProviderKeys);
+app.post("/admin/api/providers/:id/keys", handleUpdateProviderKeys);
 app.post("/admin/api/providers", handleCreateProvider);
 app.put("/admin/api/providers/:id", handleUpdateProvider);
 app.delete("/admin/api/providers/:id", handleDeleteProvider);

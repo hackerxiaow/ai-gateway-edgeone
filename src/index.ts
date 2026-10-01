@@ -7,6 +7,8 @@ import { handleProxy, handleModels } from './llm-proxy'
 import {
   handleStatus,
   handleGetProviders,
+  handleListProviderKeys,
+  handleUpdateProviderKeys,
   handleCreateProvider,
   handleUpdateProvider,
   handleDeleteProvider,
@@ -106,6 +108,8 @@ app.get('/admin/api/selftest/delay', (c) => {
 
 // 提供商 CRUD
 app.get('/admin/api/providers', handleGetProviders)
+app.get('/admin/api/providers/:id/keys', handleListProviderKeys)
+app.post('/admin/api/providers/:id/keys', handleUpdateProviderKeys)
 app.post('/admin/api/providers', handleCreateProvider)
 app.put('/admin/api/providers/:id', handleUpdateProvider)
 app.delete('/admin/api/providers/:id', handleDeleteProvider)
