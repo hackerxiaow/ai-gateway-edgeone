@@ -20620,7 +20620,7 @@ async function renderAdminPage(c) {
   const agAccountCount = agChannels.reduce((total, ch) => total + ch.accountCount, 0);
   const storageLabel = storageTypeLabel(c.env);
   const apiBase = `${getExternalOrigin(c)}/v1`;
-  return c.html(`<!DOCTYPE html><html lang="zh-CN">
+  const GZIP_ADMIN_HTML = `<!DOCTYPE html><html lang="zh-CN">
 ${H3("\u63A7\u5236\u53F0")}
 <body class="site-page admin-page">
 <div class="admin-shell">
@@ -21163,7 +21163,18 @@ let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
 const AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
 ${ADMIN_CLIENT_SCRIPT}
 </script>
-</body></html>`);
+</body></html>`;
+  const AE = c.req.header("Accept-Encoding") || "";
+  if (AE.includes("gzip")) {
+    try {
+      const { gzipSync } = await import("node:zlib");
+      const gz = gzipSync(Buffer.from(GZIP_ADMIN_HTML));
+      return new Response(gz, { headers: { "Content-Type": "text/html; charset=UTF-8", "Content-Encoding": "gzip", "Cache-Control": "no-store, no-cache, must-revalidate", "Vary": "Accept-Encoding" } });
+    } catch (e) {
+      console.warn("[AdminGzip] \u5931\u8D25, \u56DE\u9000\u660E\u6587:", e?.message);
+    }
+  }
+  return c.html(GZIP_ADMIN_HTML);
 }
 
 // src/index.ts
