@@ -20287,6 +20287,8 @@ var H3 = (title) => `
   <style>${CSS_CONTENT}</style>
 </head>`;
 async function renderAdminPage(c) {
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate");
+  c.header("Pragma", "no-cache");
   const providers = await getProviders(c.env);
   const proxyKeys = await getProxyKeys(c.env);
   const tgConfig = await getTgConfig(c.env).catch(() => null);
