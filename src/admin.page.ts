@@ -63,13 +63,10 @@ export async function renderAdminPage(c: Context<{ Bindings: Env }>) {
   // 后台页面禁缓存: 防止浏览器/CDN 提供旧版大页面导致交互卡死
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
   c.header('Pragma', 'no-cache')
-  // 并发查询远端存储，显著降低 TTFB 首字节延迟
-  const [providers, proxyKeys, tgConfig, codexRelay] = await Promise.all([
-    getProviders(c.env),
-    getProxyKeys(c.env),
-    getTgConfig(c.env).catch(() => null),
-    getCodexUpstreamRelay(c.env).catch(() => null),
-  ])
+  const providers = await getProviders(c.env)
+  const proxyKeys = await getProxyKeys(c.env)
+  const tgConfig = await getTgConfig(c.env).catch(() => null)
+  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null)
   const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, '') : ''
   const enabledProvidersCount = providers.filter((p) => p.enabled).length
   const modelsCount = providers.reduce((total, p) => total + p.models.length, 0)
@@ -87,7 +84,7 @@ export async function renderAdminPage(c: Context<{ Bindings: Env }>) {
   const storageLabel = storageTypeLabel(c.env)
   const apiBase = `${getExternalOrigin(c)}/v1`
 
-  const GZIP_ADMIN_HTML = `<!DOCTYPE html><html lang="zh-CN">
+  return c.html(`<!DOCTYPE html><html lang="zh-CN">
 ${H('控制台')}
 <body class="site-page admin-page">
 <div class="admin-shell">
@@ -469,9 +466,35 @@ ${H('控制台')}
 
               <!-- Azure TTS 配置 -->
               <div class="tts-config" id="tts-${escapePageHtml(p.id)}" ${(p.type || 'openai') === 'azure-tts' ? '' : 'style="display:none"'}>
-                <fieldset class="form-group"><legend>上游 API Keys<span style="font-weight:400;color:#888"> (共 ${(p.apiKeys || []).length} 个)</span></legend>
-                <div id="keys-${escapePageHtml(p.id)}" data-shown="${(p.apiKeys || []).length > 10 ? 10 : (p.apiKeys || []).length}">${(p.apiKeys || []).slice(0, 10).map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? 'checked' : ''} id="ken-${escapePageHtml(p.id)}-${ki}" onchange="keyToggle('${escapePageHtml(p.id)}', this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon('copy', '', 14)}</button><button class="icon-btn" onclick="testKeyRow('${escapePageHtml(p.id)}',${ki})">${icon('plug', '', 14)}</button><button class="icon-btn" onclick="rmKeyRow('${escapePageHtml(p.id)}',${ki},this)">${icon('times', '', 14)}</button></div>`).join('')}</div>
-                ${(p.apiKeys || []).length > 10 ? `<div class="fc mb-3 field-row" id="kmore-${escapePageHtml(p.id)}"><button class="btn btn-s" onclick="loadMoreKeys('${escapePageHtml(p.id)}')">查看更多(已显示 10 / 共 ${(p.apiKeys || []).length})</button></div>` : ''}
+                <fieldset class="form-group"><legend>Azure TTS 音色参数</legend>
+                  <div class="fr">
+                    <div class="fg"><label>音色 Voice</label>
+                      <div class="fc" style="gap:8px">
+                        <select id="pv-${escapePageHtml(p.id)}" class="select-sm"><option value="">自定义…</option>${azureVoiceOptions(p.voice || 'zh-CN-XiaoxiaoNeural')}</select>
+                        <button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml(p.id)}')">${icon('play', '', 14)} 试听</button>
+                      </div>
+                    </div>
+                    <div class="fg"><label>语速 Rate</label><input type="text" id="pr-${escapePageHtml(p.id)}" value="${escapePageHtml(p.rate || '+0%')}"></div>
+                  </div>
+                  <div class="fr">
+                    <div class="fg"><label>音量 Volume</label><input type="text" id="pvol-${escapePageHtml(p.id)}" value="${escapePageHtml(p.volume || '+0%')}"></div>
+                    <div class="fg"><label>音调 Pitch</label><input type="text" id="pp-${escapePageHtml(p.id)}" value="${escapePageHtml(p.pitch || '+0Hz')}"></div>
+                  </div>
+                  <div id="ttp-${escapePageHtml(p.id)}"></div>
+                  <div class="fc" style="gap:8px;margin-top:8px">
+                    <button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml(p.id)}')">${icon('plus', '', 14)} 添加当前音色为模型</button>
+                    <button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml(p.id)}')">${icon('microphone', '', 14)} 添加全部音色</button>
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- 镜像地址 -->
+              <div class="fg" data-hide-ag ${p.type === 'antigravity' ? 'style="display:none"' : ''}><label>镜像备用地址</label><textarea id="mir-${escapePageHtml(p.id)}" rows="2">${(p.mirrorUrls || []).map(escapePageHtml).join('\\n')}</textarea></div>
+
+              <!-- 上游 API Keys 列表(超量分页, 「查看更多」按需加载, 编辑走增量接口) -->
+              <fieldset class="form-group"><legend>上游 API Keys<span style="font-weight:400;color:#888"> (共 ${(p.apiKeys || []).length} 个)</span></legend>
+                <div id="keys-${escapePageHtml(p.id)}" data-shown="${(p.apiKeys || []).length > 10 ? 10 : (p.apiKeys || []).length}">${(p.apiKeys || []).slice(0, 10).map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml(k.key)}" class="fx1" id="k-${escapePageHtml(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? 'checked' : ''} id="ken-${escapePageHtml(p.id)}-${ki}" onchange="keyToggle(this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon('copy', '', 14)}</button><button class="icon-btn" onclick="testKeyRow(this)">${icon('plug', '', 14)}</button><button class="icon-btn" onclick="rmKeyRow(this)">${icon('times', '', 14)}</button></div>`).join('')}</div>
+                ${(p.apiKeys || []).length > 10 ? `<div class="fc mb-3 field-row" id="kmore-${escapePageHtml(p.id)}"><button class="btn btn-s" onclick="loadMoreKeys(this)">查看更多(已显示 10 / 共 ${(p.apiKeys || []).length})</button></div>` : ''}
                 <div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml(p.id)}" placeholder="添加新的 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${escapePageHtml(p.id)}')">${icon('plus', '', 14)}添加</button></div>
               </fieldset>
 
@@ -630,14 +653,5 @@ let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, '\\u003c')}
 const AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
 ${ADMIN_CLIENT_SCRIPT}
 </script>
-</body></html>`
-  const AE = c.req.header('Accept-Encoding') || ''
-  if (AE.includes('gzip')) {
-    try {
-      const { gzipSync } = await import('node:zlib')
-      const gz = gzipSync(Buffer.from(GZIP_ADMIN_HTML))
-      return new Response(gz, { headers: { 'Content-Type': 'text/html; charset=UTF-8', 'Content-Encoding': 'gzip', 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Vary': 'Accept-Encoding' } })
-    } catch (e) { console.warn('[AdminGzip] 失败, 回退明文:', e?.message) }
-  }
-  return c.html(GZIP_ADMIN_HTML)
+</body></html>`)
 }

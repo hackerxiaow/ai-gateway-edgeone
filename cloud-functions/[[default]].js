@@ -20582,6 +20582,15 @@ var AZURE_VOICE_OPTIONS = (() => {
   }
   return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
 })();
+var azureVoiceOptions = (selected) => {
+  const groups = /* @__PURE__ */ new Map();
+  for (const v of AZURE_TTS_VOICES) {
+    const g = v.group || voiceGroup(v.id);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(`<option value="${v.id}" ${v.id === selected ? "selected" : ""}>${v.label} (${v.id})</option>`);
+  }
+  return Array.from(groups.entries()).map(([g, opts]) => `<optgroup label="${g}">${opts.join("")}</optgroup>`).join("");
+};
 var escapePageHtml2 = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 var cbRealmOf = (p) => {
   if (p.region === "global") return "global";
@@ -20601,12 +20610,10 @@ var H3 = (title) => `
 async function renderAdminPage(c) {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate");
   c.header("Pragma", "no-cache");
-  const [providers, proxyKeys, tgConfig, codexRelay] = await Promise.all([
-    getProviders(c.env),
-    getProxyKeys(c.env),
-    getTgConfig(c.env).catch(() => null),
-    getCodexUpstreamRelay(c.env).catch(() => null)
-  ]);
+  const providers = await getProviders(c.env);
+  const proxyKeys = await getProxyKeys(c.env);
+  const tgConfig = await getTgConfig(c.env).catch(() => null);
+  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null);
   const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, "") : "";
   const enabledProvidersCount = providers.filter((p) => p.enabled).length;
   const modelsCount = providers.reduce((total, p) => total + p.models.length, 0);
@@ -20620,7 +20627,7 @@ async function renderAdminPage(c) {
   const agAccountCount = agChannels.reduce((total, ch) => total + ch.accountCount, 0);
   const storageLabel = storageTypeLabel(c.env);
   const apiBase = `${getExternalOrigin(c)}/v1`;
-  const GZIP_ADMIN_HTML = `<!DOCTYPE html><html lang="zh-CN">
+  return c.html(`<!DOCTYPE html><html lang="zh-CN">
 ${H3("\u63A7\u5236\u53F0")}
 <body class="site-page admin-page">
 <div class="admin-shell">
@@ -21002,9 +21009,35 @@ ${H3("\u63A7\u5236\u53F0")}
 
               <!-- Azure TTS \u914D\u7F6E -->
               <div class="tts-config" id="tts-${escapePageHtml2(p.id)}" ${(p.type || "openai") === "azure-tts" ? "" : 'style="display:none"'}>
-                <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys<span style="font-weight:400;color:#888"> (\u5171 ${(p.apiKeys || []).length} \u4E2A)</span></legend>
-                <div id="keys-${escapePageHtml2(p.id)}" data-shown="${(p.apiKeys || []).length > 10 ? 10 : (p.apiKeys || []).length}">${(p.apiKeys || []).slice(0, 10).map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml2(k.key)}" class="fx1" id="k-${escapePageHtml2(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml2(p.id)}-${ki}" onchange="keyToggle('${escapePageHtml2(p.id)}', this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testKeyRow('${escapePageHtml2(p.id)}',${ki})">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmKeyRow('${escapePageHtml2(p.id)}',${ki},this)">${icon("times", "", 14)}</button></div>`).join("")}</div>
-                ${(p.apiKeys || []).length > 10 ? `<div class="fc mb-3 field-row" id="kmore-${escapePageHtml2(p.id)}"><button class="btn btn-s" onclick="loadMoreKeys('${escapePageHtml2(p.id)}')">\u67E5\u770B\u66F4\u591A(\u5DF2\u663E\u793A 10 / \u5171 ${(p.apiKeys || []).length})</button></div>` : ""}
+                <fieldset class="form-group"><legend>Azure TTS \u97F3\u8272\u53C2\u6570</legend>
+                  <div class="fr">
+                    <div class="fg"><label>\u97F3\u8272 Voice</label>
+                      <div class="fc" style="gap:8px">
+                        <select id="pv-${escapePageHtml2(p.id)}" class="select-sm"><option value="">\u81EA\u5B9A\u4E49\u2026</option>${azureVoiceOptions(p.voice || "zh-CN-XiaoxiaoNeural")}</select>
+                        <button class="btn btn-s" type="button" onclick="previewTts('${escapePageHtml2(p.id)}')">${icon("play", "", 14)} \u8BD5\u542C</button>
+                      </div>
+                    </div>
+                    <div class="fg"><label>\u8BED\u901F Rate</label><input type="text" id="pr-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.rate || "+0%")}"></div>
+                  </div>
+                  <div class="fr">
+                    <div class="fg"><label>\u97F3\u91CF Volume</label><input type="text" id="pvol-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.volume || "+0%")}"></div>
+                    <div class="fg"><label>\u97F3\u8C03 Pitch</label><input type="text" id="pp-${escapePageHtml2(p.id)}" value="${escapePageHtml2(p.pitch || "+0Hz")}"></div>
+                  </div>
+                  <div id="ttp-${escapePageHtml2(p.id)}"></div>
+                  <div class="fc" style="gap:8px;margin-top:8px">
+                    <button class="btn btn-s" type="button" onclick="addTtsModel('${escapePageHtml2(p.id)}')">${icon("plus", "", 14)} \u6DFB\u52A0\u5F53\u524D\u97F3\u8272\u4E3A\u6A21\u578B</button>
+                    <button class="btn btn-s" type="button" onclick="addAllTtsModels('${escapePageHtml2(p.id)}')">${icon("microphone", "", 14)} \u6DFB\u52A0\u5168\u90E8\u97F3\u8272</button>
+                  </div>
+                </fieldset>
+              </div>
+
+              <!-- \u955C\u50CF\u5730\u5740 -->
+              <div class="fg" data-hide-ag ${p.type === "antigravity" ? 'style="display:none"' : ""}><label>\u955C\u50CF\u5907\u7528\u5730\u5740</label><textarea id="mir-${escapePageHtml2(p.id)}" rows="2">${(p.mirrorUrls || []).map(escapePageHtml2).join("\\n")}</textarea></div>
+
+              <!-- \u4E0A\u6E38 API Keys \u5217\u8868(\u8D85\u91CF\u5206\u9875, \u300C\u67E5\u770B\u66F4\u591A\u300D\u6309\u9700\u52A0\u8F7D, \u7F16\u8F91\u8D70\u589E\u91CF\u63A5\u53E3) -->
+              <fieldset class="form-group"><legend>\u4E0A\u6E38 API Keys<span style="font-weight:400;color:#888"> (\u5171 ${(p.apiKeys || []).length} \u4E2A)</span></legend>
+                <div id="keys-${escapePageHtml2(p.id)}" data-shown="${(p.apiKeys || []).length > 10 ? 10 : (p.apiKeys || []).length}">${(p.apiKeys || []).slice(0, 10).map((k, ki) => `<div class="fc mb-3 field-row" data-kidx="${ki}"><input type="text" value="${escapePageHtml2(k.key)}" class="fx1" id="k-${escapePageHtml2(p.id)}-${ki}"><label class="tg"><input type="checkbox" ${k.enabled ? "checked" : ""} id="ken-${escapePageHtml2(p.id)}-${ki}" onchange="keyToggle(this)"><span class="sl"></span></label><button class="icon-btn" onclick="copyRowVal(this)">${icon("copy", "", 14)}</button><button class="icon-btn" onclick="testKeyRow(this)">${icon("plug", "", 14)}</button><button class="icon-btn" onclick="rmKeyRow(this)">${icon("times", "", 14)}</button></div>`).join("")}</div>
+                ${(p.apiKeys || []).length > 10 ? `<div class="fc mb-3 field-row" id="kmore-${escapePageHtml2(p.id)}"><button class="btn btn-s" onclick="loadMoreKeys(this)">\u67E5\u770B\u66F4\u591A(\u5DF2\u663E\u793A 10 / \u5171 ${(p.apiKeys || []).length})</button></div>` : ""}
                 <div class="fc mt-1 field-row"><input type="text" id="nk-${escapePageHtml2(p.id)}" placeholder="\u6DFB\u52A0\u65B0\u7684 API Key" class="fx1"><button class="btn btn-s" onclick="addKeyRow('${escapePageHtml2(p.id)}')">${icon("plus", "", 14)}\u6DFB\u52A0</button></div>
               </fieldset>
 
@@ -21163,18 +21196,7 @@ let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
 const AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
 ${ADMIN_CLIENT_SCRIPT}
 </script>
-</body></html>`;
-  const AE = c.req.header("Accept-Encoding") || "";
-  if (AE.includes("gzip")) {
-    try {
-      const { gzipSync } = await import("node:zlib");
-      const gz = gzipSync(Buffer.from(GZIP_ADMIN_HTML));
-      return new Response(gz, { headers: { "Content-Type": "text/html; charset=UTF-8", "Content-Encoding": "gzip", "Cache-Control": "no-store, no-cache, must-revalidate", "Vary": "Accept-Encoding" } });
-    } catch (e) {
-      console.warn("[AdminGzip] \u5931\u8D25, \u56DE\u9000\u660E\u6587:", e?.message);
-    }
-  }
-  return c.html(GZIP_ADMIN_HTML);
+</body></html>`);
 }
 
 // src/index.ts
