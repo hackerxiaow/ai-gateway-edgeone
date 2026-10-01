@@ -1,3 +1,4 @@
+import { compress } from 'hono/compress'
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
@@ -50,6 +51,7 @@ import { handleBackupExport, handleBackupImport, handleBackupToR2, handleBackupL
 const app = new Hono<{ Bindings: Env }>()
 
 // ===== 全局中间件 =====
+app.use(compress())
 app.use('*', cors())
 app.use('*', logger())
 

@@ -63,10 +63,13 @@ export async function renderAdminPage(c: Context<{ Bindings: Env }>) {
   // 后台页面禁缓存: 防止浏览器/CDN 提供旧版大页面导致交互卡死
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
   c.header('Pragma', 'no-cache')
-  const providers = await getProviders(c.env)
-  const proxyKeys = await getProxyKeys(c.env)
-  const tgConfig = await getTgConfig(c.env).catch(() => null)
-  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null)
+  // 并发查询远端存储，显著降低 TTFB 首字节延迟
+  const [providers, proxyKeys, tgConfig, codexRelay] = await Promise.all([
+    getProviders(c.env),
+    getProxyKeys(c.env),
+    getTgConfig(c.env).catch(() => null),
+    getCodexUpstreamRelay(c.env).catch(() => null),
+  ])
   const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, '') : ''
   const enabledProvidersCount = providers.filter((p) => p.enabled).length
   const modelsCount = providers.reduce((total, p) => total + p.models.length, 0)

@@ -10541,6 +10541,296 @@ var init_grok = __esm({
 // src/edgeone-entry.ts
 import crypto2 from "node:crypto";
 
+// node_modules/hono/dist/utils/accept.js
+var isWhitespace = (char) => char === 32 || char === 9 || char === 10 || char === 13;
+var consumeWhitespace = (acceptHeader, startIndex) => {
+  while (startIndex < acceptHeader.length) {
+    if (!isWhitespace(acceptHeader.charCodeAt(startIndex))) {
+      break;
+    }
+    startIndex++;
+  }
+  return startIndex;
+};
+var ignoreTrailingWhitespace = (acceptHeader, startIndex) => {
+  while (startIndex > 0) {
+    if (!isWhitespace(acceptHeader.charCodeAt(startIndex - 1))) {
+      break;
+    }
+    startIndex--;
+  }
+  return startIndex;
+};
+var skipInvalidParam = (acceptHeader, startIndex) => {
+  while (startIndex < acceptHeader.length) {
+    const char = acceptHeader.charCodeAt(startIndex);
+    if (char === 59) {
+      return [startIndex + 1, true];
+    }
+    if (char === 44) {
+      return [startIndex + 1, false];
+    }
+    startIndex++;
+  }
+  return [startIndex, false];
+};
+var skipInvalidAcceptValue = (acceptHeader, startIndex) => {
+  let i = startIndex;
+  let inQuotes = false;
+  while (i < acceptHeader.length) {
+    const char = acceptHeader.charCodeAt(i);
+    if (inQuotes && char === 92) {
+      i++;
+    } else if (char === 34) {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes && char === 44) {
+      return i + 1;
+    }
+    i++;
+  }
+  return i;
+};
+var getNextParam = (acceptHeader, startIndex) => {
+  startIndex = consumeWhitespace(acceptHeader, startIndex);
+  let i = startIndex;
+  let key;
+  let value;
+  let hasNext = false;
+  while (i < acceptHeader.length) {
+    const char = acceptHeader.charCodeAt(i);
+    if (char === 61) {
+      key = acceptHeader.slice(startIndex, ignoreTrailingWhitespace(acceptHeader, i));
+      i++;
+      break;
+    }
+    if (char === 59) {
+      return [i + 1, void 0, void 0, true];
+    }
+    if (char === 44) {
+      return [i + 1, void 0, void 0, false];
+    }
+    i++;
+  }
+  if (key === void 0) {
+    return [i, void 0, void 0, false];
+  }
+  i = consumeWhitespace(acceptHeader, i);
+  if (acceptHeader.charCodeAt(i) === 61) {
+    const skipResult = skipInvalidParam(acceptHeader, i + 1);
+    return [skipResult[0], key, void 0, skipResult[1]];
+  }
+  let inQuotes = false;
+  const paramStartIndex = i;
+  while (i < acceptHeader.length) {
+    const char = acceptHeader.charCodeAt(i);
+    if (inQuotes && char === 92) {
+      i++;
+    } else if (char === 34) {
+      if (inQuotes) {
+        let nextIndex = consumeWhitespace(acceptHeader, i + 1);
+        const nextChar = acceptHeader.charCodeAt(nextIndex);
+        if (nextIndex < acceptHeader.length && !(nextChar === 59 || nextChar === 44)) {
+          const skipResult = skipInvalidParam(acceptHeader, nextIndex);
+          return [skipResult[0], key, void 0, skipResult[1]];
+        }
+        value = acceptHeader.slice(paramStartIndex + 1, i);
+        if (value.includes("\\")) {
+          value = value.replace(/\\(.)/g, "$1");
+        }
+        if (nextChar === 44) {
+          return [nextIndex + 1, key, value, false];
+        }
+        if (nextChar === 59) {
+          hasNext = true;
+          nextIndex++;
+        }
+        i = nextIndex;
+        break;
+      }
+      inQuotes = true;
+    } else if (!inQuotes && (char === 59 || char === 44)) {
+      value = acceptHeader.slice(paramStartIndex, ignoreTrailingWhitespace(acceptHeader, i));
+      if (char === 59) {
+        hasNext = true;
+      }
+      i++;
+      break;
+    }
+    i++;
+  }
+  return [
+    i,
+    key,
+    value ?? acceptHeader.slice(paramStartIndex, ignoreTrailingWhitespace(acceptHeader, i)),
+    hasNext
+  ];
+};
+var getNextAcceptValue = (acceptHeader, startIndex) => {
+  const accept = {
+    type: "",
+    params: /* @__PURE__ */ Object.create(null),
+    q: 1
+  };
+  startIndex = consumeWhitespace(acceptHeader, startIndex);
+  let i = startIndex;
+  while (i < acceptHeader.length) {
+    const char = acceptHeader.charCodeAt(i);
+    if (char === 59 || char === 44) {
+      accept.type = acceptHeader.slice(startIndex, ignoreTrailingWhitespace(acceptHeader, i));
+      i++;
+      if (char === 44) {
+        return [i, accept.type ? accept : void 0];
+      }
+      if (!accept.type) {
+        return [skipInvalidAcceptValue(acceptHeader, i), void 0];
+      }
+      break;
+    }
+    i++;
+  }
+  if (!accept.type) {
+    accept.type = acceptHeader.slice(
+      startIndex,
+      ignoreTrailingWhitespace(acceptHeader, acceptHeader.length)
+    );
+    return [acceptHeader.length, accept.type ? accept : void 0];
+  }
+  let param;
+  let value;
+  let hasNext;
+  while (i < acceptHeader.length) {
+    ;
+    [i, param, value, hasNext] = getNextParam(acceptHeader, i);
+    if (param && value) {
+      accept.params[param] = value;
+    }
+    if (!hasNext) {
+      break;
+    }
+  }
+  return [i, accept];
+};
+var parseAccept = (acceptHeader) => {
+  if (!acceptHeader) {
+    return [];
+  }
+  const values = [];
+  let i = 0;
+  let accept;
+  let requiresSort = false;
+  let lastAccept;
+  while (i < acceptHeader.length) {
+    ;
+    [i, accept] = getNextAcceptValue(acceptHeader, i);
+    if (accept) {
+      accept.q = parseQuality(accept.params.q ?? accept.params.Q);
+      values.push(accept);
+      if (lastAccept && lastAccept.q < accept.q) {
+        requiresSort = true;
+      }
+      lastAccept = accept;
+    }
+  }
+  if (requiresSort) {
+    values.sort((a, b) => b.q - a.q);
+  }
+  return values;
+};
+var parseQuality = (qVal) => {
+  if (qVal === void 0) {
+    return 1;
+  }
+  if (qVal === "") {
+    return 1;
+  }
+  if (qVal === "NaN") {
+    return 0;
+  }
+  const num2 = Number(qVal);
+  if (Number.isNaN(num2)) {
+    return 1;
+  }
+  if (num2 < 0) {
+    return 0;
+  }
+  if (num2 > 1) {
+    return 1;
+  }
+  return num2;
+};
+
+// node_modules/hono/dist/utils/compress.js
+var COMPRESSIBLE_CONTENT_TYPE_REGEX = /^\s*(?:text\/(?!event-stream(?:[;\s]|$))[^;\s]+|application\/(?:javascript|json|xml|xml-dtd|ecmascript|dart|msgpack|postscript|rtf|tar|toml|vnd\.dart|vnd\.ms-fontobject|vnd\.ms-opentype|vnd\.msgpack|wasm|x-httpd-php|x-javascript|x-msgpack|x-ns-proxy-autoconfig|x-sh|x-tar|x-virtualbox-hdd|x-virtualbox-ova|x-virtualbox-ovf|x-virtualbox-vbox|x-virtualbox-vdi|x-virtualbox-vhd|x-virtualbox-vmdk|x-www-form-urlencoded)|font\/(?:otf|ttf)|image\/(?:bmp|vnd\.adobe\.photoshop|vnd\.microsoft\.icon|vnd\.ms-dds|x-icon|x-ms-bmp)|message\/rfc822|model\/gltf-binary|x-shader\/x-fragment|x-shader\/x-vertex|[^;\s]+?\+(?:json|text|xml|yaml|msgpack))(?:[;\s]|$)/i;
+
+// node_modules/hono/dist/middleware/compress/index.js
+var ENCODING_TYPES = ["gzip", "deflate"];
+var cacheControlNoTransformRegExp = /(?:^|,)\s*?no-transform\s*?(?:,|$)/i;
+var selectEncoding = (header, candidates) => {
+  if (header === void 0) {
+    return void 0;
+  }
+  const accepts = parseAccept(header);
+  const wildcardQ = accepts.find((a) => a.type === "*")?.q;
+  let best;
+  for (const enc of candidates) {
+    const explicit = accepts.find((a) => a.type.toLowerCase() === enc);
+    const q = explicit ? explicit.q : wildcardQ ?? 0;
+    if (q === 1) {
+      return enc;
+    } else if (q > 0 && (!best || q > best.q)) {
+      best = { encoding: enc, q };
+    }
+  }
+  return best?.encoding;
+};
+var varyAcceptEncodingRegExp = /(?:^|,)\s*accept-encoding\s*(?:,|$)/i;
+var compress = (options) => {
+  const threshold = options?.threshold ?? 1024;
+  const candidates = options?.encoding ? [options.encoding] : ENCODING_TYPES;
+  const contentTypeFilter = options?.contentTypeFilter ?? COMPRESSIBLE_CONTENT_TYPE_REGEX;
+  const shouldCompress = typeof contentTypeFilter === "function" ? (res) => {
+    const type = res.headers.get("Content-Type");
+    return type && contentTypeFilter(type);
+  } : (res) => {
+    const type = res.headers.get("Content-Type");
+    return type && contentTypeFilter.test(type);
+  };
+  return async function compress2(ctx, next) {
+    await next();
+    const contentLength = ctx.res.headers.get("Content-Length");
+    if (ctx.res.status === 206 || // partial content, Content-Range refers to the uncompressed bytes
+    ctx.res.headers.has("Content-Encoding") || // already encoded
+    ctx.res.headers.has("Transfer-Encoding") || // already encoded or chunked
+    ctx.req.method === "HEAD" || // HEAD request
+    contentLength && Number(contentLength) < threshold || // content-length below threshold
+    !shouldCompress(ctx.res) || // not compressible type
+    !shouldTransform(ctx.res)) {
+      return;
+    }
+    const current = ctx.res.headers.get("Vary");
+    if (current !== "*" && !(current && varyAcceptEncodingRegExp.test(current))) {
+      ctx.header("Vary", current ? `${current}, Accept-Encoding` : "Accept-Encoding");
+    }
+    const accepted = ctx.req.header("Accept-Encoding");
+    const encoding = selectEncoding(accepted, candidates);
+    if (!encoding || !ctx.res.body) {
+      return;
+    }
+    const stream = new CompressionStream(encoding);
+    ctx.res = new Response(ctx.res.body.pipeThrough(stream), ctx.res);
+    ctx.res.headers.delete("Content-Length");
+    ctx.res.headers.set("Content-Encoding", encoding);
+    const etag = ctx.res.headers.get("ETag");
+    if (etag && !etag.startsWith("W/")) {
+      ctx.res.headers.set("ETag", `W/${etag}`);
+    }
+  };
+};
+var shouldTransform = (res) => {
+  const cacheControl = res.headers.get("Cache-Control");
+  return !cacheControl || !cacheControlNoTransformRegExp.test(cacheControl);
+};
+
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
   return (context, next) => {
@@ -20311,10 +20601,12 @@ var H3 = (title) => `
 async function renderAdminPage(c) {
   c.header("Cache-Control", "no-store, no-cache, must-revalidate");
   c.header("Pragma", "no-cache");
-  const providers = await getProviders(c.env);
-  const proxyKeys = await getProxyKeys(c.env);
-  const tgConfig = await getTgConfig(c.env).catch(() => null);
-  const codexRelay = await getCodexUpstreamRelay(c.env).catch(() => null);
+  const [providers, proxyKeys, tgConfig, codexRelay] = await Promise.all([
+    getProviders(c.env),
+    getProxyKeys(c.env),
+    getTgConfig(c.env).catch(() => null),
+    getCodexUpstreamRelay(c.env).catch(() => null)
+  ]);
   const codexRelayHost = codexRelay ? codexRelay.url.replace(/^https?:\/\//, "") : "";
   const enabledProvidersCount = providers.filter((p) => p.enabled).length;
   const modelsCount = providers.reduce((total, p) => total + p.models.length, 0);
@@ -20877,6 +21169,7 @@ ${ADMIN_CLIENT_SCRIPT}
 // src/index.ts
 init_storage();
 var app = new Hono2();
+app.use(compress());
 app.use("*", cors());
 app.use("*", logger());
 var seeded = false;
