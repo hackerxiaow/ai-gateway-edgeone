@@ -13606,6 +13606,14 @@ async function handleProxy(c) {
     }
     const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
     const forwardBody = { ...body, model: modelConfig.id };
+    const UNSUPPORTED_UPSTREAM_PARAMS = [
+      "enable_thinking",
+      "reasoning",
+      "chat_template"
+    ];
+    for (const p of UNSUPPORTED_UPSTREAM_PARAMS) {
+      delete forwardBody[p];
+    }
     const url = new URL(c.req.url);
     const subPath = url.pathname.replace(/^\/v1\//, "") || "chat/completions";
     const isMultipartRequest = isMultipart && rawBodyArray !== null;
