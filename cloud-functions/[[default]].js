@@ -10136,8 +10136,34 @@ async function testCline(env, refreshToken, modelId) {
     return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
   }
 }
-function fetchClineModels() {
-  return { success: true, models: CLINE_BUILTIN_MODELS.slice() };
+async function fetchClineModels(env, refreshToken) {
+  if (!refreshToken) {
+    return { success: true, models: CLINE_BUILTIN_MODELS.slice(), message: "\u672A\u586B\u5199 refreshToken\uFF0C\u8FD4\u56DE\u5185\u7F6E\u514D\u8D39\u901A\u9053\u6E05\u5355" };
+  }
+  try {
+    const { accessToken } = await getClineAccess(env, refreshToken);
+    const res = await fetch(CLINE_API_BASE + "/models", {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer workos:" + accessToken,
+        ...CLINE_FINGERPRINT_HEADERS
+      },
+      signal: AbortSignal.timeout(3e4)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`);
+    const json = await res.json().catch(() => null);
+    const list = Array.isArray(json?.data) ? json.data.map((m) => String(m?.id || "")).filter(Boolean) : Array.isArray(json?.models) ? json.models.map((m) => String(typeof m === "string" ? m : m?.id || "")).filter(Boolean) : [];
+    if (!list.length) throw new Error("\u4E0A\u6E38\u8FD4\u56DE\u7684\u6A21\u578B\u5217\u8868\u4E3A\u7A7A");
+    const free = list.filter((m) => isFreeClineModel(m));
+    const paid = list.filter((m) => !isFreeClineModel(m));
+    return { success: true, models: [...free, ...paid] };
+  } catch (err) {
+    return {
+      success: false,
+      models: CLINE_BUILTIN_MODELS.slice(),
+      message: `\u4E0A\u6E38\u62C9\u53D6\u5931\u8D25\uFF08${err.message || err}\uFF09\uFF0C\u5DF2\u8FD4\u56DE\u5185\u7F6E\u514D\u8D39\u901A\u9053\u6E05\u5355`
+    };
+  }
 }
 async function startClineDeviceFlow(env) {
   const form = new URLSearchParams({ client_id: WORKOS_CLIENT_ID });
@@ -15297,8 +15323,8 @@ async function handleOAuthModels(c) {
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   if (provider === "cline") {
-    const r = fetchClineModels();
-    return c.json({ success: true, data: { models: r.models } });
+    const r = await fetchClineModels(c.env, apiKey);
+    return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   return c.json({ success: false, message: `${provider} \u6E20\u9053\u8BF7\u624B\u52A8\u586B\u5199\u6A21\u578B\u5217\u8868` }, 400);
 }
