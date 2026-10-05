@@ -9709,7 +9709,7 @@ __export(cline_exports, {
   testCline: () => testCline
 });
 function isFreeClineModel(modelId) {
-  return FREE_CHANNEL_PREFIXES.some((p) => modelId.startsWith(p));
+  return modelId.endsWith(":free") || modelId.startsWith("~") || modelId.startsWith("deepseek/") || modelId.startsWith("cline-free/") || modelId.startsWith("cline-pass/");
 }
 async function refreshClineToken(refreshToken) {
   const res = await fetch(CLINE_API_BASE + "/auth/refresh", {
@@ -10154,9 +10154,10 @@ async function fetchClineModels(env, refreshToken) {
     const json = await res.json().catch(() => null);
     const list = Array.isArray(json?.data) ? json.data.map((m) => String(m?.id || "")).filter(Boolean) : Array.isArray(json?.models) ? json.models.map((m) => String(typeof m === "string" ? m : m?.id || "")).filter(Boolean) : [];
     if (!list.length) throw new Error("\u4E0A\u6E38\u8FD4\u56DE\u7684\u6A21\u578B\u5217\u8868\u4E3A\u7A7A");
-    const free = list.filter((m) => isFreeClineModel(m));
-    const paid = list.filter((m) => !isFreeClineModel(m));
-    return { success: true, models: [...free, ...paid] };
+    const zeroCost = list.filter((m) => m.endsWith(":free") || m === "deepseek/deepseek-v4-flash");
+    const tilde = list.filter((m) => m.startsWith("~"));
+    const paid = list.filter((m) => !m.endsWith(":free") && m !== "deepseek/deepseek-v4-flash" && !m.startsWith("~"));
+    return { success: true, models: [...zeroCost, ...tilde, ...paid] };
   } catch (err) {
     return {
       success: false,
@@ -10259,7 +10260,7 @@ async function pollClineDeviceFlow(env, state) {
   });
   return { status: "ok", refreshToken: rt, email };
 }
-var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, FREE_CHANNEL_PREFIXES, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, COOL_PREFIX, USAGE_PREFIX, coolLoaded, queueTail, MIN_GAP_MS;
+var CLINE_API_BASE, WORKOS_DEVICE_URL, WORKOS_AUTH_URL, WORKOS_CLIENT_ID, CLINE_FINGERPRINT_HEADERS, CLINE_AT_PREFIX, CLINE_DEVICE_PREFIX, CLINE_DEFAULT_MODEL, CLINE_BUILTIN_MODELS, cooldowns, COOL_PREFIX, USAGE_PREFIX, coolLoaded, queueTail, MIN_GAP_MS;
 var init_cline = __esm({
   "src/cline.ts"() {
     "use strict";
@@ -10282,9 +10283,28 @@ var init_cline = __esm({
     };
     CLINE_AT_PREFIX = "cline:at:";
     CLINE_DEVICE_PREFIX = "cline:dev:";
-    FREE_CHANNEL_PREFIXES = ["~", "cline-free/", "cline-pass/"];
-    CLINE_DEFAULT_MODEL = "~deepseek/deepseek-v4-flash-latest";
+    CLINE_DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
     CLINE_BUILTIN_MODELS = [
+      // ── 1. 真·零扣费免费模型（实测扣费 0，绝不扣账户余额） ──
+      "deepseek/deepseek-v4-flash",
+      "qwen/qwen3.8-27b:free",
+      "google/gemma-4-31b-it:free",
+      "google/gemma-4-26b-a4b-it:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "nvidia/nemotron-3.5-lightning:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "poolside/laguna-s-2.1:free",
+      "poolside/laguna-xs-2.1:free",
+      "cohere/north-mini-code:free",
+      "apodex/apodex-1.1-mini:free",
+      "inclusionai/ling-3.0-flash-sante:free",
+      "dots-studio/dots-3-note-preview:free",
+      "liquid/lfm-2.5-2.6b:free",
+      "thinkingmachines/inkling:free",
+      "thinkingmachines/inkling-small:free",
+      "nvidia/nemotron-3.5-content-safety:free",
+      // ── 2. 赠金通道模型（带 ~ 前缀，消耗账号 $0.50 赠金的顶级模型） ──
       "~deepseek/deepseek-v4-flash-latest",
       "~deepseek/deepseek-pro-latest",
       "~deepseek/deepseek-flash-latest",
@@ -15221,7 +15241,7 @@ var OAUTH_DEFAULT_MODELS = {
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
   codebuddy: "deepseek-v4.1-flash",
-  cline: "~deepseek/deepseek-v4-flash-latest"
+  cline: "deepseek/deepseek-v4-flash"
 };
 async function handleOAuthStart(c) {
   const provider = c.req.param("provider") || "";
