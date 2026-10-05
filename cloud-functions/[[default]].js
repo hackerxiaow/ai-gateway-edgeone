@@ -15298,16 +15298,22 @@ async function handleOAuthPoll(c) {
 }
 async function handleOAuthModels(c) {
   const provider = c.req.param("provider") || "";
-  const { apiKey, baseUrl, region } = await c.req.json();
-  if (!apiKey) {
-    return c.json({ success: false, message: "\u8BF7\u5148\u586B\u5199 refresh_token" }, 400);
+  const body = await c.req.json().catch(() => ({}));
+  let token = (body.refreshToken || body.apiKey || "").trim();
+  if (!token) {
+    const p = await getProvider(c.env, body.providerId || provider);
+    token = (p?.apiKeys?.find((k) => k.enabled)?.key || p?.apiKeys?.[0]?.key || "").trim();
+  }
+  const { baseUrl, region } = body;
+  if (!token && provider !== "qwen" && provider !== "deepseek") {
+    return c.json({ success: false, message: "\u672A\u627E\u5230\u6709\u6548\u51ED\u636E\uFF0C\u8BF7\u5148\u5728\u6E20\u9053\u4E2D\u6DFB\u52A0\u5E76\u4FDD\u5B58\u81F3\u5C11\u4E00\u4E2A Key\uFF0C\u6216\u586B\u5199 token" }, 400);
   }
   if (provider === "claude") {
-    const r = await fetchClaudeModels(c.env, apiKey);
+    const r = await fetchClaudeModels(c.env, token);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   if (provider === "kimi") {
-    const r = await fetchKimiModels(c.env, apiKey, baseUrl);
+    const r = await fetchKimiModels(c.env, token, baseUrl);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   if (provider === "qwen") {
@@ -15319,11 +15325,11 @@ async function handleOAuthModels(c) {
     return c.json({ success: true, data: { models: r.models } });
   }
   if (provider === "codebuddy") {
-    const r = await fetchCodebuddyModels(c.env, apiKey, baseUrl, region);
+    const r = await fetchCodebuddyModels(c.env, token, baseUrl, region);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   if (provider === "cline") {
-    const r = await fetchClineModels(c.env, apiKey);
+    const r = await fetchClineModels(c.env, token);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   return c.json({ success: false, message: `${provider} \u6E20\u9053\u8BF7\u624B\u52A8\u586B\u5199\u6A21\u578B\u5217\u8868` }, 400);
@@ -19244,14 +19250,14 @@ async function fetchOAuthModels(id) {
     const keys = getKeys(id)
     key = keys.length > 0 ? keys[0].key : ''
   }
-  if (!key) { toast('\u8BF7\u5148\u586B\u5199\u6216\u6388\u6743\u83B7\u53D6 refresh_token', 'error'); return }
+  if (id === 'new' && !key) { toast('\u8BF7\u5148\u586B\u5199\u6216\u6388\u6743\u83B7\u53D6 refresh_token', 'error'); return }
   if (tr) showSpinner(tr)
   try {
     const baseEl = document.getElementById(id === 'new' ? 'aurl' : 'url-' + id)
     const baseUrl = baseEl ? baseEl.value.trim() : ''
     const r = await fetch('/admin/api/oauth/' + provider + '/models', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: key, baseUrl: baseUrl, region: cbRegionValue(id) })
+      body: JSON.stringify({ refreshToken: key, apiKey: key, providerId: id !== 'new' ? id : undefined, baseUrl: baseUrl, region: cbRegionValue(id) })
     })
     const d = await r.json()
     if (!d.success) { if (tr) showResult(tr, false, d.message || '\u83B7\u53D6\u5931\u8D25'); return }
