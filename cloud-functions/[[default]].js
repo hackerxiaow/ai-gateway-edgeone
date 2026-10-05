@@ -9708,6 +9708,9 @@ __export(cline_exports, {
   startClineDeviceFlow: () => startClineDeviceFlow,
   testCline: () => testCline
 });
+function isFreeClineModel(modelId) {
+  return FREE_CHANNEL_PREFIXES.some((p) => modelId.startsWith(p));
+}
 async function refreshClineToken(refreshToken) {
   const res = await fetch(CLINE_API_BASE + "/auth/refresh", {
     method: "POST",
@@ -9798,7 +9801,7 @@ function rewriteClinePayload(body, modelId, wantStream) {
     reasoning_effort: body.reasoning_effort || body.reasoningEffort || "high",
     messages: body.messages || []
   };
-  const forceStream = FREE_CHANNEL_PREFIXES.some((p) => modelId.startsWith(p));
+  const forceStream = isFreeClineModel(modelId);
   if (wantStream || forceStream) upstream.stream = true;
   for (const k of ["temperature", "top_p", "tools", "tool_choice", "stop", "presence_penalty", "frequency_penalty", "response_format", "user", "n", "seed"]) {
     if (body[k] !== void 0) upstream[k] = body[k];
@@ -10253,13 +10256,27 @@ var init_cline = __esm({
     };
     CLINE_AT_PREFIX = "cline:at:";
     CLINE_DEVICE_PREFIX = "cline:dev:";
-    FREE_CHANNEL_PREFIXES = ["deepseek/", "cline-free/", "cline-pass/"];
-    CLINE_DEFAULT_MODEL = "cline-free/deepseek-v4.1-flash";
+    FREE_CHANNEL_PREFIXES = ["~", "cline-free/", "cline-pass/"];
+    CLINE_DEFAULT_MODEL = "~deepseek/deepseek-v4-flash-latest";
     CLINE_BUILTIN_MODELS = [
-      CLINE_DEFAULT_MODEL,
-      "deepseek/deepseek-v4-flash",
-      "z-ai/glm-5.3-flash",
-      "poolside/laguna-s-2.1:free"
+      "~deepseek/deepseek-v4-flash-latest",
+      "~deepseek/deepseek-pro-latest",
+      "~deepseek/deepseek-flash-latest",
+      "~anthropic/claude-sonnet-latest",
+      "~anthropic/claude-opus-latest",
+      "~anthropic/claude-haiku-latest",
+      "~anthropic/claude-fable-latest",
+      "~openai/gpt-astra-latest",
+      "~openai/gpt-sol-latest",
+      "~openai/gpt-luna-latest",
+      "~openai/gpt-terra-latest",
+      "~openai/gpt-mini-latest",
+      "~google/gemini-flash-latest",
+      "~google/gemini-pro-latest",
+      "~z-ai/glm-flash-latest",
+      "~z-ai/glm-latest",
+      "~x-ai/grok-latest",
+      "~moonshotai/kimi-latest"
     ];
     cooldowns = /* @__PURE__ */ new Map();
     COOL_PREFIX = "cline:cool:";
@@ -15178,7 +15195,7 @@ var OAUTH_DEFAULT_MODELS = {
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
   codebuddy: "deepseek-v4.1-flash",
-  cline: "cline-free/deepseek-v4.1-flash"
+  cline: "~deepseek/deepseek-v4-flash-latest"
 };
 async function handleOAuthStart(c) {
   const provider = c.req.param("provider") || "";
