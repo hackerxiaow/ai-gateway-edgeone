@@ -8095,6 +8095,944 @@ var init_gemini_web = __esm({
   }
 });
 
+// src/minimax-web.ts
+var minimax_web_exports = {};
+__export(minimax_web_exports, {
+  MINIMAX_WEB_MODELS: () => MINIMAX_WEB_MODELS,
+  handleMiniMaxWebRequest: () => handleMiniMaxWebRequest,
+  listMiniMaxWebModels: () => listMiniMaxWebModels,
+  testMiniMaxWeb: () => testMiniMaxWeb
+});
+function md5Hex(input) {
+  const bytes = new TextEncoder().encode(input);
+  const bitLen = bytes.length * 8;
+  const withPad = new Uint8Array(((bytes.length + 8 >> 6) + 1) * 64);
+  withPad.set(bytes);
+  withPad[bytes.length] = 128;
+  const view = new DataView(withPad.buffer);
+  view.setUint32(withPad.length - 8, bitLen >>> 0, true);
+  view.setUint32(withPad.length - 4, Math.floor(bitLen / 4294967296), true);
+  const s = [
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21
+  ];
+  const K = new Uint32Array(64);
+  for (let i = 0; i < 64; i++) {
+    K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296);
+  }
+  let a0 = 1732584193, b0 = 4023233417, c0 = 2562383102, d0 = 271733878;
+  const M = new Uint32Array(16);
+  const rotl = (x, c) => x << c | x >>> 32 - c;
+  for (let chunk = 0; chunk < withPad.length; chunk += 64) {
+    for (let i = 0; i < 16; i++) M[i] = view.getUint32(chunk + i * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) {
+        F = B & C | ~B & D;
+        g = i;
+      } else if (i < 32) {
+        F = D & B | ~D & C;
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = 7 * i % 16;
+      }
+      F = F + A + K[i] + M[g] >>> 0;
+      A = D;
+      D = C;
+      C = B;
+      B = B + rotl(F, s[i]) >>> 0;
+    }
+    a0 = a0 + A >>> 0;
+    b0 = b0 + B >>> 0;
+    c0 = c0 + C >>> 0;
+    d0 = d0 + D >>> 0;
+  }
+  const hex = (n) => {
+    let out = "";
+    for (let i = 0; i < 4; i++) out += (n >>> i * 8 & 255).toString(16).padStart(2, "0");
+    return out;
+  };
+  return hex(a0) + hex(b0) + hex(c0) + hex(d0);
+}
+function jsEncodeUriComponent(s) {
+  return encodeURIComponent(s).replace(
+    /[!'()*]/g,
+    (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
+  );
+}
+function parseAccounts2(entries, fallbackAgentId) {
+  const out = [];
+  for (const raw2 of entries) {
+    const line = (raw2 || "").trim();
+    if (!line) continue;
+    const [token, agentId, uuid2, deviceId, userId] = line.split("|").map((s) => (s || "").trim());
+    if (!token) continue;
+    out.push({
+      token,
+      agentId: agentId || fallbackAgentId || "",
+      uuid: uuid2 || randomHexId(32),
+      deviceId: deviceId || randomHexId(32),
+      userId: userId || "0"
+    });
+  }
+  return out;
+}
+function randomHexId(len) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function computeXSignature(tsSec, body) {
+  return md5Hex(`${tsSec}${X_SIG_SECRET}${body || ""}`);
+}
+function computeYY(fullUrl, body, tsMs) {
+  const inner = `${jsEncodeUriComponent(fullUrl)}_${body}${md5Hex(String(tsMs))}ooui`;
+  return md5Hex(inner);
+}
+function clientMetadata(acc, tsMs) {
+  const tz = -(/* @__PURE__ */ new Date()).getTimezoneOffset() / 60;
+  const pairs = [
+    ["device_platform", "web"],
+    ["biz_id", "3"],
+    ["app_id", "3001"],
+    ["version_code", "22201"],
+    ["unix", String(tsMs)],
+    ["timezone_offset", String(tz)],
+    ["sys_language", "zh"],
+    ["lang", "zh"],
+    ["uuid", acc.uuid],
+    ["device_id", acc.deviceId],
+    ["os_name", "Windows"],
+    ["browser_name", "Chrome"],
+    ["user_id", acc.userId],
+    ["screen_width", "1536"],
+    ["screen_height", "864"],
+    ["unix", String(tsMs)],
+    ["token", acc.token]
+  ];
+  return pairs;
+}
+function buildSignedRequest(urlPath, body, acc, streamHost = false) {
+  const tsSec = Math.floor(Date.now() / 1e3);
+  const tsMs = Date.now();
+  const host = streamHost ? MINIMAX_STREAM_BASE : MINIMAX_BASE;
+  const qs = clientMetadata(acc, tsMs).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+  const fullUrl = `${host}${urlPath}?${qs}`;
+  return {
+    url: fullUrl,
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "*/*",
+      "Origin": MINIMAX_BASE,
+      "Referer": `${MINIMAX_BASE}/`,
+      "User-Agent": UA_POOL3[Math.floor(Math.random() * UA_POOL3.length)],
+      "token": acc.token,
+      "x-timestamp": String(tsSec),
+      "x-signature": computeXSignature(tsSec, body),
+      "yy": computeYY(fullUrl, body, tsMs)
+    }
+  };
+}
+function modelConfig(model) {
+  const raw2 = (model || "").trim();
+  const thinking = /thinking/i.test(raw2);
+  const id = raw2.replace(/-thinking$/i, "");
+  return { provider_id: "minimax", model_id: id || "MiniMax-M3", model_variant: thinking ? "thinking" : "fast" };
+}
+function messageText3(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((p) => typeof p === "string" ? p : p?.type === "text" ? String(p.text || "") : "").filter(Boolean).join("\n");
+  }
+  if (content === null || content === void 0) return "";
+  return String(content);
+}
+function buildMsgBody(messages, model) {
+  const ctx = [];
+  for (const m of messages.slice(0, -1)) {
+    const text = messageText3(m.content).trim();
+    if (!text) continue;
+    if (m.role === "system") ctx.push(`\u7CFB\u7EDF\u6307\u4EE4: ${text}`);
+    else if (m.role === "assistant") ctx.push(`\u52A9\u624B: ${text}`);
+    else ctx.push(`\u7528\u6237: ${text}`);
+  }
+  const last = messages[messages.length - 1];
+  let lastContent = last ? messageText3(last.content).trim() : "";
+  const prefix = ctx.join("\n\n");
+  if (prefix) lastContent = `${prefix}
+
+\u7528\u6237\u8BF4: ${lastContent}`;
+  return JSON.stringify({
+    content: lastContent,
+    model: modelConfig(model),
+    turn_id: crypto.randomUUID(),
+    worktreeMode: false
+  });
+}
+function createSseParser3() {
+  let buffer = "";
+  return {
+    feed(chunk) {
+      buffer += chunk;
+      const out = [];
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of block.split("\n")) {
+          const t = line.trim();
+          if (!t.startsWith("data:")) continue;
+          const raw2 = t.slice(5).trim();
+          if (!raw2 || raw2 === "[DONE]") continue;
+          try {
+            const j = JSON.parse(raw2);
+            if (j && typeof j === "object") out.push(j);
+          } catch {
+          }
+        }
+      }
+      return out;
+    }
+  };
+}
+function minimaxEventDelta(ev) {
+  if (!ev || typeof ev !== "object") return {};
+  if (ev.base_resp && ev.base_resp.status_code && ev.base_resp.status_code !== 0) {
+    return { error: String(ev.base_resp.status_msg || `\u4E0A\u6E38\u9519\u8BEF\u7801 ${ev.base_resp.status_code}`), done: true };
+  }
+  if (ev.event === "error" || ev.type === "error") {
+    return { error: String(ev.message || ev.msg || "\u4E0A\u6E38\u8FD4\u56DE\u9519\u8BEF"), done: true };
+  }
+  if (ev.type === 6) {
+    const chunk = ev.agent_message_chunk || {};
+    const out = {};
+    if (typeof chunk.msg_content === "string" && chunk.msg_content) out.content = chunk.msg_content;
+    if (chunk.finish === true) out.done = true;
+    return out;
+  }
+  if (ev.type === 2) {
+    const msg = ev.agent_message || {};
+    if (msg.finish_reason) {
+      const out = {};
+      if (!msg.content) out.done = true;
+      return out;
+    }
+  }
+  return {};
+}
+function createOpenAIStream2(upstream, requestedModel, onUsage) {
+  const parser = createSseParser3();
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const state = { id: `chatcmpl-minimaxweb-${randomId()}`, model: requestedModel };
+  let roleSent = false;
+  let finished = false;
+  let completionChars = 0;
+  let controller;
+  const send = (delta, finish2 = null) => {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+      id: state.id,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1e3),
+      model: requestedModel,
+      choices: [{ index: 0, delta, finish_reason: finish2, logprobs: null }]
+    })}
+
+`));
+  };
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    send({}, "stop");
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+    const completionTokens = Math.ceil(completionChars / 4);
+    if (onUsage) onUsage({ promptTokens: 0, completionTokens });
+    try {
+      controller.close();
+    } catch {
+    }
+  };
+  return new ReadableStream({
+    start(ctrl) {
+      controller = ctrl;
+      const reader = upstream.getReader();
+      const pump = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (!roleSent) send({ role: "assistant", content: "" });
+            finish();
+            return;
+          }
+          for (const ev of parser.feed(decoder.decode(value, { stream: true }))) {
+            if (finished) return;
+            const d = minimaxEventDelta(ev);
+            if (d.content) {
+              if (!roleSent) {
+                roleSent = true;
+                send({ role: "assistant", content: "" });
+              }
+              completionChars += d.content.length;
+              send({ content: d.content });
+            }
+            if (d.error) {
+              send({ content: `[minimaxweb] ${d.error}` }, "stop");
+              finished = true;
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              try {
+                controller.close();
+              } catch {
+              }
+              return;
+            }
+            if (d.done) finish();
+          }
+          if (!finished) pump();
+        }).catch((err) => {
+          if (finished) return;
+          finished = true;
+          try {
+            send({ content: `[minimaxweb] ${err?.message || "\u4E0A\u6E38\u6D41\u4E2D\u65AD"}` }, "stop");
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch {
+          }
+        });
+      };
+      pump();
+    }
+  });
+}
+async function callMiniMax(acc, model, messages) {
+  if (!acc.agentId) {
+    return { ok: false, status: 400, body: null, text: "\u7F3A\u5C11 agentId\uFF1A\u8BF7\u6309 `token|agentId` \u683C\u5F0F\u586B\u5199\uFF0C\u6216\u5728\u6E20\u9053 project \u5B57\u6BB5\u586B agentId" };
+  }
+  const sessionBody = JSON.stringify({
+    team_mode_off: true,
+    model: `${modelConfig(model).provider_id}/${modelConfig(model).model_id}`
+  });
+  const sessionReq = buildSignedRequest(`/archon/api/v1/agent/${acc.agentId}/session`, sessionBody, acc);
+  const sessionResp = await fetch(sessionReq.url, {
+    method: "POST",
+    headers: sessionReq.headers,
+    body: sessionBody,
+    signal: AbortSignal.timeout(TIMEOUT_MS)
+  });
+  if (!sessionResp.ok) {
+    return { ok: false, status: sessionResp.status, body: null, text: await sessionResp.text().catch(() => "") };
+  }
+  let sessionJson;
+  try {
+    sessionJson = await sessionResp.json();
+  } catch {
+    return { ok: false, status: 502, body: null, text: "\u4F1A\u8BDD\u54CD\u5E94\u975E JSON" };
+  }
+  if (sessionJson?.base_resp?.status_code && sessionJson.base_resp.status_code !== 0) {
+    return {
+      ok: false,
+      status: 401,
+      body: null,
+      text: `\u4F1A\u8BDD\u521B\u5EFA\u5931\u8D25: ${sessionJson.base_resp.status_msg || sessionJson.base_resp.status_code}`
+    };
+  }
+  const sessionId = sessionJson?.session_id;
+  if (!sessionId) {
+    return { ok: false, status: 502, body: null, text: `\u4F1A\u8BDD\u54CD\u5E94\u7F3A\u5C11 session_id: ${JSON.stringify(sessionJson).slice(0, 200)}` };
+  }
+  const msgBody = buildMsgBody(messages, model);
+  const msgReq = buildSignedRequest(`/archon/api/v1/session/${sessionId}/message`, msgBody, acc, true);
+  const msgResp = await fetch(msgReq.url, {
+    method: "POST",
+    headers: msgReq.headers,
+    body: msgBody,
+    signal: AbortSignal.timeout(TIMEOUT_MS)
+  });
+  if (!msgResp.ok) {
+    return { ok: false, status: msgResp.status, body: null, text: await msgResp.text().catch(() => "") };
+  }
+  return { ok: true, status: 200, body: msgResp.body, text: "" };
+}
+async function handleMiniMaxWebRequest(p, project) {
+  const rawEntries = (p.refreshTokens || []).map((t) => (t || "").trim()).filter(Boolean);
+  const accounts = parseAccounts2(rawEntries, project);
+  if (accounts.length === 0) {
+    return oauthErrorResponse(
+      "\u8BE5 minimaxweb \u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E\uFF1A\u8BF7\u767B\u5F55 https://agent.minimaxi.com \u540E\u4ECE\u6D4F\u89C8\u5668 Network \u91CC\u53D6 token\uFF08JWT\uFF09\uFF0C\u6309 `token|agentId` \u683C\u5F0F\u586B\u5165\u300CAPI Keys\u300D",
+      400,
+      "configuration_error"
+    );
+  }
+  const messages = Array.isArray(p.body?.messages) ? p.body.messages : [];
+  if (messages.length === 0) {
+    return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
+  }
+  const model = p.requestedModel || p.modelId;
+  const stream = p.body?.stream === true;
+  let lastError = "\u672A\u77E5\u9519\u8BEF";
+  let lastStatus = 502;
+  for (const acc of accounts) {
+    let up;
+    try {
+      up = await callMiniMax(acc, model, messages);
+    } catch (err) {
+      lastError = err.message || "\u4E0A\u6E38\u8BF7\u6C42\u5931\u8D25";
+      lastStatus = 502;
+      continue;
+    }
+    if (!up.ok || !up.body) {
+      lastStatus = up.status;
+      lastError = `HTTP ${up.status}: ${(up.text || "").slice(0, 300)}`;
+      if ([401, 403, 409, 429].includes(up.status) || up.status >= 500) continue;
+      return oauthErrorResponse(lastError, up.status, "upstream_error");
+    }
+    if (stream) {
+      const [toClient, forUsage] = up.body.tee();
+      const usageReader = forUsage.getReader();
+      defer(p, (async () => {
+        let bytes = 0;
+        for (; ; ) {
+          const { done, value } = await usageReader.read();
+          if (done) break;
+          bytes += value.byteLength;
+        }
+        await recordOAuthUsage(p, { promptTokens: 0, completionTokens: Math.ceil(bytes / 4) }, true, 200);
+      })().catch(() => {
+      }));
+      return new Response(createOpenAIStream2(toClient, p.requestedModel), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-store",
+          Connection: "keep-alive"
+        }
+      });
+    }
+    const raw2 = await new Response(up.body).text();
+    const parser = createSseParser3();
+    let content = "";
+    for (const ev of parser.feed(raw2)) {
+      const d = minimaxEventDelta(ev);
+      if (d.content) content += d.content;
+      if (d.error) return oauthErrorResponse(`MiniMax \u4E0A\u6E38\u9519\u8BEF: ${d.error}`, 502, "upstream_error");
+    }
+    const completionTokens = Math.ceil(content.length / 4);
+    const json = {
+      id: `chatcmpl-minimaxweb-${randomId()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1e3),
+      model: p.requestedModel,
+      choices: [{
+        index: 0,
+        message: { role: "assistant", content: content || null },
+        finish_reason: "stop"
+      }],
+      usage: { prompt_tokens: 0, completion_tokens: completionTokens, total_tokens: completionTokens }
+    };
+    defer(p, recordOAuthUsage(p, { promptTokens: 0, completionTokens }, true, 200));
+    return new Response(JSON.stringify(json), {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+  return oauthErrorResponse(
+    `\u6240\u6709 MiniMax \u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError}`,
+    lastStatus,
+    "key_exhausted"
+  );
+}
+async function testMiniMaxWeb(env, rawToken, modelId, project) {
+  const accounts = parseAccounts2([rawToken], project);
+  if (accounts.length === 0) return { success: false, message: "\u672A\u586B\u5199 token", statusCode: 0 };
+  try {
+    const up = await callMiniMax(accounts[0], modelId, [{ role: "user", content: "hi" }]);
+    if (up.ok && up.body) {
+      try {
+        await up.body.cancel();
+      } catch {
+      }
+      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    }
+    return { success: false, message: `HTTP ${up.status}: ${(up.text || "").slice(0, 200)}`, statusCode: up.status };
+  } catch (err) {
+    return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
+  }
+}
+function listMiniMaxWebModels() {
+  return { success: true, models: MINIMAX_WEB_MODELS };
+}
+var MINIMAX_BASE, MINIMAX_STREAM_BASE, X_SIG_SECRET, TIMEOUT_MS, UA_POOL3, MINIMAX_WEB_MODELS;
+var init_minimax_web = __esm({
+  "src/minimax-web.ts"() {
+    "use strict";
+    init_oauth_common();
+    MINIMAX_BASE = "https://agent.minimaxi.com";
+    MINIMAX_STREAM_BASE = "https://agent-stream.minimaxi.com";
+    X_SIG_SECRET = "I*7Cf%WZ#S&%1RlZJ&C2";
+    TIMEOUT_MS = 18e4;
+    UA_POOL3 = [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    ];
+    MINIMAX_WEB_MODELS = [
+      "MiniMax-M3",
+      "MiniMax-M3-thinking",
+      "MiniMax-M2.1",
+      "MiniMax-M2"
+    ];
+  }
+});
+
+// src/lingxi-web.ts
+var lingxi_web_exports = {};
+__export(lingxi_web_exports, {
+  LINGXI_MODELS: () => LINGXI_MODELS,
+  handleLingxiRequest: () => handleLingxiRequest,
+  listLingxiModels: () => listLingxiModels,
+  testLingxi: () => testLingxi
+});
+function parseAccounts3(entries, fallbackUserId) {
+  const out = [];
+  for (const raw2 of entries) {
+    const line = (raw2 || "").trim();
+    if (!line) continue;
+    const [auth, uid, channel] = line.split("|").map((s) => (s || "").trim());
+    let authorization = auth;
+    let userId = uid || fallbackUserId || "";
+    if (!authorization.includes("Basic")) {
+      const mAuth = line.match(/authorization=([^;]+)/i);
+      if (mAuth) authorization = decodeURIComponent(mAuth[1].trim());
+    }
+    if (!userId) {
+      const mUid = line.match(/user_?id=([^;]+)/i);
+      if (mUid) userId = decodeURIComponent(mUid[1].trim());
+    }
+    if (!authorization && !userId) continue;
+    out.push({ authorization, userId, sourceChannel: channel || "10175" });
+  }
+  return out;
+}
+function messageText4(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((p) => typeof p === "string" ? p : p?.type === "text" ? String(p.text || "") : "").filter(Boolean).join("\n");
+  }
+  if (content === null || content === void 0) return "";
+  return String(content);
+}
+function buildDialogue(messages) {
+  const parts = [];
+  for (const m of messages) {
+    const text = messageText4(m.content).trim();
+    if (!text) continue;
+    if (m.role === "system") parts.push(`System: ${text}`);
+    else if (m.role === "assistant") parts.push(`Assistant: ${text}`);
+    else parts.push(`User: ${text}`);
+  }
+  return parts.join("\n\n");
+}
+function beijingIsoNow() {
+  const now = /* @__PURE__ */ new Date();
+  const bj = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 6e4);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${bj.getFullYear()}-${p(bj.getMonth() + 1)}-${p(bj.getDate())}T${p(bj.getHours())}:${p(bj.getMinutes())}:${p(bj.getSeconds())}+08:00`;
+}
+function buildPayload(dialogue, acc, enableSearch) {
+  const extInfo = { pcVersion: "1.7.0", h5Version: "3.2.0", dialogueType: "noAiEditDialogue" };
+  return {
+    applicationType: "chat",
+    sessionId: "",
+    dialogueInput: {
+      dialogue,
+      prompt: "",
+      inputTime: beijingIsoNow(),
+      command: null,
+      resourceType: "0",
+      resourceId: "",
+      dialogueType: "0",
+      commandType: 1,
+      enableForceNetworkSearch: enableSearch,
+      enableAllNetworkSearch: false,
+      enableAiSearch: false,
+      extInfo: JSON.stringify(extInfo),
+      versionInfo: { pcVersion: "1.7.0", h5Version: "3.2.0" },
+      toolSetting: { imageToolSetting: { enableLlmDescribe: false } },
+      attachment: {},
+      aiWritingSetting: {},
+      enableModelThinking: false,
+      enableKnowledgeAndNetworkSearch: false
+    },
+    sourceChannel: acc.sourceChannel,
+    userId: acc.userId,
+    continuationInfo: null
+  };
+}
+function buildHeaders(acc) {
+  const h = {
+    "Host": "ai.yun.139.com",
+    "User-Agent": UA,
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-ch-ua": '"Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"',
+    "sec-ch-ua-mobile": "?0",
+    "x-yun-client-info": "4g||30|||||||1536/864|zh-CN||||",
+    "x-yun-api-version": "v1",
+    "x-yun-app-channel": acc.sourceChannel,
+    "accept": "text/event-stream",
+    "DNT": "1",
+    "Content-Type": "application/json",
+    "x-yun-tid": crypto.randomUUID(),
+    "Origin": LINGXI_ORIGIN,
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": `${LINGXI_ORIGIN}/`,
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7"
+  };
+  if (acc.authorization) h["Authorization"] = acc.authorization;
+  return h;
+}
+function createSseParser4() {
+  let buffer = "";
+  return {
+    feed(chunk) {
+      buffer += chunk;
+      const out = [];
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of block.split("\n")) {
+          const t = line.trim();
+          if (!t.startsWith("data:")) continue;
+          const raw2 = t.slice(5).trim();
+          if (!raw2 || raw2 === "[DONE]") continue;
+          try {
+            const j = JSON.parse(raw2);
+            if (j && typeof j === "object") out.push(j);
+          } catch {
+          }
+        }
+      }
+      return out;
+    }
+  };
+}
+function lingxiEventDelta(ev) {
+  if (!ev || typeof ev !== "object") return {};
+  const err = ev.error || ev.errorMsg || ev.result && ev.result.errorMsg;
+  if (err) return { error: String(err), done: true };
+  const out = {};
+  const blocks = ev.result || ev.resultList || ev.flow || (Array.isArray(ev) ? ev : null);
+  const list = Array.isArray(blocks) ? blocks : Array.isArray(blocks?.result) ? blocks.result : Array.isArray(ev.resultList) ? ev.resultList : null;
+  if (list) {
+    const texts = [];
+    for (const b of list) {
+      const type = Number(b?.resultType ?? b?.type ?? 0);
+      if (type === 1) {
+        const content = b?.content ?? b?.text ?? b?.delta;
+        if (typeof content === "string" && content) texts.push(content);
+      }
+    }
+    if (texts.length > 0) {
+      out.content = texts.join("");
+      return out;
+    }
+  }
+  if (typeof ev.content === "string" && ev.content) return { content: ev.content };
+  if (ev.finish === true || ev.done === true || ev.isEnd === true) return { done: true };
+  return out;
+}
+function createOpenAIStream3(upstream, requestedModel, onUsage) {
+  const parser = createSseParser4();
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const state = { id: `chatcmpl-lingxi-${randomId()}`, model: requestedModel };
+  let roleSent = false;
+  let finished = false;
+  let chars = 0;
+  let controller;
+  const send = (delta, finish2 = null) => {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+      id: state.id,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1e3),
+      model: requestedModel,
+      choices: [{ index: 0, delta, finish_reason: finish2, logprobs: null }]
+    })}
+
+`));
+  };
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    send({}, "stop");
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+    if (onUsage) onUsage({ promptTokens: 0, completionTokens: Math.ceil(chars / 4) });
+    try {
+      controller.close();
+    } catch {
+    }
+  };
+  return new ReadableStream({
+    start(ctrl) {
+      controller = ctrl;
+      const reader = upstream.getReader();
+      const pump = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (!roleSent) send({ role: "assistant", content: "" });
+            finish();
+            return;
+          }
+          for (const ev of parser.feed(decoder.decode(value, { stream: true }))) {
+            if (finished) return;
+            const d = lingxiEventDelta(ev);
+            if (d.content) {
+              if (!roleSent) {
+                roleSent = true;
+                send({ role: "assistant", content: "" });
+              }
+              chars += d.content.length;
+              send({ content: d.content });
+            }
+            if (d.error) {
+              send({ content: `[lingxi] ${d.error}` }, "stop");
+              finished = true;
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              try {
+                controller.close();
+              } catch {
+              }
+              return;
+            }
+            if (d.done) finish();
+          }
+          if (!finished) pump();
+        }).catch((err) => {
+          if (finished) return;
+          finished = true;
+          try {
+            send({ content: `[lingxi] ${err?.message || "\u4E0A\u6E38\u6D41\u4E2D\u65AD"}` }, "stop");
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch {
+          }
+        });
+      };
+      pump();
+    }
+  });
+}
+async function callLingxi(acc, dialogue, enableSearch) {
+  const payload = JSON.stringify(buildPayload(dialogue, acc, enableSearch));
+  const resp = await fetch(`${LINGXI_HOST}${CHAT_PATH2}`, {
+    method: "POST",
+    headers: buildHeaders(acc),
+    body: payload,
+    signal: AbortSignal.timeout(TIMEOUT_MS2)
+  });
+  if (!resp.ok) {
+    return { ok: false, status: resp.status, body: null, text: await resp.text().catch(() => "") };
+  }
+  if (!resp.body) {
+    return { ok: false, status: 502, body: null, text: "\u4E0A\u6E38\u672A\u8FD4\u56DE\u54CD\u5E94\u4F53" };
+  }
+  return { ok: true, status: 200, body: resp.body, text: "" };
+}
+async function handleLingxiRequest(p, project) {
+  const rawEntries = (p.refreshTokens || []).map((t) => (t || "").trim()).filter(Boolean);
+  const accounts = parseAccounts3(rawEntries, project);
+  if (accounts.length === 0) {
+    return oauthErrorResponse(
+      "\u8BE5 lingxi \u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E\uFF1A\u767B\u5F55\u4E2D\u56FD\u79FB\u52A8\u90AE\u7BB1\u7F51\u9875\u7248\u540E\uFF0C\u4ECE\u6D4F\u89C8\u5668\u8BF7\u6C42\u5934\u91CC\u53D6 Authorization(Basic ...) \u4E0E user_id\uFF0C\u6309 `authorization|userId` \u586B\u5165\u300CAPI Keys\u300D",
+      400,
+      "configuration_error"
+    );
+  }
+  const messages = Array.isArray(p.body?.messages) ? p.body.messages : [];
+  if (messages.length === 0) {
+    return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
+  }
+  const dialogue = buildDialogue(messages);
+  if (!dialogue) {
+    return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
+  }
+  const stream = p.body?.stream === true;
+  const enableSearch = Boolean(p.body?.web_search || p.body?.enable_web_search);
+  let lastError = "\u672A\u77E5\u9519\u8BEF";
+  let lastStatus = 502;
+  for (const acc of accounts) {
+    let up;
+    try {
+      up = await callLingxi(acc, dialogue, enableSearch);
+    } catch (err) {
+      lastError = err.message || "\u4E0A\u6E38\u8BF7\u6C42\u5931\u8D25";
+      lastStatus = 502;
+      continue;
+    }
+    if (!up.ok || !up.body) {
+      lastStatus = up.status;
+      lastError = `HTTP ${up.status}: ${(up.text || "").slice(0, 300)}`;
+      if ([401, 403, 429].includes(up.status) || up.status >= 500) continue;
+      return oauthErrorResponse(lastError, up.status, "upstream_error");
+    }
+    if (stream) {
+      const [toClient, forUsage] = up.body.tee();
+      const usageReader = forUsage.getReader();
+      defer(p, (async () => {
+        let bytes = 0;
+        for (; ; ) {
+          const { done, value } = await usageReader.read();
+          if (done) break;
+          bytes += value.byteLength;
+        }
+        await recordOAuthUsage(p, { promptTokens: 0, completionTokens: Math.ceil(bytes / 4) }, true, 200);
+      })().catch(() => {
+      }));
+      return new Response(createOpenAIStream3(toClient, p.requestedModel), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-store",
+          Connection: "keep-alive"
+        }
+      });
+    }
+    const raw2 = await new Response(up.body).text();
+    const parser = createSseParser4();
+    let content = "";
+    for (const ev of parser.feed(raw2)) {
+      const d = lingxiEventDelta(ev);
+      if (d.content) content += d.content;
+      if (d.error) return oauthErrorResponse(`\u7075\u7280\u4E0A\u6E38\u9519\u8BEF: ${d.error}`, 502, "upstream_error");
+    }
+    const completionTokens = Math.ceil(content.length / 4);
+    const json = {
+      id: `chatcmpl-lingxi-${randomId()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1e3),
+      model: p.requestedModel,
+      choices: [{
+        index: 0,
+        message: { role: "assistant", content: content || null },
+        finish_reason: "stop"
+      }],
+      usage: { prompt_tokens: 0, completion_tokens: completionTokens, total_tokens: completionTokens }
+    };
+    defer(p, recordOAuthUsage(p, { promptTokens: 0, completionTokens }, true, 200));
+    return new Response(JSON.stringify(json), {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+  return oauthErrorResponse(
+    `\u6240\u6709\u7075\u7280\u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError}`,
+    lastStatus,
+    "key_exhausted"
+  );
+}
+async function testLingxi(env, rawAuth, project) {
+  const accounts = parseAccounts3([rawAuth], project);
+  if (accounts.length === 0) return { success: false, message: "\u672A\u586B\u5199\u51ED\u636E", statusCode: 0 };
+  try {
+    const up = await callLingxi(accounts[0], "\u4F60\u597D", false);
+    if (up.ok && up.body) {
+      try {
+        await up.body.cancel();
+      } catch {
+      }
+      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    }
+    return { success: false, message: `HTTP ${up.status}: ${(up.text || "").slice(0, 200)}`, statusCode: up.status };
+  } catch (err) {
+    return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
+  }
+}
+function listLingxiModels() {
+  return { success: true, models: LINGXI_MODELS };
+}
+var LINGXI_HOST, LINGXI_ORIGIN, CHAT_PATH2, TIMEOUT_MS2, LINGXI_MODELS, UA;
+var init_lingxi_web = __esm({
+  "src/lingxi-web.ts"() {
+    "use strict";
+    init_oauth_common();
+    LINGXI_HOST = "https://ai.yun.139.com";
+    LINGXI_ORIGIN = "https://appmail.mail.10086.cn";
+    CHAT_PATH2 = "/api/outer/assistant/chat/v2/add";
+    TIMEOUT_MS2 = 12e4;
+    LINGXI_MODELS = [
+      "lingxi-default",
+      "qwen-3.7-plus",
+      "deepseek-4.0-pro"
+    ];
+    UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36";
+  }
+});
+
 // src/qwen.ts
 var qwen_exports = {};
 __export(qwen_exports, {
@@ -9096,7 +10034,7 @@ function mergeDelta(target, add) {
   if (add.error) target.error = add.error;
   if (add.done) target.done = true;
 }
-function createSseParser3() {
+function createSseParser5() {
   let buffer = "";
   let currentEvent = "";
   let currentData = "";
@@ -9126,7 +10064,7 @@ function createSseParser3() {
 function createOpenAIStreamFromDeepSeek(upstream, requestedModel, onUsage, useTools = false) {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  const parser = createSseParser3();
+  const parser = createSseParser5();
   const state = new DeepSeekDeltaParser();
   const detector = useTools ? new ToolCallDetector() : null;
   let firstSent = false;
@@ -9235,7 +10173,7 @@ function createOpenAIStreamFromDeepSeek(upstream, requestedModel, onUsage, useTo
   });
 }
 function deepseekTextToOpenAI(text, requestedModel, promptTokens, useTools = false) {
-  const parser = createSseParser3();
+  const parser = createSseParser5();
   const state = new DeepSeekDeltaParser();
   const detector = useTools ? new ToolCallDetector() : null;
   let content = "";
@@ -14665,19 +15603,19 @@ async function handleProxy(c) {
         error: { message: `\u63D0\u4F9B\u5546 "${provider.name}" \u5DF2\u7981\u7528`, type: "provider_disabled" }
       }, 403);
     }
-    const modelConfig = findModelConfig(provider.models, modelId);
-    if (!modelConfig) {
+    const modelConfig2 = findModelConfig(provider.models, modelId);
+    if (!modelConfig2) {
       return c.json({
         error: { message: `\u6A21\u578B "${modelId}" \u672A\u5728\u63D0\u4F9B\u5546 "${provider.name}" \u4E2D\u914D\u7F6E`, type: "invalid_request_error" }
       }, 404);
     }
-    if (!modelConfig.enabled) {
+    if (!modelConfig2.enabled) {
       return c.json({
         error: { message: `\u6A21\u578B "${modelId}" \u5DF2\u7981\u7528`, type: "model_disabled" }
       }, 403);
     }
     const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
-    const forwardBody = { ...body, model: modelConfig.id };
+    const forwardBody = { ...body, model: modelConfig2.id };
     const UNSUPPORTED_UPSTREAM_PARAMS = [
       "enable_thinking",
       "reasoning",
@@ -14699,8 +15637,8 @@ async function handleProxy(c) {
       const { handleAzureTtsSpeech: handleAzureTtsSpeech2 } = await Promise.resolve().then(() => (init_azure_tts(), azure_tts_exports));
       const { isAzureVoiceId: isAzureVoiceId2 } = await Promise.resolve().then(() => (init_azure_voices(), azure_voices_exports));
       let voice = body.voice || provider.voice || "zh-CN-XiaoxiaoNeural";
-      if (!body.voice && modelConfig.id && isAzureVoiceId2(modelConfig.id)) {
-        voice = modelConfig.id;
+      if (!body.voice && modelConfig2.id && isAzureVoiceId2(modelConfig2.id)) {
+        voice = modelConfig2.id;
       }
       const ttsBody = {
         ...body,
@@ -14758,7 +15696,7 @@ async function handleProxy(c) {
       return handleAntigravityRequest2({
         env: c.env,
         providerId,
-        modelId: modelConfig.id,
+        modelId: modelConfig2.id,
         requestedModel: modelSafe,
         body,
         refreshTokens: enabledKeys.map((k) => k.key),
@@ -14784,7 +15722,7 @@ async function handleProxy(c) {
       return handleVertexRequest2({
         env: c.env,
         providerId,
-        modelId: modelConfig.id,
+        modelId: modelConfig2.id,
         requestedModel: modelSafe,
         body,
         credentials: enabledKeys.map((k) => k.key),
@@ -14810,7 +15748,7 @@ async function handleProxy(c) {
       return handleDevinRequest2({
         env: c.env,
         providerId,
-        modelId: modelConfig.id,
+        modelId: modelConfig2.id,
         requestedModel: modelSafe,
         body,
         credentials: enabledKeys.map((k) => k.key),
@@ -14825,9 +15763,9 @@ async function handleProxy(c) {
         }
       });
     }
-    const OAUTH_TYPES = ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"];
+    const OAUTH_TYPES = ["claude", "codex", "kimi", "kimiweb", "geminiweb", "minimaxweb", "lingxi", "grok", "qwen", "deepseek", "codebuddy", "cline"];
     if (OAUTH_TYPES.includes(providerType)) {
-      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "kimiweb" || providerType === "geminiweb" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
+      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "kimiweb" || providerType === "geminiweb" || providerType === "minimaxweb" || providerType === "lingxi" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
       if (!supported.includes(subPath)) {
         return c.json({
           error: { message: `${providerType} \u6E20\u9053\u6682\u4E0D\u652F\u6301\u7AEF\u70B9 /v1/${subPath}\uFF08\u652F\u6301: ${supported.map((s) => `/v1/${s}`).join("\u3001")}\uFF09`, type: "invalid_request_error" }
@@ -14836,7 +15774,7 @@ async function handleProxy(c) {
       const oauthParams = {
         env: c.env,
         providerId,
-        modelId: modelConfig.id,
+        modelId: modelConfig2.id,
         requestedModel: modelSafe,
         body,
         refreshTokens: enabledKeys.map((k) => k.key),
@@ -14849,7 +15787,7 @@ async function handleProxy(c) {
           }
         }
       };
-      const nativeBody = { ...body, model: modelConfig.id };
+      const nativeBody = { ...body, model: modelConfig2.id };
       if (providerType === "claude") {
         const { handleClaudeRequest: handleClaudeRequest2 } = await Promise.resolve().then(() => (init_claude(), claude_exports));
         return handleClaudeRequest2({ ...oauthParams, body: subPath === "messages" ? nativeBody : body }, subPath === "messages" ? "messages-passthrough" : "translate");
@@ -14869,6 +15807,14 @@ async function handleProxy(c) {
       if (providerType === "geminiweb") {
         const { handleGeminiWebRequest: handleGeminiWebRequest2 } = await Promise.resolve().then(() => (init_gemini_web(), gemini_web_exports));
         return handleGeminiWebRequest2(oauthParams);
+      }
+      if (providerType === "minimaxweb") {
+        const { handleMiniMaxWebRequest: handleMiniMaxWebRequest2 } = await Promise.resolve().then(() => (init_minimax_web(), minimax_web_exports));
+        return handleMiniMaxWebRequest2(oauthParams, provider.project);
+      }
+      if (providerType === "lingxi") {
+        const { handleLingxiRequest: handleLingxiRequest2 } = await Promise.resolve().then(() => (init_lingxi_web(), lingxi_web_exports));
+        return handleLingxiRequest2(oauthParams, provider.project);
       }
       if (providerType === "qwen") {
         const { handleQwenRequest: handleQwenRequest2 } = await Promise.resolve().then(() => (init_qwen(), qwen_exports));
@@ -15616,6 +16562,8 @@ async function checkDevice(token, opts = {}) {
 init_kimi();
 init_kimi_web();
 init_gemini_web();
+init_minimax_web();
+init_lingxi_web();
 init_grok();
 init_qwen();
 init_deepseek();
@@ -15982,13 +16930,13 @@ async function handleTestModel(c) {
   if (!provider) {
     return c.json({ success: false, message: "\u6E20\u9053\u4E0D\u5B58\u5728" }, 404);
   }
-  const modelConfig = provider.models.find((m) => m.id === modelId);
-  if (!modelConfig) {
+  const modelConfig2 = provider.models.find((m) => m.id === modelId);
+  if (!modelConfig2) {
     return c.json({ success: false, message: `\u6A21\u578B "${modelId}" \u4E0D\u5B58\u5728\u4E8E\u6E20\u9053 "${provider.name}"` }, 404);
   }
   const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
   const ptype = provider.type || "openai";
-  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
+  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "kimiweb", "geminiweb", "minimaxweb", "lingxi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
   return c.json({
     success: true,
     data: result
@@ -16012,7 +16960,7 @@ async function handleTestKeyNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "minimaxweb", "lingxi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model || OAUTH_DEFAULT_MODELS[providerType], url, providerId);
     return c.json({
       success: true,
@@ -16123,7 +17071,7 @@ async function handleTestModelNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "minimaxweb", "lingxi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model, url, providerId);
     return c.json({
       success: true,
@@ -16258,6 +17206,8 @@ var OAUTH_DEFAULT_MODELS = {
   kimi: "kimi-for-coding",
   kimiweb: "k3",
   geminiweb: "gemini-3.7-flash",
+  minimaxweb: "MiniMax-M3",
+  lingxi: "lingxi-default",
   grok: "grok-4.6",
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
@@ -16346,7 +17296,7 @@ async function handleOAuthModels(c) {
     token = (p?.apiKeys?.find((k) => k.enabled)?.key || p?.apiKeys?.[0]?.key || "").trim();
   }
   const { baseUrl, region } = body;
-  if (!token && provider !== "qwen" && provider !== "deepseek" && provider !== "kimiweb" && provider !== "geminiweb") {
+  if (!token && provider !== "qwen" && provider !== "deepseek" && provider !== "kimiweb" && provider !== "geminiweb" && provider !== "minimaxweb" && provider !== "lingxi") {
     return c.json({ success: false, message: "\u672A\u627E\u5230\u6709\u6548\u51ED\u636E\uFF0C\u8BF7\u5148\u5728\u6E20\u9053\u4E2D\u6DFB\u52A0\u5E76\u4FDD\u5B58\u81F3\u5C11\u4E00\u4E2A Key\uFF0C\u6216\u586B\u5199 token" }, 400);
   }
   if (provider === "claude") {
@@ -16360,6 +17310,14 @@ async function handleOAuthModels(c) {
   if (provider === "kimiweb") {
     const r = await fetchKimiWebModels(c.env, token, baseUrl);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
+  }
+  if (provider === "minimaxweb") {
+    const r = listMiniMaxWebModels();
+    return c.json({ success: true, data: { models: r.models } });
+  }
+  if (provider === "lingxi") {
+    const r = listLingxiModels();
+    return c.json({ success: true, data: { models: r.models } });
   }
   if (provider === "geminiweb") {
     const r = listGeminiWebModels();
@@ -16389,6 +17347,8 @@ async function testOAuthProvider(env, provider, refreshToken, modelId, baseUrl, 
   if (provider === "kimi") return testKimi(env, refreshToken, modelId, baseUrl);
   if (provider === "kimiweb") return testKimiWeb(env, refreshToken, modelId, baseUrl);
   if (provider === "geminiweb") return testGeminiWeb(env, refreshToken, modelId);
+  if (provider === "minimaxweb") return testMiniMaxWeb(env, refreshToken, modelId, providerId);
+  if (provider === "lingxi") return testLingxi(env, refreshToken, providerId);
   if (provider === "grok") return testGrok(env, refreshToken, modelId);
   if (provider === "qwen") return testQwen(env, refreshToken, modelId);
   if (provider === "deepseek") return testDeepSeek(env, refreshToken, modelId);
@@ -19762,12 +20722,16 @@ const OAUTH_DEFAULT_URLS = {
   codebuddy: 'https://copilot.tencent.com', 
   cline: 'https://api.cline.bot',
   kimiweb: 'https://www.kimi.ai',
-  geminiweb: 'https://gemini.google.com' 
+  geminiweb: 'https://gemini.google.com',
+  minimaxweb: 'https://agent.minimaxi.com',
+  lingxi: 'https://ai.yun.139.com' 
 }
 function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy', 'cline'].indexOf(t) !== -1 }
 function isDeepseekType(t) { return t === 'deepseek' }
 function isKimiWebType(t) { return t === 'kimiweb' }
 function isGeminiWebType(t) { return t === 'geminiweb' }
+function isMiniMaxWebType(t) { return t === 'minimaxweb' }
+function isLingxiType(t) { return t === 'lingxi' }
 function isZaiType(t) { return t === 'zai' }
 function isCodebuddyType(t) { return t === 'codebuddy' }
 
@@ -20756,7 +21720,7 @@ async function createProv() {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type) || isMiniMaxWebType(type) || isLingxiType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   if (!url && !isTts) { toast('\u8BF7\u586B\u5199 API \u5730\u5740', 'error'); return }
 
   let keys = Array.from(document.querySelectorAll('#akeys .field-row')).map(r => {
@@ -20971,7 +21935,7 @@ async function save(id) {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type) || isMiniMaxWebType(type) || isLingxiType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   let keys = getKeys(id)
   const vxKeys = type === 'vertex' ? provVertexKeys(id) : null
   if (vxKeys && vxKeys.length) keys = vxKeys.map(k => ({ key: k, enabled: true }))
@@ -21861,6 +22825,8 @@ ${H3("\u63A7\u5236\u53F0")}
                 <option value="kimi">Kimi Coding OAuth \u53CD\u4EE3</option>
                 <option value="kimiweb">Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
                 <option value="geminiweb">Gemini \u7F51\u9875\u7248\u53CD\u4EE3 (Cookie)</option>
+                <option value="minimaxweb">MiniMax \u7F51\u9875\u7248\u53CD\u4EE3 (Token)</option>
+                <option value="lingxi">\u4E2D\u56FD\u79FB\u52A8\u7075\u7280\u53CD\u4EE3 (Cookie)</option>
                 <option value="grok">Grok OAuth \u53CD\u4EE3</option>
                 <option value="qwen">Qwen OAuth \u53CD\u4EE3</option>
                 <option value="deepseek">DeepSeek \u53CD\u4EE3</option>
@@ -22062,6 +23028,8 @@ ${H3("\u63A7\u5236\u53F0")}
                     <option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi Coding OAuth \u53CD\u4EE3</option>
                     <option value="kimiweb" ${p.type === "kimiweb" ? "selected" : ""}>Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
                     <option value="geminiweb" ${p.type === "geminiweb" ? "selected" : ""}>Gemini \u7F51\u9875\u7248\u53CD\u4EE3 (Cookie)</option>
+                    <option value="minimaxweb" ${p.type === "minimaxweb" ? "selected" : ""}>MiniMax \u7F51\u9875\u7248\u53CD\u4EE3 (Token)</option>
+                    <option value="lingxi" ${p.type === "lingxi" ? "selected" : ""}>\u4E2D\u56FD\u79FB\u52A8\u7075\u7280\u53CD\u4EE3 (Cookie)</option>
                     <option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option>
                     <option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option>
                     <option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option>
