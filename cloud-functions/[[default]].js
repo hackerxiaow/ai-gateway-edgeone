@@ -7200,16 +7200,20 @@ async function fetchKimiWebModels(env, rawToken, baseUrl) {
     const res = await fetch(`${fp.baseUrl}${MODELS_PATH}`, {
       method: "POST",
       headers: webHeaders(fp, token || "anonymous", { "Content-Type": "application/json" }),
-      body: encodeFrame({}),
+      body: "{}",
       signal: AbortSignal.timeout(3e4)
     });
-    const raw2 = await res.arrayBuffer();
+    const text = await res.text();
     if (!res.ok) {
-      const text = new TextDecoder().decode(raw2);
       return { success: false, models: [], message: `HTTP ${res.status}: ${text.slice(0, 200)}` };
     }
-    const catalog = parseFrames(new Uint8Array(raw2));
-    const specs = parseModelSpecs(catalog);
+    let catalog;
+    try {
+      catalog = JSON.parse(text);
+    } catch {
+      return { success: false, models: [], message: "\u4E0A\u6E38\u8FD4\u56DE\u975E JSON" };
+    }
+    const specs = parseModelSpecs([catalog]);
     if (specs.length === 0) {
       return { success: false, models: [], message: "\u4E0A\u6E38\u672A\u8FD4\u56DE\u6A21\u578B\u5217\u8868" };
     }
@@ -7217,9 +7221,6 @@ async function fetchKimiWebModels(env, rawToken, baseUrl) {
   } catch (err) {
     return { success: false, models: [], message: err.message || "\u62C9\u53D6\u5931\u8D25" };
   }
-}
-function parseFrames(bytes) {
-  return createFrameParser().feed(bytes);
 }
 function parseModelSpecs(catalog) {
   const rows = [];
@@ -7516,8 +7517,7 @@ async function handleKimiWebRequest(p, baseUrl) {
       const upstream = await fetch(`${fp.baseUrl}${CHAT_PATH}`, {
         method: "POST",
         headers: webHeaders(fp, accessToken, {
-          "Content-Type": "application/proto+json",
-          "Connect-Protocol-Version": "1"
+          "Content-Type": "application/connect+json"
         }),
         body,
         signal: AbortSignal.timeout(KIMI_WEB_TIMEOUT_MS)
@@ -7588,8 +7588,7 @@ async function testKimiWeb(env, rawToken, modelId, baseUrl) {
     const res = await fetch(`${fp.baseUrl}${CHAT_PATH}`, {
       method: "POST",
       headers: webHeaders(fp, accessToken, {
-        "Content-Type": "application/proto+json",
-        "Connect-Protocol-Version": "1"
+        "Content-Type": "application/connect+json"
       }),
       body: encodeFrame(buildChatPayload(modelId, "hi", false)),
       signal: AbortSignal.timeout(12e4)
