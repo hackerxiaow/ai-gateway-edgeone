@@ -7631,6 +7631,470 @@ var init_kimi_web = __esm({
   }
 });
 
+// src/gemini-web.ts
+var gemini_web_exports = {};
+__export(gemini_web_exports, {
+  GEMINI_WEB_MODELS: () => GEMINI_WEB_MODELS,
+  handleGeminiWebRequest: () => handleGeminiWebRequest,
+  listGeminiWebModels: () => listGeminiWebModels,
+  resolveGeminiWebModel: () => resolveGeminiWebModel,
+  testGeminiWeb: () => testGeminiWeb
+});
+function resolveGeminiWebModel(modelName) {
+  const raw2 = (modelName || "").trim();
+  let actual = raw2;
+  let thinkOverride = null;
+  if (raw2.includes("@think=")) {
+    const idx = raw2.indexOf("@think=");
+    actual = raw2.slice(0, idx);
+    const parsed = parseInt(raw2.slice(idx + "@think=".length), 10);
+    if (Number.isNaN(parsed)) {
+      return { model: actual, spec: GEMINI_WEB_MODELS["gemini-auto"], error: `\u65E0\u6548\u7684 think \u53C2\u6570: ${raw2.slice(idx + 7)}` };
+    }
+    thinkOverride = parsed;
+  }
+  const spec = GEMINI_WEB_MODELS[actual];
+  if (!spec) {
+    return { model: actual, spec: GEMINI_WEB_MODELS["gemini-auto"] };
+  }
+  return {
+    model: actual,
+    spec: thinkOverride === null ? spec : { ...spec, think: thinkOverride }
+  };
+}
+function extractSapisid(cookie) {
+  const m = cookie.match(/SAPISID=([^;]+)/);
+  return m ? m[1].trim() : "";
+}
+function parseAccounts(entries) {
+  const out = [];
+  for (const raw2 of entries) {
+    const line = (raw2 || "").trim();
+    if (!line) continue;
+    const [cookiePart, sapisidPart] = line.split("|");
+    const cookie = (cookiePart || "").trim();
+    const sapisid = (sapisidPart || extractSapisid(cookie)).trim();
+    if (cookie || sapisid) out.push({ cookie, sapisid });
+  }
+  return out;
+}
+async function makeSapisidHash(sapisid) {
+  const ts = Math.floor(Date.now() / 1e3);
+  const input = `${ts} ${sapisid} ${GEMINI_BASE}`;
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(input));
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `SAPISIDHASH ${ts}_${hex}`;
+}
+async function fetchLatestBL(cookie) {
+  const headers = {
+    "User-Agent": UA_POOL2[Math.floor(Math.random() * UA_POOL2.length)],
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": LANG_POOL[Math.floor(Math.random() * LANG_POOL.length)]
+  };
+  if (cookie) headers["Cookie"] = cookie;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8e3);
+  try {
+    const resp = await fetch(BL_PAGE_URL, { headers, signal: ctrl.signal });
+    const html = await resp.text();
+    const primary = html.match(BL_REGEX_PRIMARY);
+    if (primary) return primary[0];
+    const cfb2h = html.match(BL_REGEX_CFB2H);
+    if (cfb2h && cfb2h[1]) return cfb2h[1];
+    return BL_FALLBACK;
+  } catch {
+    return BL_FALLBACK;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function getBL(env, cookie, force = false) {
+  const kv = getKV(env);
+  if (!force) {
+    const cached = await kv.get(BL_KV_KEY);
+    if (cached) return cached;
+  }
+  const bl = await fetchLatestBL(cookie);
+  await kv.put(BL_KV_KEY, bl, { expirationTtl: Math.floor(BL_TTL_MS / 1e3) }).catch(() => {
+  });
+  return bl;
+}
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    const v = c === "x" ? r : r & 3 | 8;
+    return v.toString(16);
+  });
+}
+function buildFormBody(prompt, mode, think) {
+  const inner = new Array(80).fill(null);
+  inner[0] = [prompt, 0, null, null, null, null, 0];
+  inner[1] = ["en"];
+  inner[2] = ["", "", "", null, null, null, null, null, null, ""];
+  inner[6] = [0];
+  inner[7] = 1;
+  inner[10] = 1;
+  inner[11] = 0;
+  inner[17] = [[think]];
+  inner[18] = 0;
+  inner[27] = 1;
+  inner[30] = [4];
+  inner[41] = [2];
+  inner[53] = 0;
+  inner[59] = generateUUID();
+  inner[61] = [];
+  inner[68] = 1;
+  inner[79] = mode;
+  const params = new URLSearchParams();
+  params.append("f.req", JSON.stringify([null, JSON.stringify(inner)]));
+  return params.toString();
+}
+function buildStreamUrl(bl, prefix) {
+  const reqid = Math.floor(Date.now() / 1e3) % 1e6;
+  return `${GEMINI_BASE}${prefix}${STREAM_PATH}?bl=${encodeURIComponent(bl)}&hl=en&_reqid=${reqid}&rt=c`;
+}
+function accountPrefix(cookie) {
+  const m = cookie.match(/__Secure-1PSID\s*=\s*(\d+)/);
+  if (!m) return "";
+  const sid = m[1];
+  return sid.startsWith("0") ? "" : `/u/${sid.charAt(0)}`;
+}
+function extractLineText(line) {
+  if (!line.includes('"wrb.fr"') || line.length < 60) return null;
+  try {
+    const arr = JSON.parse(line);
+    const innerStr = arr?.[0]?.[2];
+    if (!innerStr || typeof innerStr !== "string" || innerStr.length < 20) return null;
+    const inner = JSON.parse(innerStr);
+    if (!Array.isArray(inner) || inner.length <= 4 || !inner[4]) return null;
+    const parts = inner[4];
+    const texts = [];
+    for (const part of parts) {
+      const items = part?.[1];
+      if (Array.isArray(items)) {
+        for (const t of items) {
+          if (typeof t === "string" && t.length > 0) texts.push(t);
+        }
+      }
+    }
+    if (texts.length === 0) return null;
+    for (let i = texts.length - 1; i >= 0; i--) {
+      if (texts[i].trim()) return texts[i];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+function checkUpstreamError(raw2) {
+  const m = raw2.match(/BardErrorInfo\s*\[(\d+)\]/);
+  if (m) return `Gemini \u4E0A\u6E38\u62D2\u7EDD\u8BF7\u6C42: BardErrorInfo [${m[1]}]`;
+  const html = raw2.match(/<title>([^<]+)<\/title>/i);
+  if (html && /Just a moment|Attention Required/i.test(html[1])) {
+    return "Gemini \u8FD4\u56DE\u4EBA\u673A\u9A8C\u8BC1\u9875\uFF1A\u51FA\u53E3 IP \u88AB\u98CE\u63A7\uFF0C\u8BF7\u914D\u7F6E Cookie \u6216\u66F4\u6362\u90E8\u7F72\u533A\u57DF";
+  }
+  return null;
+}
+function cleanText(text) {
+  return text.replace(/```(?:python|py)?\s*print\((.*?)\)\s*```/gs, "$1").replace(/\s+$/, "");
+}
+function createGeminiSseStream(upstream, requestedModel, onUsage) {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const state = { id: `chatcmpl-geminiweb-${randomId()}`, model: requestedModel };
+  let buffer = "";
+  let previous = "";
+  let roleSent = false;
+  let finished = false;
+  const send = (delta, finish2 = null, withUsage = false) => {
+    const chunk = {
+      id: state.id,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1e3),
+      model: requestedModel,
+      choices: [{ index: 0, delta, finish_reason: finish2, logprobs: null }]
+    };
+    if (withUsage) {
+      chunk.usage = {
+        prompt_tokens: 0,
+        completion_tokens: Math.ceil(previous.length / 4),
+        total_tokens: Math.ceil(previous.length / 4)
+      };
+    }
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}
+
+`));
+  };
+  let controller;
+  const finish = (reason) => {
+    if (finished) return;
+    finished = true;
+    send({}, reason || "stop", true);
+    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+    if (onUsage) onUsage({ promptTokens: 0, completionTokens: Math.ceil(previous.length / 4) });
+    try {
+      controller.close();
+    } catch {
+    }
+  };
+  const handleLine = (line) => {
+    const full = extractLineText(line);
+    if (full === null) return;
+    const delta = full.startsWith(previous) ? full.slice(previous.length) : full;
+    previous = full;
+    if (!delta) return;
+    if (!roleSent) {
+      roleSent = true;
+      send({ role: "assistant", content: "" });
+    }
+    send({ content: cleanText(delta) });
+  };
+  return new ReadableStream({
+    start(ctrl) {
+      controller = ctrl;
+      const reader = upstream.getReader();
+      const pump = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (!roleSent) send({ role: "assistant", content: "" });
+            finish("stop");
+            return;
+          }
+          buffer += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, idx).replace(/\r$/, "");
+            buffer = buffer.slice(idx + 1);
+            if (finished) return;
+            handleLine(line);
+          }
+          if (!finished) pump();
+        }).catch((err) => {
+          if (finished) return;
+          finished = true;
+          try {
+            send({ content: `[geminiweb] ${err?.message || "\u4E0A\u6E38\u6D41\u4E2D\u65AD"}` }, "stop");
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch {
+          }
+        });
+      };
+      pump();
+    }
+  });
+}
+function messageText2(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => typeof part === "string" ? part : part?.type === "text" ? String(part.text || "") : "").filter(Boolean).join("\n");
+  }
+  if (content === null || content === void 0) return "";
+  return String(content);
+}
+function messagesToPrompt(messages) {
+  const parts = [];
+  for (const m of messages) {
+    const text = messageText2(m.content).trim();
+    if (!text) continue;
+    if (m.role === "system") parts.push(`[System instruction]: ${text}`);
+    else if (m.role === "assistant") parts.push(`[Assistant]: ${text}`);
+    else if (m.role === "tool") parts.push(`[Tool result for ${m.name || "tool"}]: ${text}`);
+    else parts.push(text);
+  }
+  return parts.join("\n\n");
+}
+async function callUpstream(env, prompt, mode, think, account) {
+  let bl = await getBL(env, account.cookie || void 0);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const headers = {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Origin": GEMINI_BASE,
+      "Referer": `${GEMINI_BASE}${accountPrefix(account.cookie)}/app`,
+      "X-Same-Domain": "1",
+      "User-Agent": UA_POOL2[Math.floor(Math.random() * UA_POOL2.length)],
+      "Accept": "*/*",
+      "Accept-Language": LANG_POOL[Math.floor(Math.random() * LANG_POOL.length)],
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin"
+    };
+    if (account.cookie) headers["Cookie"] = account.cookie;
+    if (account.sapisid) headers["Authorization"] = await makeSapisidHash(account.sapisid);
+    const resp = await fetch(buildStreamUrl(bl, accountPrefix(account.cookie)), {
+      method: "POST",
+      headers,
+      body: buildFormBody(prompt, mode, think),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
+    });
+    if (resp.ok && resp.body) {
+      return { ok: true, status: resp.status, body: resp.body, text: "" };
+    }
+    const text = await resp.text().catch(() => "");
+    if ((resp.status === 405 || resp.status === 400) && attempt === 0) {
+      const fresh = await getBL(env, account.cookie || void 0, true);
+      if (fresh && fresh !== bl) {
+        bl = fresh;
+        continue;
+      }
+    }
+    return { ok: false, status: resp.status, body: null, text };
+  }
+  return { ok: false, status: 502, body: null, text: "BL \u5237\u65B0\u540E\u4ECD\u5931\u8D25" };
+}
+async function handleGeminiWebRequest(p) {
+  const rawEntries = (p.refreshTokens || []).map((t) => (t || "").trim()).filter(Boolean);
+  const accounts = parseAccounts(rawEntries);
+  const useList = accounts.length > 0 ? accounts : [{ cookie: "", sapisid: "" }];
+  const resolved = resolveGeminiWebModel(p.requestedModel || p.modelId);
+  if (resolved.error) {
+    return oauthErrorResponse(resolved.error, 400, "invalid_request_error");
+  }
+  const messages = Array.isArray(p.body?.messages) ? p.body.messages : [];
+  const prompt = messagesToPrompt(messages);
+  if (!prompt) {
+    return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
+  }
+  const stream = p.body?.stream === true;
+  let lastError = "\u672A\u77E5\u9519\u8BEF";
+  let lastStatus = 502;
+  for (const account of useList) {
+    let upstream;
+    try {
+      upstream = await callUpstream(p.env, prompt, resolved.spec.mode, resolved.spec.think, account);
+    } catch (err) {
+      lastError = err.message || "\u4E0A\u6E38\u8BF7\u6C42\u5931\u8D25";
+      lastStatus = 502;
+      continue;
+    }
+    if (!upstream.ok || !upstream.body) {
+      lastStatus = upstream.status;
+      lastError = `HTTP ${upstream.status}: ${(upstream.text || "").slice(0, 300)}`;
+      const explicit2 = checkUpstreamError(upstream.text);
+      if (explicit2) lastError = explicit2;
+      if ([401, 403, 429].includes(upstream.status) || upstream.status >= 500) continue;
+      return oauthErrorResponse(lastError, upstream.status, "upstream_error");
+    }
+    if (stream) {
+      const [toClient, forUsage] = upstream.body.tee();
+      const usageReader = forUsage.getReader();
+      defer(p, (async () => {
+        let chars = 0;
+        for (; ; ) {
+          const { done, value } = await usageReader.read();
+          if (done) break;
+          chars += value.byteLength;
+        }
+        await recordOAuthUsage(p, { promptTokens: 0, completionTokens: Math.ceil(chars / 4) }, true, 200);
+      })().catch(() => {
+      }));
+      const sse = createGeminiSseStream(toClient, p.requestedModel);
+      return new Response(sse, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-store",
+          Connection: "keep-alive"
+        }
+      });
+    }
+    const raw2 = await new Response(upstream.body).text();
+    const explicit = checkUpstreamError(raw2);
+    if (explicit) {
+      lastError = explicit;
+      continue;
+    }
+    let content = "";
+    for (const line of raw2.split("\n")) {
+      const full = extractLineText(line);
+      if (full) content = full;
+    }
+    const completionTokens = Math.ceil(content.length / 4);
+    const json = {
+      id: `chatcmpl-geminiweb-${randomId()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1e3),
+      model: p.requestedModel,
+      choices: [{
+        index: 0,
+        message: { role: "assistant", content: cleanText(content) || null },
+        finish_reason: "stop"
+      }],
+      usage: { prompt_tokens: 0, completion_tokens: completionTokens, total_tokens: completionTokens }
+    };
+    defer(p, recordOAuthUsage(p, { promptTokens: 0, completionTokens }, true, 200));
+    return new Response(JSON.stringify(json), {
+      status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+  return oauthErrorResponse(
+    `\u6240\u6709 Gemini \u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError}`,
+    lastStatus,
+    "key_exhausted"
+  );
+}
+async function testGeminiWeb(env, rawCookie, modelId) {
+  const accounts = parseAccounts([rawCookie]);
+  const account = accounts[0] || { cookie: "", sapisid: "" };
+  const resolved = resolveGeminiWebModel(modelId);
+  try {
+    const upstream = await callUpstream(env, "hi", resolved.spec.mode, resolved.spec.think, account);
+    if (upstream.ok && upstream.body) {
+      try {
+        await upstream.body.cancel();
+      } catch {
+      }
+      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    }
+    const explicit = checkUpstreamError(upstream.text);
+    return {
+      success: false,
+      message: explicit || `HTTP ${upstream.status}: ${(upstream.text || "").slice(0, 200)}`,
+      statusCode: upstream.status
+    };
+  } catch (err) {
+    return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
+  }
+}
+function listGeminiWebModels() {
+  return { success: true, models: Object.keys(GEMINI_WEB_MODELS) };
+}
+var GEMINI_BASE, BL_PAGE_URL, STREAM_PATH, BL_FALLBACK, BL_TTL_MS, GEMINI_TIMEOUT_MS, BL_KV_KEY, UA_POOL2, LANG_POOL, BL_REGEX_PRIMARY, BL_REGEX_CFB2H, GEMINI_WEB_MODELS;
+var init_gemini_web = __esm({
+  "src/gemini-web.ts"() {
+    "use strict";
+    init_storage_adapter();
+    init_oauth_common();
+    GEMINI_BASE = "https://gemini.google.com";
+    BL_PAGE_URL = `${GEMINI_BASE}/app`;
+    STREAM_PATH = "/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate";
+    BL_FALLBACK = "boq_gemini-web-uiserver_20261005.02_p0";
+    BL_TTL_MS = 60 * 60 * 1e3;
+    GEMINI_TIMEOUT_MS = 12e4;
+    BL_KV_KEY = "geminiweb:bl";
+    UA_POOL2 = [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+    ];
+    LANG_POOL = ["en-US,en;q=0.9", "en", "en-GB,en;q=0.9"];
+    BL_REGEX_PRIMARY = /boq_assistant-bard-web-server_\d{8}\.\d+(_p\d+)?/;
+    BL_REGEX_CFB2H = /"cfb2h"\s*:\s*"(boq_[a-z0-9\-]+_\d{8}\.\d+(_p\d+)?)"/;
+    GEMINI_WEB_MODELS = {
+      "gemini-3.7-flash": { mode: 1, think: 4, desc: "Latest all-around model" },
+      "gemini-3.6-flash": { mode: 1, think: 4, desc: "All-around model" },
+      "gemini-3.5-flash": { mode: 1, think: 4, desc: "Alias of 3.6-flash" },
+      "gemini-3.5-flash-thinking": { mode: 2, think: 0, desc: "Deep thinking, longest output" },
+      "gemini-3.1-pro": { mode: 3, think: 4, desc: "Pro model (needs cookie for real routing)" },
+      "gemini-auto": { mode: 4, think: 4, desc: "Auto model selection" },
+      "gemini-3.5-flash-thinking-lite": { mode: 5, think: 0, desc: "Dynamic thinking, adaptive depth" },
+      "gemini-flash-lite": { mode: 6, think: 4, desc: "Lightweight fast model" }
+    };
+  }
+});
+
 // src/qwen.ts
 var qwen_exports = {};
 __export(qwen_exports, {
@@ -14361,9 +14825,9 @@ async function handleProxy(c) {
         }
       });
     }
-    const OAUTH_TYPES = ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"];
+    const OAUTH_TYPES = ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"];
     if (OAUTH_TYPES.includes(providerType)) {
-      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "kimiweb" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
+      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "kimiweb" || providerType === "geminiweb" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
       if (!supported.includes(subPath)) {
         return c.json({
           error: { message: `${providerType} \u6E20\u9053\u6682\u4E0D\u652F\u6301\u7AEF\u70B9 /v1/${subPath}\uFF08\u652F\u6301: ${supported.map((s) => `/v1/${s}`).join("\u3001")}\uFF09`, type: "invalid_request_error" }
@@ -14401,6 +14865,10 @@ async function handleProxy(c) {
       if (providerType === "kimiweb") {
         const { handleKimiWebRequest: handleKimiWebRequest2 } = await Promise.resolve().then(() => (init_kimi_web(), kimi_web_exports));
         return handleKimiWebRequest2(oauthParams, provider.baseUrl);
+      }
+      if (providerType === "geminiweb") {
+        const { handleGeminiWebRequest: handleGeminiWebRequest2 } = await Promise.resolve().then(() => (init_gemini_web(), gemini_web_exports));
+        return handleGeminiWebRequest2(oauthParams);
       }
       if (providerType === "qwen") {
         const { handleQwenRequest: handleQwenRequest2 } = await Promise.resolve().then(() => (init_qwen(), qwen_exports));
@@ -15147,6 +15615,7 @@ async function checkDevice(token, opts = {}) {
 // src/admin.ts
 init_kimi();
 init_kimi_web();
+init_gemini_web();
 init_grok();
 init_qwen();
 init_deepseek();
@@ -15519,7 +15988,7 @@ async function handleTestModel(c) {
   }
   const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
   const ptype = provider.type || "openai";
-  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
+  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
   return c.json({
     success: true,
     data: result
@@ -15543,7 +16012,7 @@ async function handleTestKeyNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model || OAUTH_DEFAULT_MODELS[providerType], url, providerId);
     return c.json({
       success: true,
@@ -15654,7 +16123,7 @@ async function handleTestModelNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "geminiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model, url, providerId);
     return c.json({
       success: true,
@@ -15788,6 +16257,7 @@ var OAUTH_DEFAULT_MODELS = {
   codex: "gpt-5.5",
   kimi: "kimi-for-coding",
   kimiweb: "k3",
+  geminiweb: "gemini-3.7-flash",
   grok: "grok-4.6",
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
@@ -15876,7 +16346,7 @@ async function handleOAuthModels(c) {
     token = (p?.apiKeys?.find((k) => k.enabled)?.key || p?.apiKeys?.[0]?.key || "").trim();
   }
   const { baseUrl, region } = body;
-  if (!token && provider !== "qwen" && provider !== "deepseek" && provider !== "kimiweb") {
+  if (!token && provider !== "qwen" && provider !== "deepseek" && provider !== "kimiweb" && provider !== "geminiweb") {
     return c.json({ success: false, message: "\u672A\u627E\u5230\u6709\u6548\u51ED\u636E\uFF0C\u8BF7\u5148\u5728\u6E20\u9053\u4E2D\u6DFB\u52A0\u5E76\u4FDD\u5B58\u81F3\u5C11\u4E00\u4E2A Key\uFF0C\u6216\u586B\u5199 token" }, 400);
   }
   if (provider === "claude") {
@@ -15890,6 +16360,10 @@ async function handleOAuthModels(c) {
   if (provider === "kimiweb") {
     const r = await fetchKimiWebModels(c.env, token, baseUrl);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
+  }
+  if (provider === "geminiweb") {
+    const r = listGeminiWebModels();
+    return c.json({ success: true, data: { models: r.models } });
   }
   if (provider === "qwen") {
     const r = fetchQwenModels();
@@ -15914,6 +16388,7 @@ async function testOAuthProvider(env, provider, refreshToken, modelId, baseUrl, 
   if (provider === "codex") return testCodex(env, refreshToken, modelId, providerId);
   if (provider === "kimi") return testKimi(env, refreshToken, modelId, baseUrl);
   if (provider === "kimiweb") return testKimiWeb(env, refreshToken, modelId, baseUrl);
+  if (provider === "geminiweb") return testGeminiWeb(env, refreshToken, modelId);
   if (provider === "grok") return testGrok(env, refreshToken, modelId);
   if (provider === "qwen") return testQwen(env, refreshToken, modelId);
   if (provider === "deepseek") return testDeepSeek(env, refreshToken, modelId);
@@ -19286,11 +19761,13 @@ const OAUTH_DEFAULT_URLS = {
   zai: 'https://api.z.ai/api/coding/paas/v4', 
   codebuddy: 'https://copilot.tencent.com', 
   cline: 'https://api.cline.bot',
-  kimiweb: 'https://www.kimi.ai' 
+  kimiweb: 'https://www.kimi.ai',
+  geminiweb: 'https://gemini.google.com' 
 }
 function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy', 'cline'].indexOf(t) !== -1 }
 function isDeepseekType(t) { return t === 'deepseek' }
 function isKimiWebType(t) { return t === 'kimiweb' }
+function isGeminiWebType(t) { return t === 'geminiweb' }
 function isZaiType(t) { return t === 'zai' }
 function isCodebuddyType(t) { return t === 'codebuddy' }
 
@@ -20279,7 +20756,7 @@ async function createProv() {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   if (!url && !isTts) { toast('\u8BF7\u586B\u5199 API \u5730\u5740', 'error'); return }
 
   let keys = Array.from(document.querySelectorAll('#akeys .field-row')).map(r => {
@@ -20494,7 +20971,7 @@ async function save(id) {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type) || isGeminiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   let keys = getKeys(id)
   const vxKeys = type === 'vertex' ? provVertexKeys(id) : null
   if (vxKeys && vxKeys.length) keys = vxKeys.map(k => ({ key: k, enabled: true }))
@@ -21383,6 +21860,7 @@ ${H3("\u63A7\u5236\u53F0")}
                 <option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option>
                 <option value="kimi">Kimi Coding OAuth \u53CD\u4EE3</option>
                 <option value="kimiweb">Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
+                <option value="geminiweb">Gemini \u7F51\u9875\u7248\u53CD\u4EE3 (Cookie)</option>
                 <option value="grok">Grok OAuth \u53CD\u4EE3</option>
                 <option value="qwen">Qwen OAuth \u53CD\u4EE3</option>
                 <option value="deepseek">DeepSeek \u53CD\u4EE3</option>
@@ -21583,6 +22061,7 @@ ${H3("\u63A7\u5236\u53F0")}
                     <option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option>
                     <option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi Coding OAuth \u53CD\u4EE3</option>
                     <option value="kimiweb" ${p.type === "kimiweb" ? "selected" : ""}>Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
+                    <option value="geminiweb" ${p.type === "geminiweb" ? "selected" : ""}>Gemini \u7F51\u9875\u7248\u53CD\u4EE3 (Cookie)</option>
                     <option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option>
                     <option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option>
                     <option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option>
