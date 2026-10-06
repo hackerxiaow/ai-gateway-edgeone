@@ -7059,6 +7059,579 @@ var init_kimi = __esm({
   }
 });
 
+// src/kimi-web.ts
+var kimi_web_exports = {};
+__export(kimi_web_exports, {
+  KIMI_WEB_FALLBACK_MODELS: () => KIMI_WEB_FALLBACK_MODELS,
+  fetchKimiWebModels: () => fetchKimiWebModels,
+  handleKimiWebRequest: () => handleKimiWebRequest,
+  normalizeKimiWebModel: () => normalizeKimiWebModel,
+  testKimiWeb: () => testKimiWeb
+});
+function randomDigits(min, max) {
+  return String(Math.floor(Math.random() * (max - min)) + min);
+}
+function buildFingerprint(baseUrl) {
+  return {
+    baseUrl: (baseUrl || KIMI_WEB_DEFAULT_BASE).replace(/\/+$/, ""),
+    userAgent: UA_POOL[Math.floor(Math.random() * UA_POOL.length)],
+    acceptLanguage: ACCEPT_LANGUAGE_POOL[Math.floor(Math.random() * ACCEPT_LANGUAGE_POOL.length)],
+    deviceId: randomDigits(7e18, 8e18),
+    sessionId: randomDigits(17e17, 18e17),
+    acceptEncoding: "gzip, deflate, br, zstd"
+  };
+}
+function webHeaders(fp, token, extra) {
+  return {
+    "Accept": "application/json",
+    "Accept-Encoding": fp.acceptEncoding,
+    "Accept-Language": fp.acceptLanguage,
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Authorization": `Bearer ${token}`,
+    "Origin": fp.baseUrl,
+    "Referer": `${fp.baseUrl}/`,
+    "User-Agent": fp.userAgent,
+    "X-Msh-Platform": "web",
+    "X-Msh-Device-Id": fp.deviceId,
+    "X-Msh-Session-Id": fp.sessionId,
+    ...extra || {}
+  };
+}
+function encodeFrame(payload) {
+  const body = new TextEncoder().encode(JSON.stringify(payload));
+  const out = new Uint8Array(5 + body.length);
+  out[0] = 0;
+  new DataView(out.buffer).setUint32(1, body.length, false);
+  out.set(body, 5);
+  return out;
+}
+function createFrameParser() {
+  let buffer = new Uint8Array(0);
+  return {
+    feed(chunk) {
+      const merged = new Uint8Array(buffer.length + chunk.length);
+      merged.set(buffer, 0);
+      merged.set(chunk, buffer.length);
+      buffer = merged;
+      const out = [];
+      let offset = 0;
+      while (offset + 5 <= buffer.length) {
+        if (buffer[offset] !== 0) {
+          offset += 5;
+          continue;
+        }
+        const view = new DataView(buffer.buffer, buffer.byteOffset + offset + 1, 4);
+        const length = view.getUint32(0, false);
+        const frameEnd = offset + 5 + length;
+        if (frameEnd > buffer.length) break;
+        const text = new TextDecoder().decode(buffer.subarray(offset + 5, frameEnd));
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && typeof parsed === "object") out.push(parsed);
+        } catch {
+        }
+        offset = frameEnd;
+      }
+      buffer = offset === 0 ? buffer : buffer.subarray(offset);
+      return out;
+    }
+  };
+}
+function parseJwtExp(token) {
+  const parts = token.split(".");
+  if (parts.length !== 3) return 0;
+  try {
+    const payload = parts[1] + "=".repeat((4 - parts[1].length % 4) % 4);
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return Number(json.exp) || 0;
+  } catch {
+    return 0;
+  }
+}
+function isJwtAccessToken(token) {
+  return token.startsWith("eyJ") && token.split(".").length === 3;
+}
+async function fetchWebAccessToken(fp, rawToken) {
+  if (isJwtAccessToken(rawToken)) {
+    const exp2 = parseJwtExp(rawToken);
+    const expiresIn2 = exp2 ? Math.max(60, Math.floor((exp2 * 1e3 - Date.now()) / 1e3)) : 3600;
+    return { accessToken: rawToken, expiresIn: expiresIn2 };
+  }
+  const res = await fetch(`${fp.baseUrl}${REFRESH_PATH}`, {
+    method: "GET",
+    headers: webHeaders(fp, rawToken),
+    signal: AbortSignal.timeout(3e4)
+  });
+  const text = await res.text();
+  if (res.status === 401 || res.status === 403) {
+    throw new Error(`Kimi token \u5DF2\u5931\u6548 (HTTP ${res.status})\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55 www.kimi.ai \u83B7\u53D6`);
+  }
+  if (!res.ok) {
+    throw new Error(`Kimi token \u7EED\u671F\u5931\u8D25 HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("Kimi token \u7EED\u671F\u8FD4\u56DE\u975E JSON");
+  }
+  const accessToken = json?.access_token || json?.token;
+  if (!accessToken) throw new Error("Kimi token \u7EED\u671F\u672A\u8FD4\u56DE access_token");
+  const exp = parseJwtExp(accessToken);
+  const expiresIn = exp ? Math.max(60, Math.floor((exp * 1e3 - Date.now()) / 1e3)) : Number(json?.expires_in) || 3600;
+  return { accessToken, expiresIn, refreshToken: json?.refresh_token || void 0 };
+}
+async function getWebAccessToken(env, fp, rawToken) {
+  const cached = await resolveAccessToken(env, AT_PREFIX5, rawToken, (token) => fetchWebAccessToken(fp, token));
+  return cached.accessToken;
+}
+async function fetchKimiWebModels(env, rawToken, baseUrl) {
+  const fp = buildFingerprint(baseUrl);
+  let token = "";
+  if (rawToken) {
+    try {
+      token = await getWebAccessToken(env, fp, rawToken);
+    } catch (err) {
+      return { success: false, models: [], message: err.message || "token \u7EED\u671F\u5931\u8D25" };
+    }
+  }
+  try {
+    const res = await fetch(`${fp.baseUrl}${MODELS_PATH}`, {
+      method: "POST",
+      headers: webHeaders(fp, token || "anonymous", { "Content-Type": "application/json" }),
+      body: encodeFrame({}),
+      signal: AbortSignal.timeout(3e4)
+    });
+    const raw2 = await res.arrayBuffer();
+    if (!res.ok) {
+      const text = new TextDecoder().decode(raw2);
+      return { success: false, models: [], message: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
+    const catalog = parseFrames(new Uint8Array(raw2));
+    const specs = parseModelSpecs(catalog);
+    if (specs.length === 0) {
+      return { success: false, models: [], message: "\u4E0A\u6E38\u672A\u8FD4\u56DE\u6A21\u578B\u5217\u8868" };
+    }
+    return { success: true, models: specs.map((s) => s.key) };
+  } catch (err) {
+    return { success: false, models: [], message: err.message || "\u62C9\u53D6\u5931\u8D25" };
+  }
+}
+function parseFrames(bytes) {
+  return createFrameParser().feed(bytes);
+}
+function parseModelSpecs(catalog) {
+  const rows = [];
+  for (const frame of catalog) {
+    const models = frame?.availableModels || frame?.available_models;
+    if (Array.isArray(models)) rows.push(...models);
+  }
+  const specs = [];
+  for (const raw2 of rows) {
+    if (!raw2 || typeof raw2 !== "object") continue;
+    const key = String(raw2.key || raw2.id || "");
+    if (!key) continue;
+    const scenario = String(raw2.scenario || "");
+    specs.push({
+      key,
+      displayName: String(raw2.displayName || raw2.display_name || key),
+      scenario,
+      agentMode: String(raw2.agentMode || raw2.agent_mode || ""),
+      kimiPlusId: String(raw2.kimiPlusId || raw2.kimi_plus_id || ""),
+      thinking: Boolean(raw2.thinking),
+      supportsWebSearch: scenario === "SCENARIO_K2D5"
+    });
+  }
+  const withSearch = [...specs];
+  for (const s of specs) {
+    if (s.supportsWebSearch && !s.key.endsWith("-search")) {
+      withSearch.push({ ...s, key: `${s.key}-search`, supportsWebSearch: true });
+    }
+  }
+  return withSearch;
+}
+function messageText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string") return part;
+      if (part?.type === "text") return String(part.text || "");
+      return "";
+    }).filter(Boolean).join("\n");
+  }
+  if (content === null || content === void 0) return "";
+  return String(content);
+}
+function flattenMessages(messages) {
+  const lines = [];
+  for (const m of messages) {
+    const text = messageText(m.content).trim();
+    if (!text) continue;
+    const role = m.role === "assistant" ? "assistant" : m.role === "system" ? "system" : "user";
+    lines.push(`${role}:${text}`);
+  }
+  return lines.join("\n");
+}
+function buildChatPayload(model, prompt, enableWebSearch) {
+  const spec = resolveSpec(model);
+  const payload = {
+    scenario: spec.scenario,
+    tools: enableWebSearch || spec.forceWebSearch ? [{ type: "TOOL_TYPE_SEARCH", search: {} }] : [],
+    message: {
+      role: "user",
+      blocks: [{ message_id: "", text: { content: prompt } }],
+      scenario: spec.scenario
+    },
+    options: { thinking: spec.thinking }
+  };
+  if (spec.kimiPlusId) payload.kimiplusId = spec.kimiPlusId;
+  if (spec.agentMode) payload.agentMode = spec.agentMode;
+  return payload;
+}
+function resolveSpec(model) {
+  const raw2 = (model || "").trim().toLowerCase();
+  const forceWebSearch = raw2.endsWith("-search");
+  const base = forceWebSearch ? raw2.slice(0, -"-search".length) : raw2;
+  if (base === "k3") {
+    return { scenario: "SCENARIO_OK_COMPUTER", thinking: false, kimiPlusId: "ok-computer", agentMode: "TYPE_NORMAL", forceWebSearch };
+  }
+  if (base === "k3-agent-ultra" || base === "k3-swarm") {
+    return { scenario: "SCENARIO_OK_COMPUTER", thinking: false, kimiPlusId: "ok-computer", agentMode: "TYPE_ULTRA", forceWebSearch };
+  }
+  return { scenario: "SCENARIO_K2D5", thinking: base.includes("thinking"), kimiPlusId: "", agentMode: "", forceWebSearch };
+}
+function normalizeKimiWebModel(model) {
+  const raw2 = (model || "").trim().toLowerCase();
+  const base = raw2.replace(/^kimi-/, "").replace(/\[1m\]$/, "");
+  if (base.startsWith("k3")) return base;
+  if (base.startsWith("k2")) return base;
+  return base || raw2;
+}
+function extractDelta(event) {
+  if (!event || typeof event !== "object") return {};
+  if (event.error || event.errorMessage) {
+    return { error: String(event.error || event.errorMessage), done: true };
+  }
+  const mask = String(event.mask || "");
+  const block = event.block || {};
+  let phase = null;
+  const stages = block.multiStage?.stages;
+  if (Array.isArray(stages) && stages.length > 0 && stages[0]?.name === "STAGE_NAME_THINKING") {
+    phase = stages[0]?.status === "completed" ? "answer" : "thinking";
+  }
+  const flags = block.text?.flags;
+  if (flags === "thinking") phase = "thinking";
+  else if (flags === "answer") phase = "answer";
+  if (mask.includes("block.think")) {
+    const content = block.think?.content;
+    return typeof content === "string" && content ? { reasoning: content } : {};
+  }
+  const text = block.text?.content;
+  if (typeof text !== "string" || !text) {
+    if (event.event === "finished" || block.type === "empty") return { done: true };
+    return {};
+  }
+  if (phase === "thinking") return { reasoning: text };
+  return { content: text };
+}
+function createSseSender(controller, state) {
+  return (delta, finish = null, usage) => {
+    const chunk = {
+      id: state.id,
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1e3),
+      model: state.model,
+      choices: [{ index: 0, delta, finish_reason: finish, logprobs: null }]
+    };
+    if (usage) {
+      chunk.usage = {
+        prompt_tokens: usage.prompt,
+        completion_tokens: usage.completion,
+        total_tokens: usage.prompt + usage.completion
+      };
+    }
+    controller.enqueue(state.encoder.encode(`data: ${JSON.stringify(chunk)}
+
+`));
+  };
+}
+function kimiEventsToOpenAIStream(upstream, requestedModel, onUsage) {
+  const parser = createFrameParser();
+  const state = { id: `chatcmpl-kimiweb-${randomId()}`, model: requestedModel, encoder: new TextEncoder() };
+  let roleSent = false;
+  let finished = false;
+  let completionTokens = 0;
+  return new ReadableStream({
+    start(controller) {
+      const send = createSseSender(controller, state);
+      const reader = upstream.getReader();
+      const finish = (reason) => {
+        if (finished) return;
+        finished = true;
+        send({}, reason || "stop", { prompt: 0, completion: completionTokens });
+        controller.enqueue(state.encoder.encode("data: [DONE]\n\n"));
+        if (onUsage) onUsage({ promptTokens: 0, completionTokens });
+        try {
+          controller.close();
+        } catch {
+        }
+      };
+      const handleEvent = (event) => {
+        const usage = event.usage || event.tokenUsage;
+        if (usage && typeof usage === "object") {
+          const n = Number(usage.completion_tokens ?? usage.output_tokens ?? 0);
+          if (n > 0) completionTokens = n;
+        }
+        const d = extractDelta(event);
+        if (!roleSent && (d.content || d.reasoning)) {
+          roleSent = true;
+          send({ role: "assistant", content: "" });
+        }
+        if (d.reasoning) {
+          if (!roleSent) {
+            roleSent = true;
+            send({ role: "assistant", content: "" });
+          }
+          send({ reasoning_content: d.reasoning });
+        }
+        if (d.content) {
+          if (!roleSent) {
+            roleSent = true;
+            send({ role: "assistant", content: "" });
+          }
+          send({ content: d.content });
+          if (completionTokens === 0) completionTokens += Math.ceil(d.content.length / 4);
+        }
+        if (d.error) {
+          send({ content: `[kimiweb] ${d.error}` }, "stop", { prompt: 0, completion: completionTokens });
+          if (onUsage) onUsage({ promptTokens: 0, completionTokens });
+          controller.enqueue(state.encoder.encode("data: [DONE]\n\n"));
+          finished = true;
+          try {
+            controller.close();
+          } catch {
+          }
+          return;
+        }
+        if (d.done) finish("stop");
+      };
+      const pump = () => {
+        reader.read().then(({ done, value }) => {
+          if (done) {
+            if (!roleSent) send({ role: "assistant", content: "" });
+            finish("stop");
+            return;
+          }
+          for (const event of parser.feed(value)) {
+            if (finished) return;
+            handleEvent(event);
+          }
+          if (!finished) pump();
+        }).catch((err) => {
+          if (!finished) {
+            try {
+              send({ content: `[kimiweb] ${err?.message || "\u4E0A\u6E38\u6D41\u4E2D\u65AD"}` }, "stop");
+              controller.enqueue(state.encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            } catch {
+            }
+          }
+          finished = true;
+        });
+      };
+      pump();
+    }
+  });
+}
+async function kimiEventsToOpenAIJson(upstream, requestedModel) {
+  const reader = upstream.getReader();
+  const parser = createFrameParser();
+  let content = "";
+  let reasoning = "";
+  let finishReason = "stop";
+  let completionTokens = 0;
+  for (; ; ) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    for (const event of parser.feed(value)) {
+      const d = extractDelta(event);
+      if (d.reasoning) reasoning += d.reasoning;
+      if (d.content) content += d.content;
+      if (d.error) {
+        return oauthErrorResponse(`Kimi Web \u4E0A\u6E38\u9519\u8BEF: ${d.error}`, 502, "upstream_error");
+      }
+      if (d.done) finishReason = "stop";
+    }
+  }
+  if (completionTokens === 0) completionTokens = Math.ceil((content.length + reasoning.length) / 4);
+  return {
+    id: `chatcmpl-kimiweb-${randomId()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1e3),
+    model: requestedModel,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: content || null,
+          ...reasoning ? { reasoning_content: reasoning } : {}
+        },
+        finish_reason: finishReason
+      }
+    ],
+    usage: {
+      prompt_tokens: 0,
+      completion_tokens: completionTokens,
+      total_tokens: completionTokens
+    }
+  };
+}
+async function handleKimiWebRequest(p, baseUrl) {
+  const tokens = (p.refreshTokens || []).map((t) => (t || "").trim()).filter(Boolean);
+  if (tokens.length === 0) {
+    return oauthErrorResponse(
+      "\u8BE5 kimiweb \u6E20\u9053\u672A\u914D\u7F6E\u51ED\u636E\uFF1A\u8BF7\u767B\u5F55 https://www.kimi.ai \u540E\uFF0C\u5728\u6D4F\u89C8\u5668 Local Storage \u91CC\u53D6 access_token \u6216 refresh_token\uFF0C\u6BCF\u884C\u4E00\u4E2A\u586B\u5165\u300CAPI Keys\u300D",
+      400,
+      "configuration_error"
+    );
+  }
+  const model = normalizeKimiWebModel(p.requestedModel || p.modelId);
+  const messages = Array.isArray(p.body?.messages) ? p.body.messages : [];
+  const prompt = flattenMessages(messages);
+  if (!prompt) {
+    return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
+  }
+  const stream = p.body?.stream === true;
+  const enableWebSearch = Boolean(p.body?.web_search || p.body?.enable_web_search);
+  const payload = buildChatPayload(model, prompt, enableWebSearch);
+  const body = encodeFrame(payload);
+  let lastError = "";
+  let lastStatus = 502;
+  for (const rawToken of tokens) {
+    const fp = buildFingerprint(baseUrl);
+    try {
+      const accessToken = await getWebAccessToken(p.env, fp, rawToken);
+      const upstream = await fetch(`${fp.baseUrl}${CHAT_PATH}`, {
+        method: "POST",
+        headers: webHeaders(fp, accessToken, {
+          "Content-Type": "application/proto+json",
+          "Connect-Protocol-Version": "1"
+        }),
+        body,
+        signal: AbortSignal.timeout(KIMI_WEB_TIMEOUT_MS)
+      });
+      if (!upstream.ok) {
+        lastStatus = upstream.status;
+        lastError = `HTTP ${upstream.status}: ${(await readErrorBody(upstream)).slice(0, 300)}`;
+        if ([401, 403, 429].includes(upstream.status) || upstream.status >= 500) continue;
+        return oauthErrorResponse(lastError, upstream.status, "upstream_error");
+      }
+      if (!upstream.body) {
+        return oauthErrorResponse("Kimi Web \u4E0A\u6E38\u672A\u8FD4\u56DE\u54CD\u5E94\u4F53", 502, "upstream_error");
+      }
+      if (stream && upstream.body) {
+        const [toClient, forUsage] = upstream.body.tee();
+        const reader = forUsage.getReader();
+        defer(p, (async () => {
+          let completion = 0;
+          const parser = createFrameParser();
+          for (; ; ) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            for (const ev of parser.feed(value)) {
+              const usage = ev.usage || ev.tokenUsage;
+              const n = Number(usage?.completion_tokens ?? usage?.output_tokens ?? 0);
+              if (n > 0) completion = n;
+            }
+          }
+          await recordOAuthUsage(p, { promptTokens: 0, completionTokens: completion }, true, 200);
+        })().catch(() => {
+        }));
+        const sse = kimiEventsToOpenAIStream(toClient, p.requestedModel);
+        return new Response(sse, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-store",
+            Connection: "keep-alive"
+          }
+        });
+      }
+      const json = await kimiEventsToOpenAIJson(upstream.body, p.requestedModel);
+      defer(p, recordOAuthUsage(p, {
+        promptTokens: Number(json.usage?.prompt_tokens) || 0,
+        completionTokens: Number(json.usage?.completion_tokens) || 0
+      }, true, 200));
+      return new Response(JSON.stringify(json), {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    } catch (err) {
+      lastError = err.message || "\u672A\u77E5\u9519\u8BEF";
+      lastStatus = 502;
+      continue;
+    }
+  }
+  return oauthErrorResponse(
+    `\u6240\u6709 Kimi \u8D26\u53F7\u5747\u5931\u8D25\uFF0C\u6700\u540E\u4E00\u6B21\u9519\u8BEF: ${lastError || "\u672A\u77E5"}`,
+    lastStatus,
+    "key_exhausted"
+  );
+}
+async function testKimiWeb(env, rawToken, modelId, baseUrl) {
+  if (!rawToken) return { success: false, message: "\u672A\u586B\u5199 token", statusCode: 0 };
+  const fp = buildFingerprint(baseUrl);
+  try {
+    const accessToken = await getWebAccessToken(env, fp, rawToken);
+    const res = await fetch(`${fp.baseUrl}${CHAT_PATH}`, {
+      method: "POST",
+      headers: webHeaders(fp, accessToken, {
+        "Content-Type": "application/proto+json",
+        "Connect-Protocol-Version": "1"
+      }),
+      body: encodeFrame(buildChatPayload(modelId, "hi", false)),
+      signal: AbortSignal.timeout(12e4)
+    });
+    if (res.ok) {
+      try {
+        await res.arrayBuffer();
+      } catch {
+      }
+      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    }
+    return { success: false, message: `HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`, statusCode: res.status };
+  } catch (err) {
+    return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
+  }
+}
+var KIMI_WEB_DEFAULT_BASE, AT_PREFIX5, CHAT_PATH, MODELS_PATH, REFRESH_PATH, KIMI_WEB_TIMEOUT_MS, UA_POOL, ACCEPT_LANGUAGE_POOL, KIMI_WEB_FALLBACK_MODELS;
+var init_kimi_web = __esm({
+  "src/kimi-web.ts"() {
+    "use strict";
+    init_oauth_common();
+    KIMI_WEB_DEFAULT_BASE = "https://www.kimi.ai";
+    AT_PREFIX5 = "kimiweb:at:";
+    CHAT_PATH = "/apiv2/kimi.gateway.chat.v1.ChatService/Chat";
+    MODELS_PATH = "/apiv2/kimi.gateway.config.v1.ConfigService/GetAvailableModels";
+    REFRESH_PATH = "/api/auth/token/refresh";
+    KIMI_WEB_TIMEOUT_MS = 6e5;
+    UA_POOL = [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    ];
+    ACCEPT_LANGUAGE_POOL = [
+      "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+      "zh-CN,zh;q=0.9,en;q=0.8",
+      "en-US,en;q=0.9"
+    ];
+    KIMI_WEB_FALLBACK_MODELS = ["k3", "k3-agent-ultra", "k2d6", "k2d6-search"];
+  }
+});
+
 // src/qwen.ts
 var qwen_exports = {};
 __export(qwen_exports, {
@@ -7195,7 +7768,7 @@ async function refreshQwenToken(refreshToken) {
   };
 }
 async function getAccessTokenWithBase(env, refreshToken) {
-  const cached = await resolveAccessToken(env, AT_PREFIX5, refreshToken, refreshQwenToken);
+  const cached = await resolveAccessToken(env, AT_PREFIX6, refreshToken, refreshQwenToken);
   const base = normalizeResourceBase(cached.extra?.resourceUrl);
   return { token: cached.accessToken, base };
 }
@@ -7294,7 +7867,7 @@ async function testQwen(env, refreshToken, modelId) {
 function fetchQwenModels() {
   return { success: true, models: [...QWEN_DEFAULT_MODELS] };
 }
-var QWEN_CLIENT_ID, QWEN_DEVICE_URL, QWEN_TOKEN_URL, QWEN_SCOPE, QWEN_DEVICE_GRANT, QWEN_DEFAULT_BASE, QWEN_DEFAULT_MODELS, QWEN_UA, AT_PREFIX5, DEVICE_PREFIX2;
+var QWEN_CLIENT_ID, QWEN_DEVICE_URL, QWEN_TOKEN_URL, QWEN_SCOPE, QWEN_DEVICE_GRANT, QWEN_DEFAULT_BASE, QWEN_DEFAULT_MODELS, QWEN_UA, AT_PREFIX6, DEVICE_PREFIX2;
 var init_qwen = __esm({
   "src/qwen.ts"() {
     "use strict";
@@ -7308,7 +7881,7 @@ var init_qwen = __esm({
     QWEN_DEFAULT_BASE = "https://portal.qwen.ai/v1";
     QWEN_DEFAULT_MODELS = ["coder-model", "qwen3-coder-plus", "qwen3-coder-flash", "vision-model"];
     QWEN_UA = "QwenCode/0.9.1 (darwin; arm64)";
-    AT_PREFIX5 = "qwen:at:";
+    AT_PREFIX6 = "qwen:at:";
     DEVICE_PREFIX2 = "qwen:device:";
   }
 });
@@ -10441,7 +11014,7 @@ async function refreshGrokToken(env, refreshToken) {
   return { accessToken: json.access_token, expiresIn: Number(json.expires_in) || 3600, refreshToken: json.refresh_token || void 0 };
 }
 async function getAccessToken5(env, refreshToken) {
-  return (await resolveAccessToken(env, AT_PREFIX6, refreshToken, (token) => refreshGrokToken(env, token))).accessToken;
+  return (await resolveAccessToken(env, AT_PREFIX7, refreshToken, (token) => refreshGrokToken(env, token))).accessToken;
 }
 function apiHeaders3(accessToken, stream) {
   return {
@@ -10554,7 +11127,7 @@ async function testGrok(env, refreshToken, modelId) {
     return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
   }
 }
-var XAI_DISCOVERY_URL, XAI_CLIENT_ID, XAI_SCOPE, XAI_DEVICE_GRANT, XAI_CHAT_PROXY_BASE, XAI_UA, XAI_CLIENT_VERSION, AT_PREFIX6, DEVICE_PREFIX3, EP_PREFIX;
+var XAI_DISCOVERY_URL, XAI_CLIENT_ID, XAI_SCOPE, XAI_DEVICE_GRANT, XAI_CHAT_PROXY_BASE, XAI_UA, XAI_CLIENT_VERSION, AT_PREFIX7, DEVICE_PREFIX3, EP_PREFIX;
 var init_grok = __esm({
   "src/grok.ts"() {
     "use strict";
@@ -10568,7 +11141,7 @@ var init_grok = __esm({
     XAI_CHAT_PROXY_BASE = "https://cli-chat-proxy.grok.com/v1";
     XAI_UA = "xai-grok-workspace/0.2.120";
     XAI_CLIENT_VERSION = "0.2.120";
-    AT_PREFIX6 = "grok:at:";
+    AT_PREFIX7 = "grok:at:";
     DEVICE_PREFIX3 = "grok:device:";
     EP_PREFIX = "grok:endpoints:";
   }
@@ -13789,9 +14362,9 @@ async function handleProxy(c) {
         }
       });
     }
-    const OAUTH_TYPES = ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"];
+    const OAUTH_TYPES = ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"];
     if (OAUTH_TYPES.includes(providerType)) {
-      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
+      const supported = providerType === "claude" ? ["chat/completions", "messages"] : providerType === "kimi" || providerType === "kimiweb" || providerType === "qwen" || providerType === "deepseek" || providerType === "codebuddy" || providerType === "cline" ? ["chat/completions"] : ["chat/completions", "responses"];
       if (!supported.includes(subPath)) {
         return c.json({
           error: { message: `${providerType} \u6E20\u9053\u6682\u4E0D\u652F\u6301\u7AEF\u70B9 /v1/${subPath}\uFF08\u652F\u6301: ${supported.map((s) => `/v1/${s}`).join("\u3001")}\uFF09`, type: "invalid_request_error" }
@@ -13825,6 +14398,10 @@ async function handleProxy(c) {
       if (providerType === "kimi") {
         const { handleKimiRequest: handleKimiRequest2 } = await Promise.resolve().then(() => (init_kimi(), kimi_exports));
         return handleKimiRequest2(oauthParams, provider.baseUrl);
+      }
+      if (providerType === "kimiweb") {
+        const { handleKimiWebRequest: handleKimiWebRequest2 } = await Promise.resolve().then(() => (init_kimi_web(), kimi_web_exports));
+        return handleKimiWebRequest2(oauthParams, provider.baseUrl);
       }
       if (providerType === "qwen") {
         const { handleQwenRequest: handleQwenRequest2 } = await Promise.resolve().then(() => (init_qwen(), qwen_exports));
@@ -14570,6 +15147,7 @@ async function checkDevice(token, opts = {}) {
 
 // src/admin.ts
 init_kimi();
+init_kimi_web();
 init_grok();
 init_qwen();
 init_deepseek();
@@ -14942,7 +15520,7 @@ async function handleTestModel(c) {
   }
   const enabledKeys = provider.apiKeys.filter((k) => k.enabled);
   const ptype = provider.type || "openai";
-  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
+  const result = isOpenCodeProvider(provider.id) ? await testOpenCodeModel(provider.baseUrl, enabledKeys, modelId, resolveProviderMirrorUrls(c.env, provider)) : ptype === "antigravity" ? await testAntigravityRotating(c.env, enabledKeys.map((k) => k.key), modelId, provider.project) : ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(ptype) ? await testOAuthProviderRotating(c.env, ptype, enabledKeys.map((k) => k.key), modelId, provider.baseUrl, provider.id, provider.region) : await testModelConnectionRotating(provider.baseUrl, enabledKeys.map((k) => k.key), modelId, provider.apiType);
   return c.json({
     success: true,
     data: result
@@ -14966,7 +15544,7 @@ async function handleTestKeyNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model || OAUTH_DEFAULT_MODELS[providerType], url, providerId);
     return c.json({
       success: true,
@@ -15077,7 +15655,7 @@ async function handleTestModelNew(c) {
       data: { success: r.success, statusCode: r.statusCode || 0, message: r.message }
     });
   }
-  if (providerType && ["claude", "codex", "kimi", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
+  if (providerType && ["claude", "codex", "kimi", "kimiweb", "grok", "qwen", "deepseek", "codebuddy", "cline"].includes(providerType)) {
     const r = await testOAuthProvider(c.env, providerType, apiKey, model, url, providerId);
     return c.json({
       success: true,
@@ -15210,6 +15788,7 @@ var OAUTH_DEFAULT_MODELS = {
   claude: "claude-sonnet-4-5-20250929",
   codex: "gpt-5.5",
   kimi: "kimi-for-coding",
+  kimiweb: "k3",
   grok: "grok-4.6",
   qwen: "coder-model",
   deepseek: "deepseek-v4-flash",
@@ -15298,7 +15877,7 @@ async function handleOAuthModels(c) {
     token = (p?.apiKeys?.find((k) => k.enabled)?.key || p?.apiKeys?.[0]?.key || "").trim();
   }
   const { baseUrl, region } = body;
-  if (!token && provider !== "qwen" && provider !== "deepseek") {
+  if (!token && provider !== "qwen" && provider !== "deepseek" && provider !== "kimiweb") {
     return c.json({ success: false, message: "\u672A\u627E\u5230\u6709\u6548\u51ED\u636E\uFF0C\u8BF7\u5148\u5728\u6E20\u9053\u4E2D\u6DFB\u52A0\u5E76\u4FDD\u5B58\u81F3\u5C11\u4E00\u4E2A Key\uFF0C\u6216\u586B\u5199 token" }, 400);
   }
   if (provider === "claude") {
@@ -15307,6 +15886,10 @@ async function handleOAuthModels(c) {
   }
   if (provider === "kimi") {
     const r = await fetchKimiModels(c.env, token, baseUrl);
+    return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
+  }
+  if (provider === "kimiweb") {
+    const r = await fetchKimiWebModels(c.env, token, baseUrl);
     return c.json({ success: r.success, data: { models: r.models, message: r.message }, message: r.message });
   }
   if (provider === "qwen") {
@@ -15331,6 +15914,7 @@ async function testOAuthProvider(env, provider, refreshToken, modelId, baseUrl, 
   if (provider === "claude") return testClaude(env, refreshToken, modelId);
   if (provider === "codex") return testCodex(env, refreshToken, modelId, providerId);
   if (provider === "kimi") return testKimi(env, refreshToken, modelId, baseUrl);
+  if (provider === "kimiweb") return testKimiWeb(env, refreshToken, modelId, baseUrl);
   if (provider === "grok") return testGrok(env, refreshToken, modelId);
   if (provider === "qwen") return testQwen(env, refreshToken, modelId);
   if (provider === "deepseek") return testDeepSeek(env, refreshToken, modelId);
@@ -18702,10 +19286,12 @@ const OAUTH_DEFAULT_URLS = {
   deepseek: 'https://chat.deepseek.com', 
   zai: 'https://api.z.ai/api/coding/paas/v4', 
   codebuddy: 'https://copilot.tencent.com', 
-  cline: 'https://api.cline.bot' 
+  cline: 'https://api.cline.bot',
+  kimiweb: 'https://www.kimi.ai' 
 }
 function isOauthType(t) { return ['claude', 'codex', 'kimi', 'grok', 'qwen', 'codebuddy', 'cline'].indexOf(t) !== -1 }
 function isDeepseekType(t) { return t === 'deepseek' }
+function isKimiWebType(t) { return t === 'kimiweb' }
 function isZaiType(t) { return t === 'zai' }
 function isCodebuddyType(t) { return t === 'codebuddy' }
 
@@ -19694,7 +20280,7 @@ async function createProv() {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   if (!url && !isTts) { toast('\u8BF7\u586B\u5199 API \u5730\u5740', 'error'); return }
 
   let keys = Array.from(document.querySelectorAll('#akeys .field-row')).map(r => {
@@ -19909,7 +20495,7 @@ async function save(id) {
   if (!url && type === 'antigravity') url = 'https://daily-cloudcode-pa.googleapis.com'
   if (!url && type === 'vertex') url = 'https://aiplatform.googleapis.com'
   if (!url && type === 'devin') url = 'https://server.codeium.com'
-  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
+  if (!url && (isOauthType(type) || isDeepseekType(type) || isZaiType(type) || isKimiWebType(type))) url = OAUTH_DEFAULT_URLS[type] || ''
   let keys = getKeys(id)
   const vxKeys = type === 'vertex' ? provVertexKeys(id) : null
   if (vxKeys && vxKeys.length) keys = vxKeys.map(k => ({ key: k, enabled: true }))
@@ -20796,7 +21382,8 @@ ${H3("\u63A7\u5236\u53F0")}
                 <option value="antigravity">Antigravity \u53CD\u4EE3</option>
                 <option value="claude">Claude OAuth \u53CD\u4EE3</option>
                 <option value="codex">ChatGPT (Codex) \u53CD\u4EE3</option>
-                <option value="kimi">Kimi OAuth \u53CD\u4EE3</option>
+                <option value="kimi">Kimi Coding OAuth \u53CD\u4EE3</option>
+                <option value="kimiweb">Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
                 <option value="grok">Grok OAuth \u53CD\u4EE3</option>
                 <option value="qwen">Qwen OAuth \u53CD\u4EE3</option>
                 <option value="deepseek">DeepSeek \u53CD\u4EE3</option>
@@ -20995,7 +21582,8 @@ ${H3("\u63A7\u5236\u53F0")}
                     <option value="antigravity" ${p.type === "antigravity" ? "selected" : ""}>Antigravity \u53CD\u4EE3</option>
                     <option value="claude" ${p.type === "claude" ? "selected" : ""}>Claude OAuth \u53CD\u4EE3</option>
                     <option value="codex" ${p.type === "codex" ? "selected" : ""}>ChatGPT (Codex) \u53CD\u4EE3</option>
-                    <option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi OAuth \u53CD\u4EE3</option>
+                    <option value="kimi" ${p.type === "kimi" ? "selected" : ""}>Kimi Coding OAuth \u53CD\u4EE3</option>
+                    <option value="kimiweb" ${p.type === "kimiweb" ? "selected" : ""}>Kimi \u7F51\u9875\u7248\u53CD\u4EE3 (kimi.ai)</option>
                     <option value="grok" ${p.type === "grok" ? "selected" : ""}>Grok OAuth \u53CD\u4EE3</option>
                     <option value="qwen" ${p.type === "qwen" ? "selected" : ""}>Qwen OAuth \u53CD\u4EE3</option>
                     <option value="deepseek" ${p.type === "deepseek" ? "selected" : ""}>DeepSeek \u53CD\u4EE3</option>
