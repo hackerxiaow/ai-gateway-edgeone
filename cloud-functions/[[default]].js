@@ -7631,6 +7631,276 @@ var init_kimi_web = __esm({
   }
 });
 
+// src/gemini-socket.ts
+async function resolveConnect() {
+  if (_connect !== void 0) return _connect;
+  try {
+    const mod = await import("cloudflare:sockets");
+    if (mod.connect) {
+      _connect = mod.connect;
+      return _connect;
+    }
+  } catch {
+  }
+  _connect = await createNodeConnect();
+  return _connect;
+}
+async function createNodeConnect() {
+  let tls;
+  try {
+    const dynamicImport = new Function("s", "return import(s)");
+    tls = await dynamicImport("node:tls");
+  } catch {
+    return null;
+  }
+  if (!tls?.connect) return null;
+  const connect = (addr, opts) => {
+    const sock = tls.connect({
+      host: addr.hostname,
+      port: addr.port,
+      servername: opts.secureTransport === "on" ? addr.hostname : void 0,
+      ALPNProtocols: ["http/1.1"]
+    });
+    sock.setNoDelay?.(true);
+    const readable = new ReadableStream({
+      start(controller) {
+        sock.on("data", (c) => controller.enqueue(new Uint8Array(c)));
+        sock.on("end", () => {
+          try {
+            controller.close();
+          } catch {
+          }
+        });
+        sock.on("error", (e) => {
+          try {
+            controller.error(e);
+          } catch {
+          }
+        });
+      },
+      cancel() {
+        sock.destroy();
+      }
+    });
+    const writable = new WritableStream({
+      write(chunk) {
+        return new Promise((resolve, reject) => {
+          sock.write(chunk, (err) => err ? reject(err) : resolve());
+        });
+      },
+      close() {
+        sock.end();
+      },
+      abort() {
+        sock.destroy();
+      }
+    });
+    return { readable, writable, close: () => sock.destroy() };
+  };
+  return connect;
+}
+function concatBytes2(a, b) {
+  const out = new Uint8Array(new ArrayBuffer(a.length + b.length));
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+function findCRLF(buf, from) {
+  for (let i = from; i + 1 < buf.length; i++) {
+    if (buf[i] === 13 && buf[i + 1] === 10) return i;
+  }
+  return -1;
+}
+function findDoubleCRLF(buf) {
+  for (let i = 0; i + 3 < buf.length; i++) {
+    if (buf[i] === 13 && buf[i + 1] === 10 && buf[i + 2] === 13 && buf[i + 3] === 10) return i;
+  }
+  return -1;
+}
+async function socketHttp(connect, url, init = {}) {
+  const { method = "GET", headers = {}, body = null, timeoutMs = 18e4 } = init;
+  const u = new URL(url);
+  const secure = u.protocol !== "http:";
+  const port = u.port ? Number(u.port) : secure ? 443 : 80;
+  const socket = connect(
+    { hostname: u.hostname, port },
+    { secureTransport: secure ? "on" : "off", allowHalfOpen: false }
+  );
+  let timer = null;
+  if (timeoutMs) timer = setTimeout(() => {
+    try {
+      socket.close();
+    } catch {
+    }
+  }, timeoutMs);
+  const enc = new TextEncoder();
+  const bodyBytes = body == null ? null : typeof body === "string" ? enc.encode(body) : new Uint8Array(body);
+  const reqHeaders = {
+    Host: u.hostname,
+    "Accept-Encoding": "identity",
+    Connection: "close"
+  };
+  for (const [k, v] of Object.entries(headers)) {
+    if (/^(host|connection|accept-encoding|content-length)$/i.test(k)) continue;
+    reqHeaders[k] = v;
+  }
+  if (bodyBytes) reqHeaders["Content-Length"] = String(bodyBytes.length);
+  let head = `${method} ${u.pathname}${u.search} HTTP/1.1\r
+`;
+  for (const [k, v] of Object.entries(reqHeaders)) head += `${k}: ${v}\r
+`;
+  head += "\r\n";
+  const writer = socket.writable.getWriter();
+  await writer.write(enc.encode(head));
+  if (bodyBytes) await writer.write(bodyBytes);
+  try {
+    writer.releaseLock();
+  } catch {
+  }
+  const reader = socket.readable.getReader();
+  let buf = new Uint8Array(0);
+  let he = -1;
+  while (he < 0) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf = concatBytes2(buf, value);
+    he = findDoubleCRLF(buf);
+  }
+  if (he < 0) {
+    if (timer) clearTimeout(timer);
+    throw new Error("socket: HTTP \u54CD\u5E94\u5934\u4E0D\u5B8C\u6574");
+  }
+  const headerText = new TextDecoder().decode(buf.slice(0, he));
+  let pending = buf.slice(he + 4);
+  const hlines = headerText.split("\r\n");
+  const status = parseInt((hlines[0] || "").split(" ")[1], 10) || 0;
+  const respHeaders = new Headers();
+  for (let i = 1; i < hlines.length; i++) {
+    const c = hlines[i].indexOf(":");
+    if (c > 0) {
+      try {
+        respHeaders.append(hlines[i].slice(0, c).trim(), hlines[i].slice(c + 1).trim());
+      } catch {
+      }
+    }
+  }
+  const chunked = /chunked/i.test(respHeaders.get("transfer-encoding") || "");
+  const clen = respHeaders.has("content-length") ? parseInt(respHeaders.get("content-length"), 10) : null;
+  const stream = new ReadableStream({
+    async start(controller) {
+      const pull = async () => {
+        const { done, value } = await reader.read();
+        if (done) return false;
+        pending = concatBytes2(pending, value);
+        return true;
+      };
+      try {
+        if (chunked) {
+          for (; ; ) {
+            let nl = findCRLF(pending, 0);
+            while (nl < 0) {
+              if (!await pull()) {
+                controller.close();
+                return;
+              }
+              nl = findCRLF(pending, 0);
+            }
+            const size = parseInt(new TextDecoder().decode(pending.slice(0, nl)).trim().split(";")[0], 16);
+            pending = pending.slice(nl + 2);
+            if (!size || Number.isNaN(size)) {
+              controller.close();
+              return;
+            }
+            while (pending.length < size + 2) {
+              if (!await pull()) break;
+            }
+            controller.enqueue(pending.slice(0, size));
+            pending = pending.slice(size + 2);
+          }
+        } else if (clen != null) {
+          let got = 0;
+          if (pending.length) {
+            const t = pending.slice(0, clen);
+            controller.enqueue(t);
+            got += t.length;
+            pending = pending.slice(t.length);
+          }
+          while (got < clen) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const need = clen - got;
+            const t = value.length > need ? value.slice(0, need) : value;
+            controller.enqueue(t);
+            got += t.length;
+          }
+          controller.close();
+        } else {
+          if (pending.length) controller.enqueue(pending);
+          for (; ; ) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        }
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        if (timer) clearTimeout(timer);
+        try {
+          reader.releaseLock();
+        } catch {
+        }
+        try {
+          socket.close();
+        } catch {
+        }
+      }
+    },
+    cancel() {
+      if (timer) clearTimeout(timer);
+      try {
+        socket.close();
+      } catch {
+      }
+    }
+  });
+  const res = {
+    status,
+    ok: status >= 200 && status < 300,
+    headers: respHeaders,
+    body: stream,
+    text: async () => {
+      const r = stream.getReader();
+      let acc = new Uint8Array(0);
+      for (; ; ) {
+        const { done, value } = await r.read();
+        if (done) break;
+        acc = concatBytes2(acc, value);
+      }
+      return new TextDecoder().decode(acc);
+    }
+  };
+  return res;
+}
+async function rawFetch(url, init = {}) {
+  const connect = await resolveConnect();
+  if (connect) {
+    try {
+      return await socketHttp(connect, url, init);
+    } catch {
+    }
+  }
+  const { signal, ...rest } = init;
+  return fetch(url, { ...rest, signal });
+}
+var _connect;
+var init_gemini_socket = __esm({
+  "src/gemini-socket.ts"() {
+    "use strict";
+  }
+});
+
 // src/gemini-web.ts
 var gemini_web_exports = {};
 __export(gemini_web_exports, {
@@ -7695,7 +7965,7 @@ async function fetchLatestBL(cookie) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8e3);
   try {
-    const resp = await fetch(BL_PAGE_URL, { headers, signal: ctrl.signal });
+    const resp = await rawFetch(BL_PAGE_URL, { headers, timeoutMs: 8e3, signal: ctrl.signal });
     const html = await resp.text();
     const primary = html.match(BL_REGEX_PRIMARY);
     if (primary) return primary[0];
@@ -7924,10 +8194,11 @@ async function callUpstream(env, prompt, mode, think, account) {
     };
     if (account.cookie) headers["Cookie"] = account.cookie;
     if (account.sapisid) headers["Authorization"] = await makeSapisidHash(account.sapisid);
-    const resp = await fetch(buildStreamUrl(bl, accountPrefix(account.cookie)), {
+    const resp = await rawFetch(buildStreamUrl(bl, accountPrefix(account.cookie)), {
       method: "POST",
       headers,
       body: buildFormBody(prompt, mode, think),
+      timeoutMs: GEMINI_TIMEOUT_MS,
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
     });
     if (resp.ok && resp.body) {
@@ -8068,6 +8339,7 @@ var init_gemini_web = __esm({
   "src/gemini-web.ts"() {
     "use strict";
     init_storage_adapter();
+    init_gemini_socket();
     init_oauth_common();
     GEMINI_BASE = "https://gemini.google.com";
     BL_PAGE_URL = `${GEMINI_BASE}/app`;
