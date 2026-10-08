@@ -7685,7 +7685,7 @@ async function makeSapisidHash(sapisid) {
   const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
   return `SAPISIDHASH ${ts}_${hex}`;
 }
-async function fetchLatestSession(cookie) {
+async function fetchLatestBL(cookie) {
   const headers = {
     "User-Agent": UA_POOL2[Math.floor(Math.random() * UA_POOL2.length)],
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -7697,34 +7697,27 @@ async function fetchLatestSession(cookie) {
   try {
     const resp = await fetch(BL_PAGE_URL, { headers, signal: ctrl.signal });
     const html = await resp.text();
-    const at = html.match(AT_REGEX_WIZ);
     const primary = html.match(BL_REGEX_PRIMARY);
-    if (primary) return { bl: primary[0], at: at ? at[1] : "" };
+    if (primary) return primary[0];
     const cfb2h = html.match(BL_REGEX_CFB2H);
-    const bl = cfb2h && cfb2h[1] ? cfb2h[1] : BL_FALLBACK;
-    return { bl, at: at ? at[1] : "" };
+    if (cfb2h && cfb2h[1]) return cfb2h[1];
+    return BL_FALLBACK;
   } catch {
-    return { bl: BL_FALLBACK, at: "" };
+    return BL_FALLBACK;
   } finally {
     clearTimeout(timer);
   }
 }
-async function getSession2(env, cookie, force = false) {
+async function getBL(env, cookie, force = false) {
   const kv = getKV(env);
   if (!force) {
-    const cached = await kv.get(SESSION_KV_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.bl) return { bl: parsed.bl, at: parsed.at || "" };
-      } catch {
-      }
-    }
+    const cached = await kv.get(BL_KV_KEY);
+    if (cached) return cached;
   }
-  const session = await fetchLatestSession(cookie);
-  await kv.put(SESSION_KV_KEY, JSON.stringify(session), { expirationTtl: Math.floor(BL_TTL_MS / 1e3) }).catch(() => {
+  const bl = await fetchLatestBL(cookie);
+  await kv.put(BL_KV_KEY, bl, { expirationTtl: Math.floor(BL_TTL_MS / 1e3) }).catch(() => {
   });
-  return session;
+  return bl;
 }
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -7733,7 +7726,7 @@ function generateUUID() {
     return v.toString(16);
   });
 }
-function buildFormBody(prompt, mode, think, at) {
+function buildFormBody(prompt, mode, think) {
   const inner = new Array(80).fill(null);
   inner[0] = [prompt, 0, null, null, null, null, 0];
   inner[1] = ["en"];
@@ -7754,7 +7747,6 @@ function buildFormBody(prompt, mode, think, at) {
   inner[79] = mode;
   const params = new URLSearchParams();
   params.append("f.req", JSON.stringify([null, JSON.stringify(inner)]));
-  if (at) params.append("at", at);
   return params.toString();
 }
 function buildStreamUrl(bl, prefix) {
@@ -7796,7 +7788,7 @@ function extractLineText(line) {
 }
 function checkUpstreamError(raw2) {
   if (/"xsrf"/.test(raw2)) {
-    return "Gemini \u8981\u6C42\u53CD CSRF \u4EE4\u724C\u4F46\u672A\u80FD\u83B7\u53D6\uFF08/app \u9875\u9762\u6293\u53D6\u88AB\u98CE\u63A7\u6216\u7ED3\u6784\u53D8\u5316\uFF09\uFF0C\u8BF7\u66F4\u6362\u90E8\u7F72\u533A\u57DF\u6216\u7A0D\u540E\u91CD\u8BD5";
+    return "Gemini \u62D2\u7EDD\u8BF7\u6C42\uFF08xsrf\uFF09\uFF1A\u901A\u5E38\u662F\u51FA\u53E3 IP \u88AB\u5224\u5B9A\u4E3A\u81EA\u52A8\u5316\u6D41\u91CF\uFF0C\u6362\u4F4F\u5B85/\u975E\u673A\u623F\u51FA\u53E3\u6216\u7A0D\u540E\u91CD\u8BD5";
   }
   const m = raw2.match(/BardErrorInfo\s*\[(\d+)\]/);
   if (m) return `Gemini \u4E0A\u6E38\u62D2\u7EDD\u8BF7\u6C42: BardErrorInfo [${m[1]}]`;
@@ -7916,7 +7908,7 @@ function messagesToPrompt(messages) {
   return parts.join("\n\n");
 }
 async function callUpstream(env, prompt, mode, think, account) {
-  let session = await getSession2(env, account.cookie || void 0);
+  let bl = await getBL(env, account.cookie || void 0);
   for (let attempt = 0; attempt < 2; attempt++) {
     const headers = {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -7932,10 +7924,10 @@ async function callUpstream(env, prompt, mode, think, account) {
     };
     if (account.cookie) headers["Cookie"] = account.cookie;
     if (account.sapisid) headers["Authorization"] = await makeSapisidHash(account.sapisid);
-    const resp = await fetch(buildStreamUrl(session.bl, accountPrefix(account.cookie)), {
+    const resp = await fetch(buildStreamUrl(bl, accountPrefix(account.cookie)), {
       method: "POST",
       headers,
-      body: buildFormBody(prompt, mode, think, session.at),
+      body: buildFormBody(prompt, mode, think),
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
     });
     if (resp.ok && resp.body) {
@@ -7943,9 +7935,9 @@ async function callUpstream(env, prompt, mode, think, account) {
     }
     const text = await resp.text().catch(() => "");
     if ((resp.status === 405 || resp.status === 400) && attempt === 0) {
-      const fresh = await getSession2(env, account.cookie || void 0, true);
-      if (fresh && (fresh.bl !== session.bl || fresh.at !== session.at)) {
-        session = fresh;
+      const fresh = await getBL(env, account.cookie || void 0, true);
+      if (fresh && fresh !== bl) {
+        bl = fresh;
         continue;
       }
     }
@@ -8071,7 +8063,7 @@ async function testGeminiWeb(env, rawCookie, modelId) {
 function listGeminiWebModels() {
   return { success: true, models: Object.keys(GEMINI_WEB_MODELS) };
 }
-var GEMINI_BASE, BL_PAGE_URL, STREAM_PATH, BL_FALLBACK, BL_TTL_MS, GEMINI_TIMEOUT_MS, SESSION_KV_KEY, AT_REGEX_WIZ, UA_POOL2, LANG_POOL, BL_REGEX_PRIMARY, BL_REGEX_CFB2H, GEMINI_WEB_MODELS;
+var GEMINI_BASE, BL_PAGE_URL, STREAM_PATH, BL_FALLBACK, BL_TTL_MS, GEMINI_TIMEOUT_MS, BL_KV_KEY, UA_POOL2, LANG_POOL, BL_REGEX_PRIMARY, BL_REGEX_CFB2H, GEMINI_WEB_MODELS;
 var init_gemini_web = __esm({
   "src/gemini-web.ts"() {
     "use strict";
@@ -8083,8 +8075,7 @@ var init_gemini_web = __esm({
     BL_FALLBACK = "boq_gemini-web-uiserver_20261007.01_p0";
     BL_TTL_MS = 60 * 60 * 1e3;
     GEMINI_TIMEOUT_MS = 12e4;
-    SESSION_KV_KEY = "geminiweb:session";
-    AT_REGEX_WIZ = /"SNlM0e"\s*:\s*"([^"]+)"/;
+    BL_KV_KEY = "geminiweb:bl";
     UA_POOL2 = [
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
