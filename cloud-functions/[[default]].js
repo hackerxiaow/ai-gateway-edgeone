@@ -8079,6 +8079,7 @@ function createGeminiSseStream(upstream, requestedModel, onUsage) {
   let previous = "";
   let roleSent = false;
   let finished = false;
+  let toolMode = false;
   const send = (delta, finish2 = null, withUsage = false) => {
     const chunk = {
       id: state.id,
@@ -8102,7 +8103,19 @@ function createGeminiSseStream(upstream, requestedModel, onUsage) {
   const finish = (reason) => {
     if (finished) return;
     finished = true;
-    send({}, reason || "stop", true);
+    const parsed = parseToolCallBlocks(previous);
+    if (parsed.toolCalls.length) {
+      if (!roleSent) {
+        roleSent = true;
+        send({ role: "assistant", content: "" });
+      }
+      parsed.toolCalls.forEach((tc, i) => {
+        send({ tool_calls: [{ index: i, id: tc.id, type: "function", function: tc.function }] });
+      });
+      send({}, "tool_calls", true);
+    } else {
+      send({}, reason || "stop", true);
+    }
     controller.enqueue(encoder.encode("data: [DONE]\n\n"));
     if (onUsage) onUsage({ promptTokens: 0, completionTokens: Math.ceil(previous.length / 4) });
     try {
@@ -8116,6 +8129,11 @@ function createGeminiSseStream(upstream, requestedModel, onUsage) {
     const delta = full.startsWith(previous) ? full.slice(previous.length) : full;
     previous = full;
     if (!delta) return;
+    if (toolMode) return;
+    if (previous.includes("```tool_call")) {
+      toolMode = true;
+      return;
+    }
     if (!roleSent) {
       roleSent = true;
       send({ role: "assistant", content: "" });
@@ -8157,6 +8175,57 @@ function createGeminiSseStream(upstream, requestedModel, onUsage) {
     }
   });
 }
+function extractToolDefs(tools) {
+  const out = [];
+  if (!Array.isArray(tools)) return out;
+  for (const t of tools) {
+    const fn = t?.function || t;
+    if (!fn || typeof fn.name !== "string" || !fn.name) continue;
+    out.push({ name: fn.name, description: fn.description, parameters: fn.parameters });
+  }
+  return out;
+}
+function toolChoiceInstruction(toolChoice, toolDefs) {
+  const tc = typeof toolChoice === "object" && toolChoice ? toolChoice : { type: toolChoice };
+  const mode = String(tc?.type || "auto").toLowerCase();
+  const names = Array.isArray(tc?.function?.name) ? tc.function.name : tc?.function?.name ? [tc.function.name] : [];
+  if (mode === "none") return "\n\nIMPORTANT: Do NOT call any tools. Respond with text only.";
+  if (mode === "required" || mode === "any") {
+    if (names.length) {
+      const list = names.map((n) => `"${n}"`).join(", ");
+      return `
+
+IMPORTANT: You MUST call one of these tools: ${list}. Do not respond with text only.`;
+    }
+    return "\n\nIMPORTANT: You MUST call at least one tool. Do not respond with text only.";
+  }
+  if (names.length) {
+    const list = names.map((n) => `"${n}"`).join(", ");
+    return `
+
+IMPORTANT: You may only call these tools: ${list}.`;
+  }
+  return "";
+}
+function buildToolPrompt(toolDefs, toolChoice) {
+  const spec = JSON.stringify(toolDefs.map((d) => ({ name: d.name, description: d.description || "", parameters: d.parameters || {} })), null, 2);
+  return `# Tool Use
+
+You can call the following tools to help accomplish tasks. These tools connect to the user's local environment and will execute when called.
+
+Call format (use this exact format):
+\`\`\`tool_call
+{"name": "<tool_name>", "arguments": {<arguments>}}
+\`\`\`
+
+When calling tools:
+- Output ONLY the tool_call block(s), nothing else
+- You may call multiple tools with multiple blocks
+- After receiving a [Tool result for ...], use that data to answer the user
+
+Available tools:
+${spec}` + toolChoiceInstruction(toolChoice, toolDefs);
+}
 function messageText2(content) {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -8165,17 +8234,63 @@ function messageText2(content) {
   if (content === null || content === void 0) return "";
   return String(content);
 }
-function messagesToPrompt(messages) {
+function messagesToPrompt(messages, toolDefs = [], toolChoice) {
   const parts = [];
   for (const m of messages) {
     const text = messageText2(m.content).trim();
-    if (!text) continue;
-    if (m.role === "system") parts.push(`[System instruction]: ${text}`);
-    else if (m.role === "assistant") parts.push(`[Assistant]: ${text}`);
-    else if (m.role === "tool") parts.push(`[Tool result for ${m.name || "tool"}]: ${text}`);
-    else parts.push(text);
+    if (m.role === "system") {
+      if (text) parts.push(`[System instruction]: ${text}`);
+      continue;
+    }
+    if (m.role === "tool") {
+      const nm = m.name || m.tool_call_id || "tool";
+      parts.push(`[Tool result for ${nm}]: ${text}`);
+      continue;
+    }
+    if (m.role === "assistant") {
+      const blocks = Array.isArray(m.tool_calls) && m.tool_calls.length ? m.tool_calls.map((tc) => {
+        const fn = tc?.function || {};
+        const args = typeof fn.arguments === "string" && fn.arguments ? fn.arguments : "{}";
+        return '```tool_call\n{"name": "' + String(fn.name || "") + '", "arguments": ' + args + "}\n```";
+      }).join("\n") : "";
+      const head2 = text || "";
+      parts.push(blocks ? `[Assistant]: ${head2}
+${blocks}`.trim() : `[Assistant]: ${head2}`.trim());
+      continue;
+    }
+    if (text) parts.push(text);
   }
-  return parts.join("\n\n");
+  const head = toolDefs.length ? buildToolPrompt(toolDefs, toolChoice) : "";
+  const body = parts.filter((p) => p).join("\n\n");
+  return head ? body ? `${head}
+
+${body}` : head : body;
+}
+function parseToolCallBlocks(text) {
+  const toolCalls = [];
+  const cleanParts = [];
+  const re = /```tool_call\s*\n([\s\S]*?)\n```/g;
+  let lastEnd = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    cleanParts.push(text.slice(lastEnd, m.index));
+    lastEnd = m.index + m[0].length;
+    try {
+      const data = JSON.parse(m[1].trim());
+      if (data?.name === void 0) continue;
+      toolCalls.push({
+        id: `call_${randomId()}`,
+        type: "function",
+        function: {
+          name: String(data.name),
+          arguments: JSON.stringify(data.arguments ?? {})
+        }
+      });
+    } catch {
+    }
+  }
+  cleanParts.push(text.slice(lastEnd));
+  return { text: cleanParts.join("").trim(), toolCalls };
 }
 async function callUpstream(env, prompt, mode, think, account) {
   let bl = await getBL(env, account.cookie || void 0);
@@ -8225,7 +8340,8 @@ async function handleGeminiWebRequest(p) {
     return oauthErrorResponse(resolved.error, 400, "invalid_request_error");
   }
   const messages = Array.isArray(p.body?.messages) ? p.body.messages : [];
-  const prompt = messagesToPrompt(messages);
+  const toolDefs = extractToolDefs(p.body?.tools);
+  const prompt = messagesToPrompt(messages, toolDefs, p.body?.tool_choice);
   if (!prompt) {
     return oauthErrorResponse("messages \u5185\u5BB9\u4E3A\u7A7A\uFF0C\u65E0\u6CD5\u8F6C\u53D1", 400, "invalid_request_error");
   }
@@ -8284,6 +8400,12 @@ async function handleGeminiWebRequest(p) {
       if (full) content = full;
     }
     const completionTokens = Math.ceil(content.length / 4);
+    const parsed = parseToolCallBlocks(content);
+    const message = {
+      role: "assistant",
+      content: parsed.text ? cleanText(parsed.text) : null
+    };
+    if (parsed.toolCalls.length) message.tool_calls = parsed.toolCalls;
     const json = {
       id: `chatcmpl-geminiweb-${randomId()}`,
       object: "chat.completion",
@@ -8291,8 +8413,8 @@ async function handleGeminiWebRequest(p) {
       model: p.requestedModel,
       choices: [{
         index: 0,
-        message: { role: "assistant", content: cleanText(content) || null },
-        finish_reason: "stop"
+        message,
+        finish_reason: parsed.toolCalls.length ? "tool_calls" : "stop"
       }],
       usage: { prompt_tokens: 0, completion_tokens: completionTokens, total_tokens: completionTokens }
     };
