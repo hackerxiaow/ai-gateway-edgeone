@@ -52,16 +52,16 @@ import { handleBackupExport, handleBackupImport, handleBackupToR2, handleBackupL
 const app = new Hono<{ Bindings: Env }>()
 
 // ===== 全局中间件 =====
-// 手动 gzip：平台 Node 运行时缺 CompressionStream，hono/compress 实测不生效，
-// 90~240KB 的 HTML/JSON 全裸奔传输。这里只压文本类小体积响应：
-// 流式（event-stream）与二进制不在白名单，一律原样透传，绝不缓冲。
+// 手动 gzip：平台把源侧收到的 Accept-Encoding 一律改写为 identity（实测），
+// 源侧无从得知客户端能力。这里对文本类响应一律 gzip 交给边缘：
+// 实测边缘对带 AE: gzip 的客户端原样透传压缩体，对未带 AE 的客户端自动解压，
+// 两类客户端都拿到合法内容。流式（event-stream）与二进制不在白名单，绝不缓冲。
 const COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i
 app.use('*', async (c, next) => {
   await next()
   try {
     const res = c.res
     if (!res || res.headers.get('Content-Encoding')) return
-    if (!(c.req.header('Accept-Encoding') || '').includes('gzip')) return
     const ct = (res.headers.get('Content-Type') || '').split(';')[0].trim()
     if (!COMPRESSIBLE_CT.test(ct)) return
     const buf = Buffer.from(await res.arrayBuffer())
@@ -110,6 +110,20 @@ app.get('/home', renderHome)
 app.get('/admin/login', async (c) => renderLoginPage(c))
 app.post('/admin/login', handleLogin)
 app.get('/admin/logout', handleLogout)
+
+// ===== 静态资源（构建时内嵌进 bundle，immutable 一年期浏览器强缓存） =====
+// EdgeOne makers 部署模式没有 filesystem 静态服务，只能由云函数直接下发。
+import { BUNDLED_ASSETS } from './generated-assets'
+app.get('/assets/:name', (c) => {
+  const asset = BUNDLED_ASSETS[c.req.param('name')]
+  if (!asset) return c.notFound()
+  return new Response(asset.content, {
+    headers: {
+      'Content-Type': asset.type,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    },
+  })
+})
 
 // ===== 管理后台（需 Session 验证） =====
 app.use('/admin/*', adminAuthMiddleware)

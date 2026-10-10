@@ -4,3 +4,5 @@ dist/
 .DS_Store
 .env
 .tef_dist/
+assets/
+src/generated-assets.ts

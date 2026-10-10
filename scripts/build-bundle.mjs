@@ -60,6 +60,20 @@ const cssAsset = emitAsset('app', 'css', css)
 const sharedAsset = emitAsset('shared', 'js', sharedJs)
 const adminAsset = emitAsset('admin', 'js', adminJs)
 
+// ── 1.5) 生成内嵌资源模块 ───────────────────────────────────────────────────
+// EdgeOne makers 部署模式下平台不为项目根文件提供静态服务（连根 index.html 都 404），
+// 一切请求都进云函数。故把压缩后的 CSS/JS 以字符串内嵌进 bundle，由云函数
+// /assets/:name 路由直接下发（immutable 一年期浏览器强缓存弥补重复访问）。
+const bundled = {
+  [cssAsset.url.slice('/assets/'.length)]: { content: css, type: 'text/css; charset=utf-8' },
+  [sharedAsset.url.slice('/assets/'.length)]: { content: sharedJs, type: 'application/javascript; charset=utf-8' },
+  [adminAsset.url.slice('/assets/'.length)]: { content: adminJs, type: 'application/javascript; charset=utf-8' },
+}
+writeFileSync(join(root, 'src', 'generated-assets.ts'),
+  '// 自动生成于 scripts/build-bundle.mjs —— 请勿手改\n'
+  + 'export const BUNDLED_ASSETS: Record<string, { content: string; type: string }> = '
+  + JSON.stringify(bundled) + '\n', 'utf8')
+
 // ── 2) 打包云函数，注入资源 URL ──────────────────────────────────────────────
 mkdirSync(join(root, 'cloud-functions'), { recursive: true })
 await esbuild.build({
