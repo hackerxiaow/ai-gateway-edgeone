@@ -1,7 +1,7 @@
-import { compress } from 'hono/compress'
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { gzipSync } from 'node:zlib'
 import type { Env } from './types'
 import { adminAuthMiddleware, proxyKeyAuthMiddleware, handleLogin, handleLogout } from './auth'
 import { handleProxy, handleModels } from './llm-proxy'
@@ -52,7 +52,31 @@ import { handleBackupExport, handleBackupImport, handleBackupToR2, handleBackupL
 const app = new Hono<{ Bindings: Env }>()
 
 // ===== 全局中间件 =====
-app.use(compress())
+// 手动 gzip：平台 Node 运行时缺 CompressionStream，hono/compress 实测不生效，
+// 90~240KB 的 HTML/JSON 全裸奔传输。这里只压文本类小体积响应：
+// 流式（event-stream）与二进制不在白名单，一律原样透传，绝不缓冲。
+const COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i
+app.use('*', async (c, next) => {
+  await next()
+  try {
+    const res = c.res
+    if (!res || res.headers.get('Content-Encoding')) return
+    if (!(c.req.header('Accept-Encoding') || '').includes('gzip')) return
+    const ct = (res.headers.get('Content-Type') || '').split(';')[0].trim()
+    if (!COMPRESSIBLE_CT.test(ct)) return
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (buf.byteLength < 1024) return
+    const gz = gzipSync(buf)
+    const headers = new Headers(res.headers)
+    headers.set('Content-Encoding', 'gzip')
+    headers.set('Content-Length', String(gz.byteLength))
+    const vary = headers.get('Vary')
+    headers.set('Vary', vary && vary.includes('Accept-Encoding') ? vary : (vary ? vary + ', Accept-Encoding' : 'Accept-Encoding'))
+    c.res = new Response(gz, { status: res.status, statusText: res.statusText, headers })
+  } catch {
+    // 压缩链路任何异常都放行未压缩原文，绝不能影响业务响应
+  }
+})
 app.use('*', cors())
 app.use('*', logger())
 

@@ -12,10 +12,28 @@ const PROVIDERS_CACHE_TTL_MS = 30_000
 
 let providersCache: Provider[] | null = null
 let providersCacheAt = 0
+let providersRefreshing = false
 
 export async function getProviders(env: Env): Promise<Provider[]> {
   const now = Date.now()
   if (providersCache && now - providersCacheAt < PROVIDERS_CACHE_TTL_MS) return providersCache
+  // stale-while-revalidate: 缓存过期时先返回旧数据, 后台静默刷新。
+  // 一次全量读取是 MB 级 JSON(万级 Key), 同步等待会把后台页/代理请求的
+  // TTFB 拖高数秒; 改造后只有 isolate 冷启动后的第一个请求才同步读一次。
+  // 写路径(readProvidersFresh)依旧强制直读, 多 isolate 一致性窗口不变。
+  if (providersCache) {
+    if (!providersRefreshing) {
+      providersRefreshing = true
+      getKV(env).get(KV_KEYS.PROVIDERS)
+        .then((data) => {
+          providersCache = data ? (JSON.parse(data) as Provider[]) : []
+          providersCacheAt = Date.now()
+        })
+        .catch(() => {})
+        .finally(() => { providersRefreshing = false })
+    }
+    return providersCache
+  }
   const data = await getKV(env).get(KV_KEYS.PROVIDERS)
   const parsed: Provider[] = data ? (JSON.parse(data) as Provider[]) : []
   providersCache = parsed

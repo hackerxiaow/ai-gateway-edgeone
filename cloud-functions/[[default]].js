@@ -850,6 +850,19 @@ var init_storage_adapter = __esm({
 async function getProviders(env) {
   const now = Date.now();
   if (providersCache && now - providersCacheAt < PROVIDERS_CACHE_TTL_MS) return providersCache;
+  if (providersCache) {
+    if (!providersRefreshing) {
+      providersRefreshing = true;
+      getKV(env).get(KV_KEYS.PROVIDERS).then((data2) => {
+        providersCache = data2 ? JSON.parse(data2) : [];
+        providersCacheAt = Date.now();
+      }).catch(() => {
+      }).finally(() => {
+        providersRefreshing = false;
+      });
+    }
+    return providersCache;
+  }
   const data = await getKV(env).get(KV_KEYS.PROVIDERS);
   const parsed = data ? JSON.parse(data) : [];
   providersCache = parsed;
@@ -1013,7 +1026,7 @@ async function addUsageRecord(env, record) {
 async function getUsageSummary(env, days) {
   return await getUsageSummaryBlob(env, days);
 }
-var PROVIDERS_CACHE_TTL_MS, providersCache, providersCacheAt, ADMIN_CRED_KEY;
+var PROVIDERS_CACHE_TTL_MS, providersCache, providersCacheAt, providersRefreshing, ADMIN_CRED_KEY;
 var init_storage = __esm({
   "src/storage.ts"() {
     "use strict";
@@ -1023,6 +1036,7 @@ var init_storage = __esm({
     PROVIDERS_CACHE_TTL_MS = 3e4;
     providersCache = null;
     providersCacheAt = 0;
+    providersRefreshing = false;
     ADMIN_CRED_KEY = "admin:credentials";
   }
 });
@@ -12961,296 +12975,6 @@ var init_grok = __esm({
 // src/edgeone-entry.ts
 import crypto2 from "node:crypto";
 
-// node_modules/hono/dist/utils/accept.js
-var isWhitespace = (char) => char === 32 || char === 9 || char === 10 || char === 13;
-var consumeWhitespace = (acceptHeader, startIndex) => {
-  while (startIndex < acceptHeader.length) {
-    if (!isWhitespace(acceptHeader.charCodeAt(startIndex))) {
-      break;
-    }
-    startIndex++;
-  }
-  return startIndex;
-};
-var ignoreTrailingWhitespace = (acceptHeader, startIndex) => {
-  while (startIndex > 0) {
-    if (!isWhitespace(acceptHeader.charCodeAt(startIndex - 1))) {
-      break;
-    }
-    startIndex--;
-  }
-  return startIndex;
-};
-var skipInvalidParam = (acceptHeader, startIndex) => {
-  while (startIndex < acceptHeader.length) {
-    const char = acceptHeader.charCodeAt(startIndex);
-    if (char === 59) {
-      return [startIndex + 1, true];
-    }
-    if (char === 44) {
-      return [startIndex + 1, false];
-    }
-    startIndex++;
-  }
-  return [startIndex, false];
-};
-var skipInvalidAcceptValue = (acceptHeader, startIndex) => {
-  let i = startIndex;
-  let inQuotes = false;
-  while (i < acceptHeader.length) {
-    const char = acceptHeader.charCodeAt(i);
-    if (inQuotes && char === 92) {
-      i++;
-    } else if (char === 34) {
-      inQuotes = !inQuotes;
-    } else if (!inQuotes && char === 44) {
-      return i + 1;
-    }
-    i++;
-  }
-  return i;
-};
-var getNextParam = (acceptHeader, startIndex) => {
-  startIndex = consumeWhitespace(acceptHeader, startIndex);
-  let i = startIndex;
-  let key;
-  let value;
-  let hasNext = false;
-  while (i < acceptHeader.length) {
-    const char = acceptHeader.charCodeAt(i);
-    if (char === 61) {
-      key = acceptHeader.slice(startIndex, ignoreTrailingWhitespace(acceptHeader, i));
-      i++;
-      break;
-    }
-    if (char === 59) {
-      return [i + 1, void 0, void 0, true];
-    }
-    if (char === 44) {
-      return [i + 1, void 0, void 0, false];
-    }
-    i++;
-  }
-  if (key === void 0) {
-    return [i, void 0, void 0, false];
-  }
-  i = consumeWhitespace(acceptHeader, i);
-  if (acceptHeader.charCodeAt(i) === 61) {
-    const skipResult = skipInvalidParam(acceptHeader, i + 1);
-    return [skipResult[0], key, void 0, skipResult[1]];
-  }
-  let inQuotes = false;
-  const paramStartIndex = i;
-  while (i < acceptHeader.length) {
-    const char = acceptHeader.charCodeAt(i);
-    if (inQuotes && char === 92) {
-      i++;
-    } else if (char === 34) {
-      if (inQuotes) {
-        let nextIndex = consumeWhitespace(acceptHeader, i + 1);
-        const nextChar = acceptHeader.charCodeAt(nextIndex);
-        if (nextIndex < acceptHeader.length && !(nextChar === 59 || nextChar === 44)) {
-          const skipResult = skipInvalidParam(acceptHeader, nextIndex);
-          return [skipResult[0], key, void 0, skipResult[1]];
-        }
-        value = acceptHeader.slice(paramStartIndex + 1, i);
-        if (value.includes("\\")) {
-          value = value.replace(/\\(.)/g, "$1");
-        }
-        if (nextChar === 44) {
-          return [nextIndex + 1, key, value, false];
-        }
-        if (nextChar === 59) {
-          hasNext = true;
-          nextIndex++;
-        }
-        i = nextIndex;
-        break;
-      }
-      inQuotes = true;
-    } else if (!inQuotes && (char === 59 || char === 44)) {
-      value = acceptHeader.slice(paramStartIndex, ignoreTrailingWhitespace(acceptHeader, i));
-      if (char === 59) {
-        hasNext = true;
-      }
-      i++;
-      break;
-    }
-    i++;
-  }
-  return [
-    i,
-    key,
-    value ?? acceptHeader.slice(paramStartIndex, ignoreTrailingWhitespace(acceptHeader, i)),
-    hasNext
-  ];
-};
-var getNextAcceptValue = (acceptHeader, startIndex) => {
-  const accept = {
-    type: "",
-    params: /* @__PURE__ */ Object.create(null),
-    q: 1
-  };
-  startIndex = consumeWhitespace(acceptHeader, startIndex);
-  let i = startIndex;
-  while (i < acceptHeader.length) {
-    const char = acceptHeader.charCodeAt(i);
-    if (char === 59 || char === 44) {
-      accept.type = acceptHeader.slice(startIndex, ignoreTrailingWhitespace(acceptHeader, i));
-      i++;
-      if (char === 44) {
-        return [i, accept.type ? accept : void 0];
-      }
-      if (!accept.type) {
-        return [skipInvalidAcceptValue(acceptHeader, i), void 0];
-      }
-      break;
-    }
-    i++;
-  }
-  if (!accept.type) {
-    accept.type = acceptHeader.slice(
-      startIndex,
-      ignoreTrailingWhitespace(acceptHeader, acceptHeader.length)
-    );
-    return [acceptHeader.length, accept.type ? accept : void 0];
-  }
-  let param;
-  let value;
-  let hasNext;
-  while (i < acceptHeader.length) {
-    ;
-    [i, param, value, hasNext] = getNextParam(acceptHeader, i);
-    if (param && value) {
-      accept.params[param] = value;
-    }
-    if (!hasNext) {
-      break;
-    }
-  }
-  return [i, accept];
-};
-var parseAccept = (acceptHeader) => {
-  if (!acceptHeader) {
-    return [];
-  }
-  const values = [];
-  let i = 0;
-  let accept;
-  let requiresSort = false;
-  let lastAccept;
-  while (i < acceptHeader.length) {
-    ;
-    [i, accept] = getNextAcceptValue(acceptHeader, i);
-    if (accept) {
-      accept.q = parseQuality(accept.params.q ?? accept.params.Q);
-      values.push(accept);
-      if (lastAccept && lastAccept.q < accept.q) {
-        requiresSort = true;
-      }
-      lastAccept = accept;
-    }
-  }
-  if (requiresSort) {
-    values.sort((a, b) => b.q - a.q);
-  }
-  return values;
-};
-var parseQuality = (qVal) => {
-  if (qVal === void 0) {
-    return 1;
-  }
-  if (qVal === "") {
-    return 1;
-  }
-  if (qVal === "NaN") {
-    return 0;
-  }
-  const num2 = Number(qVal);
-  if (Number.isNaN(num2)) {
-    return 1;
-  }
-  if (num2 < 0) {
-    return 0;
-  }
-  if (num2 > 1) {
-    return 1;
-  }
-  return num2;
-};
-
-// node_modules/hono/dist/utils/compress.js
-var COMPRESSIBLE_CONTENT_TYPE_REGEX = /^\s*(?:text\/(?!event-stream(?:[;\s]|$))[^;\s]+|application\/(?:javascript|json|xml|xml-dtd|ecmascript|dart|msgpack|postscript|rtf|tar|toml|vnd\.dart|vnd\.ms-fontobject|vnd\.ms-opentype|vnd\.msgpack|wasm|x-httpd-php|x-javascript|x-msgpack|x-ns-proxy-autoconfig|x-sh|x-tar|x-virtualbox-hdd|x-virtualbox-ova|x-virtualbox-ovf|x-virtualbox-vbox|x-virtualbox-vdi|x-virtualbox-vhd|x-virtualbox-vmdk|x-www-form-urlencoded)|font\/(?:otf|ttf)|image\/(?:bmp|vnd\.adobe\.photoshop|vnd\.microsoft\.icon|vnd\.ms-dds|x-icon|x-ms-bmp)|message\/rfc822|model\/gltf-binary|x-shader\/x-fragment|x-shader\/x-vertex|[^;\s]+?\+(?:json|text|xml|yaml|msgpack))(?:[;\s]|$)/i;
-
-// node_modules/hono/dist/middleware/compress/index.js
-var ENCODING_TYPES = ["gzip", "deflate"];
-var cacheControlNoTransformRegExp = /(?:^|,)\s*?no-transform\s*?(?:,|$)/i;
-var selectEncoding = (header, candidates) => {
-  if (header === void 0) {
-    return void 0;
-  }
-  const accepts = parseAccept(header);
-  const wildcardQ = accepts.find((a) => a.type === "*")?.q;
-  let best;
-  for (const enc of candidates) {
-    const explicit = accepts.find((a) => a.type.toLowerCase() === enc);
-    const q = explicit ? explicit.q : wildcardQ ?? 0;
-    if (q === 1) {
-      return enc;
-    } else if (q > 0 && (!best || q > best.q)) {
-      best = { encoding: enc, q };
-    }
-  }
-  return best?.encoding;
-};
-var varyAcceptEncodingRegExp = /(?:^|,)\s*accept-encoding\s*(?:,|$)/i;
-var compress = (options) => {
-  const threshold = options?.threshold ?? 1024;
-  const candidates = options?.encoding ? [options.encoding] : ENCODING_TYPES;
-  const contentTypeFilter = options?.contentTypeFilter ?? COMPRESSIBLE_CONTENT_TYPE_REGEX;
-  const shouldCompress = typeof contentTypeFilter === "function" ? (res) => {
-    const type = res.headers.get("Content-Type");
-    return type && contentTypeFilter(type);
-  } : (res) => {
-    const type = res.headers.get("Content-Type");
-    return type && contentTypeFilter.test(type);
-  };
-  return async function compress2(ctx, next) {
-    await next();
-    const contentLength = ctx.res.headers.get("Content-Length");
-    if (ctx.res.status === 206 || // partial content, Content-Range refers to the uncompressed bytes
-    ctx.res.headers.has("Content-Encoding") || // already encoded
-    ctx.res.headers.has("Transfer-Encoding") || // already encoded or chunked
-    ctx.req.method === "HEAD" || // HEAD request
-    contentLength && Number(contentLength) < threshold || // content-length below threshold
-    !shouldCompress(ctx.res) || // not compressible type
-    !shouldTransform(ctx.res)) {
-      return;
-    }
-    const current = ctx.res.headers.get("Vary");
-    if (current !== "*" && !(current && varyAcceptEncodingRegExp.test(current))) {
-      ctx.header("Vary", current ? `${current}, Accept-Encoding` : "Accept-Encoding");
-    }
-    const accepted = ctx.req.header("Accept-Encoding");
-    const encoding = selectEncoding(accepted, candidates);
-    if (!encoding || !ctx.res.body) {
-      return;
-    }
-    const stream = new CompressionStream(encoding);
-    ctx.res = new Response(ctx.res.body.pipeThrough(stream), ctx.res);
-    ctx.res.headers.delete("Content-Length");
-    ctx.res.headers.set("Content-Encoding", encoding);
-    const etag = ctx.res.headers.get("ETag");
-    if (etag && !etag.startsWith("W/")) {
-      ctx.res.headers.set("ETag", `W/${etag}`);
-    }
-  };
-};
-var shouldTransform = (res) => {
-  const cacheControl = res.headers.get("Cache-Control");
-  return !cacheControl || !cacheControlNoTransformRegExp.test(cacheControl);
-};
-
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
   return (context, next) => {
@@ -15264,6 +14988,9 @@ var logger = (fn = console.log) => {
     await log(fn, "-->", method, path, c.res.status, time(start));
   };
 };
+
+// src/index.ts
+import { gzipSync } from "node:zlib";
 
 // src/auth.ts
 init_cookie2();
@@ -19176,6 +18903,17 @@ fieldset.form-group legend {
 }
 `;
 
+// src/assets.ts
+var ASSET_CSS = true ? "/assets/app.a87be21996.css" : "";
+var ASSET_SHARED_JS = true ? "/assets/shared.15d75266d7.js" : "";
+var ASSET_ADMIN_JS = true ? "/assets/admin.18649b504d.js" : "";
+function cssTag(fallbackCss) {
+  return ASSET_CSS ? `<link rel="stylesheet" href="${ASSET_CSS}">` : `<style>${fallbackCss}</style>`;
+}
+function scriptTag(url, inlineJs) {
+  return url ? `<script src="${url}"></script>` : `<script>${inlineJs}</script>`;
+}
+
 // src/request-utils.ts
 function isInternalHost(host) {
   return /qcloudteo\.com$|pages-scf-|pages-pro-/i.test(host);
@@ -21431,7 +21169,7 @@ var H = (title) => `
   <meta name="theme-color" content="#f8fafc">
   <title>${title} \u2014 ${SITE_CONFIG.title}</title>
   <link rel="icon" href="${SITE_CONFIG.favicon}">
-  <style>${CSS_CONTENT}</style>
+  ${cssTag(CSS_CONTENT)}
 </head>`;
 function renderProviderPanel(p) {
   return `
@@ -22028,11 +21766,12 @@ ${H("\u63A7\u5236\u53F0")}
 
 <div id="modal" class="modal-o hd" role="presentation" onclick="if(event.target===this)closeM()"><div class="modal" id="mc" role="dialog" aria-modal="true" aria-live="polite"></div></div>
 
-<script>${SHARED_JS}
-let AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
-const AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}
-${ADMIN_CLIENT_SCRIPT}
-</script>
+<!-- \u9875\u9762\u7EA7\u6570\u636E\uFF08\u670D\u52A1\u7AEF\u6CE8\u5165\uFF0C\u5FC5\u987B\u5185\u8054\uFF09 -->
+<script>var AG_CHANNELS = ${JSON.stringify(agChannels).replace(/</g, "\\u003c")}
+var AZURE_VOICE_IDS = ${JSON.stringify(AZURE_TTS_VOICES.map((v) => v.id))}</script>
+<!-- \u5BA2\u6237\u7AEF\u811A\u672C\u5916\u94FE\uFF1A\u53EF\u7F13\u5B58\u3001\u53EF\u538B\u7F29\uFF0C\u4E0D\u518D\u968F\u6BCF\u6B21\u9875\u9762\u8BF7\u6C42\u91CD\u4F20 -->
+${scriptTag(ASSET_SHARED_JS, SHARED_JS)}
+${scriptTag(ASSET_ADMIN_JS, ADMIN_CLIENT_SCRIPT)}
 </body></html>`;
   return c.html(withIconSprite(page, CLIENT_DYNAMIC_ICONS));
 }
@@ -23605,7 +23344,7 @@ var H2 = (title) => `
   <meta name="theme-color" content="#f8fafc">
   <title>${title} \u2014 ${SITE_CONFIG.title}</title>
   <link rel="icon" href="${SITE_CONFIG.favicon}">
-  <style>${CSS_CONTENT}</style>
+  ${cssTag(CSS_CONTENT)}
 </head>`;
 async function renderHomePage(c, isLoggedIn) {
   const providers = await getProviders(c.env);
@@ -23808,7 +23547,7 @@ var H3 = (title) => `
   <meta name="theme-color" content="#f8fafc">
   <title>${title} \u2014 ${SITE_CONFIG.title}</title>
   <link rel="icon" href="${SITE_CONFIG.favicon}">
-  <style>${CSS_CONTENT}</style>
+  ${cssTag(CSS_CONTENT)}
 </head>`;
 async function renderLoginPage(c) {
   const page = `<!DOCTYPE html><html lang="zh-CN">
@@ -23940,7 +23679,27 @@ function svgInner(name) { return '<svg viewBox="0 0 24 24"><use href="#i-' + nam
 // src/index.ts
 init_storage();
 var app = new Hono2();
-app.use(compress());
+var COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i;
+app.use("*", async (c, next) => {
+  await next();
+  try {
+    const res = c.res;
+    if (!res || res.headers.get("Content-Encoding")) return;
+    if (!(c.req.header("Accept-Encoding") || "").includes("gzip")) return;
+    const ct = (res.headers.get("Content-Type") || "").split(";")[0].trim();
+    if (!COMPRESSIBLE_CT.test(ct)) return;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.byteLength < 1024) return;
+    const gz = gzipSync(buf);
+    const headers = new Headers(res.headers);
+    headers.set("Content-Encoding", "gzip");
+    headers.set("Content-Length", String(gz.byteLength));
+    const vary = headers.get("Vary");
+    headers.set("Vary", vary && vary.includes("Accept-Encoding") ? vary : vary ? vary + ", Accept-Encoding" : "Accept-Encoding");
+    c.res = new Response(gz, { status: res.status, statusText: res.statusText, headers });
+  } catch {
+  }
+});
 app.use("*", cors());
 app.use("*", logger());
 var seeded = false;
