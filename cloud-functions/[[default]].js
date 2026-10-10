@@ -18225,9 +18225,45 @@ textarea {
   color: var(--primary);
 }
 
-.admin-rail.collapsed .admin-nav__link span,
+.admin-rail.collapsed .admin-rail__head {
+  padding: 18px 0;
+  text-align: center;
+}
+
+.admin-rail.collapsed .admin-rail__brand {
+  justify-content: center;
+  gap: 0;
+}
+
+.admin-rail.collapsed .admin-nav {
+  padding: 14px 8px;
+}
+
+.admin-rail.collapsed .admin-nav__link {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+
+.admin-rail.collapsed .admin-rail__foot {
+  padding: 14px 8px;
+}
+
+.admin-rail.collapsed .admin-nav__link > span:not(.svg-icon),
 .admin-rail.collapsed .admin-nav__link b {
-  display: none;
+  display: none !important;
+}
+
+.admin-rail.collapsed .admin-nav__link .svg-icon {
+  display: inline-flex !important;
+}
+
+.rail-toggle .svg-icon {
+  transition: transform var(--transition-fast);
+}
+
+.admin-rail.collapsed .rail-toggle .svg-icon {
+  transform: rotate(180deg);
 }
 
 .admin-rail__foot {
@@ -21564,17 +21600,17 @@ ${H("\u63A7\u5236\u53F0")}
       </a>
     </div>
     <nav class="admin-nav">
-      <a class="admin-nav__link is-active" href="#overview">${icon("overview", "", 16)}<span>\u6982\u89C8</span></a>
-      <a class="admin-nav__link" href="#providers">${icon("server", "", 16)}<span>\u6E20\u9053</span><b>${providers.length}</b></a>
-      <a class="admin-nav__link" href="#quota">${icon("gauge", "", 16)}<span>\u989D\u5EA6</span><b>${agAccountCount}</b></a>
-      <a class="admin-nav__link" href="#proxy-keys">${icon("key", "", 16)}<span>\u4EE4\u724C</span><b>${proxyKeys.length}</b></a>
-      <a class="admin-nav__link" href="#usage">${icon("chart", "", 16)}<span>\u7528\u91CF</span></a>
-      <a class="admin-nav__link" href="#backup">${icon("database", "", 16)}<span>\u5907\u4EFD</span></a>
+      <a class="admin-nav__link is-active" href="#overview" title="\u6982\u89C8">${icon("overview", "", 16)}<span>\u6982\u89C8</span></a>
+      <a class="admin-nav__link" href="#providers" title="\u6E20\u9053">${icon("server", "", 16)}<span>\u6E20\u9053</span><b>${providers.length}</b></a>
+      <a class="admin-nav__link" href="#quota" title="\u989D\u5EA6">${icon("gauge", "", 16)}<span>\u989D\u5EA6</span><b>${agAccountCount}</b></a>
+      <a class="admin-nav__link" href="#proxy-keys" title="\u4EE4\u724C">${icon("key", "", 16)}<span>\u4EE4\u724C</span><b>${proxyKeys.length}</b></a>
+      <a class="admin-nav__link" href="#usage" title="\u7528\u91CF">${icon("chart", "", 16)}<span>\u7528\u91CF</span></a>
+      <a class="admin-nav__link" href="#backup" title="\u5907\u4EFD">${icon("database", "", 16)}<span>\u5907\u4EFD</span></a>
     </nav>
     <div class="admin-rail__foot">
       <button class="admin-nav__link rail-toggle" type="button" onclick="toggleRail()" title="\u6536\u7F29\u4FA7\u8FB9\u680F">${icon("anglesLeft", "", 16)}<span>\u6536\u7F29\u4FA7\u8FB9\u680F</span></button>
-      <a href="/" class="admin-nav__link">${icon("arrowLeft", "", 16)}<span>\u8FD4\u56DE\u9996\u9875</span></a>
-      <a href="/admin/logout" class="admin-nav__link">${icon("signOut", "", 16)}<span>\u9000\u51FA\u767B\u5F55</span></a>
+      <a href="/" class="admin-nav__link" title="\u8FD4\u56DE\u9996\u9875">${icon("arrowLeft", "", 16)}<span>\u8FD4\u56DE\u9996\u9875</span></a>
+      <a href="/admin/logout" class="admin-nav__link" title="\u9000\u51FA\u767B\u5F55">${icon("signOut", "", 16)}<span>\u9000\u51FA\u767B\u5F55</span></a>
     </div>
   </aside>
 
@@ -23938,6 +23974,28 @@ app.get("/admin/api/selftest/delay", (c) => {
   return new Promise((resolve) => {
     setTimeout(() => resolve(c.json({ success: true, data: { requestedMs: ms, actualMs: Date.now() - startedAt } })), ms);
   });
+});
+app.get("/admin/api/selftest/stream", (c) => {
+  const ms = Math.min(Math.max(Number(c.req.query("ms")) || 0, 0), 9e5);
+  const tickMs = Math.min(Math.max(Number(c.req.query("tick")) || 1e3, 100), 1e4);
+  const startedAt = Date.now();
+  const stream = new ReadableStream({
+    start(controller) {
+      const enc = new TextEncoder();
+      let sent = 0;
+      const timer = setInterval(() => {
+        controller.enqueue(enc.encode(`tick ${sent++} @${Date.now() - startedAt}ms
+`));
+        if (Date.now() - startedAt >= ms) {
+          clearInterval(timer);
+          controller.enqueue(enc.encode(`done actualMs=${Date.now() - startedAt}
+`));
+          controller.close();
+        }
+      }, tickMs);
+    }
+  });
+  return new Response(stream, { headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
 });
 app.get("/admin/api/providers", handleGetProviders);
 app.get("/admin/api/providers/:id/keys", handleListProviderKeys);
