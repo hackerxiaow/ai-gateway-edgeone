@@ -4,14 +4,35 @@ import { getKV, addUsageRecordBlob, getUsageSummaryBlob } from './storage-adapte
 
 // ===== 提供商 CRUD =====
 
-// 进程内缓存: providers 可达 MB 级(万级 Key), 每次请求都远端读取+解析代价过高
+// 进程内缓存: providers 可达 MB 级(万级 Key), 每次请求都远端读取+解析代价过高。
+// 但缓存必须带过期时间: 该变量是 isolate 级的, 管理端在 A isolate 改完渠道后,
+// B isolate 会一直沿用旧列表 —— 实测在部署切换期出现过「刚创建的渠道在另一个
+// isolate 上查不到 / 删除返回 404」。30s TTL 把不一致窗口收敛到可接受范围。
+const PROVIDERS_CACHE_TTL_MS = 30_000
+
 let providersCache: Provider[] | null = null
+let providersCacheAt = 0
 
 export async function getProviders(env: Env): Promise<Provider[]> {
-  if (providersCache) return providersCache
+  const now = Date.now()
+  if (providersCache && now - providersCacheAt < PROVIDERS_CACHE_TTL_MS) return providersCache
   const data = await getKV(env).get(KV_KEYS.PROVIDERS)
-  providersCache = data ? JSON.parse(data) : []
-  return providersCache
+  const parsed: Provider[] = data ? (JSON.parse(data) as Provider[]) : []
+  providersCache = parsed
+  providersCacheAt = now
+  return parsed
+}
+
+/**
+ * 供「读-改-写」使用的强制新鲜读取：必须绕过缓存。
+ * 否则别的 isolate 刚写入的渠道会被本次写回整条覆盖掉。
+ */
+async function readProvidersFresh(env: Env): Promise<Provider[]> {
+  const data = await getKV(env).get(KV_KEYS.PROVIDERS)
+  const parsed: Provider[] = data ? (JSON.parse(data) as Provider[]) : []
+  providersCache = parsed
+  providersCacheAt = Date.now()
+  return parsed
 }
 
 export async function getProvider(env: Env, id: string): Promise<Provider | null> {
@@ -21,17 +42,18 @@ export async function getProvider(env: Env, id: string): Promise<Provider | null
 
 export async function setProviders(env: Env, providers: Provider[]): Promise<void> {
   providersCache = providers
+  providersCacheAt = Date.now()
   await getKV(env).put(KV_KEYS.PROVIDERS, JSON.stringify(providers))
 }
 
 export async function addProvider(env: Env, provider: Provider): Promise<void> {
-  const providers = await getProviders(env)
+  const providers = await readProvidersFresh(env)
   providers.push(provider)
   await setProviders(env, providers)
 }
 
 export async function updateProvider(env: Env, id: string, updates: Partial<Provider>): Promise<Provider | null> {
-  const providers = await getProviders(env)
+  const providers = await readProvidersFresh(env)
   const index = providers.findIndex((p) => p.id === id)
   if (index === -1) return null
   providers[index] = { ...providers[index], ...updates, updatedAt: new Date().toISOString() }
@@ -40,7 +62,7 @@ export async function updateProvider(env: Env, id: string, updates: Partial<Prov
 }
 
 export async function deleteProvider(env: Env, id: string): Promise<boolean> {
-  const providers = await getProviders(env)
+  const providers = await readProvidersFresh(env)
   const filtered = providers.filter((p) => p.id !== id)
   if (filtered.length === providers.length) return false
   await setProviders(env, filtered)
@@ -167,7 +189,8 @@ import { USAGE_RETENTION_DAYS } from './config'
 import type { UsageRecord, UsageSummary } from './types'
 
 export async function seedInitialData(env: Env): Promise<void> {
-  const providers = await getProviders(env)
+  // 同样是「读-改-写」：必须读最新值，否则会把别的 isolate 的改动覆盖掉
+  const providers = await readProvidersFresh(env)
   const migrationCompleted = await getKV(env).get(KV_KEYS.OPENCODE_MIGRATION)
   const opencode = DEFAULT_PROVIDERS.find((provider) => provider.id === 'opencode')
 

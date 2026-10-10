@@ -8,6 +8,7 @@ import { handleProxy, handleModels } from './llm-proxy'
 import {
   handleStatus,
   handleGetProviders,
+  handleProviderPanel,
   handleListProviderKeys,
   handleUpdateProviderKeys,
   handleCreateProvider,
@@ -111,6 +112,8 @@ app.get('/admin/api/selftest/delay', (c) => {
 // 提供商 CRUD
 app.get('/admin/api/providers', handleGetProviders)
 app.get('/admin/api/providers/:id/keys', handleListProviderKeys)
+// 渠道编辑面板（懒加载）：列表页不预先渲染，展开时才取
+app.get('/admin/api/providers/:id/panel', handleProviderPanel)
 app.post('/admin/api/providers/:id/keys', handleUpdateProviderKeys)
 app.post('/admin/api/providers', handleCreateProvider)
 app.put('/admin/api/providers/:id', handleUpdateProvider)
