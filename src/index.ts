@@ -1,7 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { gzipSync } from 'node:zlib'
 import type { Env } from './types'
 import { adminAuthMiddleware, proxyKeyAuthMiddleware, handleLogin, handleLogout } from './auth'
 import { handleProxy, handleModels } from './llm-proxy'
@@ -52,31 +51,32 @@ import { handleBackupExport, handleBackupImport, handleBackupToR2, handleBackupL
 const app = new Hono<{ Bindings: Env }>()
 
 // ===== 全局中间件 =====
-// 手动 gzip：平台把源侧收到的 Accept-Encoding 一律改写为 identity（实测），
-// 源侧无从得知客户端能力。这里对文本类响应一律 gzip 交给边缘：
-// 实测边缘对带 AE: gzip 的客户端原样透传压缩体，对未带 AE 的客户端自动解压，
-// 两类客户端都拿到合法内容。流式（event-stream）与二进制不在白名单，绝不缓冲。
-const COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i
-app.use('*', async (c, next) => {
-  await next()
-  try {
-    const res = c.res
-    if (!res || res.headers.get('Content-Encoding')) return
-    const ct = (res.headers.get('Content-Type') || '').split(';')[0].trim()
-    if (!COMPRESSIBLE_CT.test(ct)) return
-    const buf = Buffer.from(await res.arrayBuffer())
-    if (buf.byteLength < 1024) return
-    const gz = gzipSync(buf)
-    const headers = new Headers(res.headers)
-    headers.set('Content-Encoding', 'gzip')
-    headers.set('Content-Length', String(gz.byteLength))
-    const vary = headers.get('Vary')
-    headers.set('Vary', vary && vary.includes('Accept-Encoding') ? vary : (vary ? vary + ', Accept-Encoding' : 'Accept-Encoding'))
-    c.res = new Response(gz, { status: res.status, statusText: res.statusText, headers })
-  } catch {
-    // 压缩链路任何异常都放行未压缩原文，绝不能影响业务响应
-  }
-})
+// ⚠️⚠️ 源侧 gzip 在 EdgeOne 上严禁启用（两轮实测的结论，动这块前必读）：
+// 平台把源侧收到的 Accept-Encoding 一律改写为 identity。若无视它回 gzip 响应体：
+//   1) 对 POST 响应回 gzip → 边缘把该域名【所有 POST】转发整体卡死（无路由 POST
+//      也挂起、120s 后 504），关闭立即恢复；
+//   2) 仅对 GET 响应回 gzip → 【所有 GET】整体挂起，POST 反而正常。
+//   3) 完全关闭源侧 gzip → GET/POST 全部正常。
+// 规律：哪种方法的响应被 gzip，哪种方法就被边缘卡死（压缩引擎与源侧压缩体冲突）。
+// 页面/接口压缩交给控制台域名级的「智能压缩」配置处理，代码层不再碰。
+// const COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i
+// app.use('*', async (c, next) => {
+//   await next()
+//   try {
+//     const res = c.res
+//     if (!res || res.headers.get('Content-Encoding')) return
+//     const ct = (res.headers.get('Content-Type') || '').split(';')[0].trim()
+//     if (!COMPRESSIBLE_CT.test(ct)) return
+//     const buf = Buffer.from(await res.arrayBuffer())
+//     if (buf.byteLength < 1024) return
+//     const gz = gzipSync(buf)
+//     const headers = new Headers(res.headers)
+//     headers.set('Content-Encoding', 'gzip')
+//     headers.set('Content-Length', String(gz.byteLength))
+//     headers.set('Vary', 'Accept-Encoding')
+//     c.res = new Response(gz, { status: res.status, statusText: res.statusText, headers })
+//   } catch {}
+// })
 app.use('*', cors())
 app.use('*', logger())
 

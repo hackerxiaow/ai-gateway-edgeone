@@ -14989,9 +14989,6 @@ var logger = (fn = console.log) => {
   };
 };
 
-// src/index.ts
-import { gzipSync } from "node:zlib";
-
 // src/auth.ts
 init_cookie2();
 init_storage();
@@ -23687,26 +23684,6 @@ var BUNDLED_ASSETS = { "app.a87be21996.css": { "content": ':root{--color-paper: 
 
 // src/index.ts
 var app = new Hono2();
-var COMPRESSIBLE_CT = /^(text\/html|text\/css|text\/plain|application\/javascript|application\/json)\b/i;
-app.use("*", async (c, next) => {
-  await next();
-  try {
-    const res = c.res;
-    if (!res || res.headers.get("Content-Encoding")) return;
-    const ct = (res.headers.get("Content-Type") || "").split(";")[0].trim();
-    if (!COMPRESSIBLE_CT.test(ct)) return;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength < 1024) return;
-    const gz = gzipSync(buf);
-    const headers = new Headers(res.headers);
-    headers.set("Content-Encoding", "gzip");
-    headers.set("Content-Length", String(gz.byteLength));
-    const vary = headers.get("Vary");
-    headers.set("Vary", vary && vary.includes("Accept-Encoding") ? vary : vary ? vary + ", Accept-Encoding" : "Accept-Encoding");
-    c.res = new Response(gz, { status: res.status, statusText: res.statusText, headers });
-  } catch {
-  }
-});
 app.use("*", cors());
 app.use("*", logger());
 var seeded = false;
