@@ -15093,37 +15093,36 @@ init_config();
 
 // src/opencode.ts
 var OPENCODE_PROVIDER_ID = "opencode";
-var OPENCODE_VERSION = "1.18.31";
+var OPENCODE_VERSION = "2.0.29";
 var OPENCODE_TIMEOUT_MS = 3e5;
+var OPENCODE_MODELS_CATALOG_URL = "https://models.opencode.ai/api.json";
 var BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-function randomBase62(length) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += BASE62_CHARS[bytes[i] % 62];
-  }
-  return result;
-}
 var lastTimestamp = 0;
 var idCounter = 0;
 function createOpenCodeId(prefix) {
-  const currentTimestamp = Date.now();
-  if (currentTimestamp !== lastTimestamp) {
-    lastTimestamp = currentTimestamp;
+  const isDesc = prefix === "ses";
+  const timestamp = Date.now();
+  if (timestamp !== lastTimestamp) {
+    lastTimestamp = timestamp;
     idCounter = 0;
   }
   idCounter++;
-  const now = BigInt(currentTimestamp) * BigInt(4096) + BigInt(idCounter);
-  let hex = "";
-  for (let i = 0; i < 6; i++) {
-    const byte = Number(now >> BigInt(40 - 8 * i) & BigInt(255));
-    hex += byte.toString(16).padStart(2, "0");
+  const current = BigInt(timestamp) * 0x1000n + BigInt(idCounter);
+  const value = isDesc ? ~current : current;
+  const time2 = Array.from(
+    { length: 6 },
+    (_, index) => Number(value >> BigInt(40 - 8 * index) & 0xffn).toString(16).padStart(2, "0")
+  ).join("");
+  const bytes = new Uint8Array(14);
+  crypto.getRandomValues(bytes);
+  let random = "";
+  for (let i = 0; i < 14; i++) {
+    random += BASE62_CHARS[bytes[i] % 62];
   }
-  return `${prefix}_${hex}${randomBase62(14)}`;
+  return `${prefix}_${time2}${random}`;
 }
-var OPENCODE_CORE_TOOL_NAMES = ["read", "write", "edit", "shell", "glob", "grep"];
-var OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION = "Do not call this tool. It exists only for API compatibility and must never be invoked.";
+var OPENCODE_CORE_TOOL_NAMES = ["edit", "glob", "grep", "read", "shell", "write"];
+var OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION = "Agent tool for file, workspace, and execution operations.";
 var OPENCODE_CORE_TOOLS = OPENCODE_CORE_TOOL_NAMES.map((name) => ({
   type: "function",
   function: {
@@ -15136,18 +15135,31 @@ function isOpenCodeProvider(providerId) {
   return providerId === OPENCODE_PROVIDER_ID;
 }
 function filterOpenCodeModels(models) {
-  return models.filter((model) => typeof model.id === "string" && /^[A-Za-z0-9._:/-]+$/.test(model.id) && (model.id === "big-pickle" || model.id.endsWith("-free")));
+  return models.filter((model) => {
+    if (typeof model.id !== "string") return false;
+    const id = model.id;
+    if (!/^[A-Za-z0-9._:/-]+$/.test(id)) return false;
+    return id.endsWith("-free") || id.includes("-free") || id === "big-pickle" || id === "grok-code" || id === "gpt-5-nano" || id === "cat-jam-free" || id === "space-bunny-free";
+  });
 }
 function resolveOpenCodeUrls(env) {
   const raw2 = env.OPENCODE_MIRRORS_URL || "";
   const parts = raw2.split("\n").flatMap((s) => s.split(",")).map((s) => s.trim()).filter(Boolean);
   return [...new Set(parts)];
 }
+var OPENCODE_DEFAULT_MIRRORS = [
+  "https://opencode.ai.cmliussss.net/zen/v1",
+  "https://opencode.fastly.cmliussss.net/zen/v1",
+  "https://opencode.gcore.cmliussss.net/zen/v1"
+];
 function resolveProviderMirrorUrls(env, provider) {
   if (provider?.mirrorUrls && provider.mirrorUrls.length > 0) {
-    return [...new Set(provider.mirrorUrls.map((s) => s.trim()).filter(Boolean))];
+    const list = [...new Set(provider.mirrorUrls.map((s) => s.trim()).filter(Boolean))];
+    if (list.length > 0) return list;
   }
-  return resolveOpenCodeUrls(env);
+  const fromEnv = resolveOpenCodeUrls(env);
+  if (fromEnv.length > 0) return fromEnv;
+  return [...OPENCODE_DEFAULT_MIRRORS];
 }
 function getMirrorOrder(urls, random) {
   if (urls.length === 0) return [];
@@ -15161,15 +15173,24 @@ function buildUrl(baseUrl, subPath, search = "") {
   return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}${search}`;
 }
 function createRequestHeaders(apiKey, requestId, sessionId) {
-  return new Headers({
+  const headers = new Headers({
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${apiKey}`,
-    "User-Agent": `opencode/${OPENCODE_VERSION} ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.13`,
+    "User-Agent": `opencode/latest/${OPENCODE_VERSION}/cli ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14`,
     "x-opencode-client": "cli",
     "x-opencode-project": "global",
     "x-opencode-request": requestId,
-    "x-opencode-session": sessionId
+    "x-opencode-request-id": requestId,
+    "x-opencode-session": sessionId,
+    "x-opencode-session-id": sessionId,
+    "x-session-affinity": sessionId,
+    "X-Session-Id": sessionId
   });
+  if (apiKey && apiKey !== "public") {
+    headers.set("Authorization", `Bearer ${apiKey}`);
+  } else {
+    headers.set("Authorization", "Bearer public");
+  }
+  return headers;
 }
 async function storeFailure(response) {
   return {
@@ -15356,6 +15377,11 @@ async function proxyOpenCodeRequest(options) {
           const missingTools = OPENCODE_CORE_TOOLS.filter((t) => !existingNames.has(t.function.name));
           parsed.tools = [...parsed.tools, ...missingTools];
         }
+        parsed.tools = [...parsed.tools].sort((a, b) => {
+          const na = a?.function?.name || a?.name || "";
+          const nb = b?.function?.name || b?.name || "";
+          return na.localeCompare(nb);
+        });
         upstreamBody = JSON.stringify(parsed);
       }
     } catch {
@@ -15392,45 +15418,32 @@ async function proxyOpenCodeRequest(options) {
       }
     }
   } else {
-    try {
-      const response = await requestUpstream(
-        fetcher,
-        officialUrl,
-        "public",
-        upstreamOptions,
-        requestId,
-        sessionId
-      );
-      if (response.ok) {
-        if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
-          return aggregateOpenCodeStream(response, requestedModel);
+    const candidateBases = [
+      ...getMirrorOrder(options.mirrorUrls, random),
+      options.baseUrl,
+      "https://opencode.ai/inference/v1"
+    ];
+    const uniqueBases = [...new Set(candidateBases)];
+    for (const base of uniqueBases) {
+      try {
+        const response = await requestUpstream(
+          fetcher,
+          buildUrl(base, options.subPath, options.search),
+          "public",
+          upstreamOptions,
+          requestId,
+          sessionId
+        );
+        if (response.ok) {
+          if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
+            return aggregateOpenCodeStream(response, requestedModel);
+          }
+          return response;
         }
-        return response;
+        mirrorFailure = await storeFailure(response);
+      } catch (error) {
+        lastTransportError = error;
       }
-      officialFailure = await storeFailure(response);
-    } catch (error) {
-      lastTransportError = error;
-    }
-  }
-  for (const mirror of getMirrorOrder(options.mirrorUrls, random)) {
-    try {
-      const response = await requestUpstream(
-        fetcher,
-        buildUrl(mirror, options.subPath, options.search),
-        "public",
-        upstreamOptions,
-        requestId,
-        sessionId
-      );
-      if (response.ok) {
-        if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
-          return aggregateOpenCodeStream(response, requestedModel);
-        }
-        return response;
-      }
-      mirrorFailure = await storeFailure(response);
-    } catch (error) {
-      lastTransportError = error;
     }
   }
   const finalFailure = mirrorFailure || officialFailure;
@@ -15462,13 +15475,56 @@ async function testOpenCodeModel(baseUrl, apiKeys, modelId, mirrorUrls, fetcher)
   };
 }
 async function fetchOpenCodeModels(baseUrl, apiKeys, mirrorUrls, fetcher) {
+  const f = fetcher ?? fetch;
+  const hasKey = apiKeys.some((k) => k.enabled && k.key);
+  try {
+    const catalogRes = await f(OPENCODE_MODELS_CATALOG_URL, {
+      headers: {
+        "User-Agent": `opencode/latest/${OPENCODE_VERSION}/cli`,
+        "Accept": "application/json"
+      },
+      signal: AbortSignal.timeout(1e4)
+    });
+    if (catalogRes.ok) {
+      const catalogData = await catalogRes.json();
+      const opencodeModels = catalogData?.opencode?.models || {};
+      const entries = Object.entries(opencodeModels);
+      if (entries.length > 0) {
+        const modelsList = entries.map(([id, m]) => {
+          const isFree = Boolean(
+            m.cost && m.cost.input === 0 && m.cost.output === 0 || id.endsWith("-free") || id.includes("-free") || id === "big-pickle" || id === "grok-code" || id === "gpt-5-nano"
+          );
+          return {
+            id,
+            object: "model",
+            created: m.release_date ? Math.floor(new Date(m.release_date).getTime() / 1e3) : 1791986e3,
+            owned_by: "opencode",
+            name: m.name || id,
+            description: m.description,
+            free: isFree
+          };
+        });
+        const filtered = hasKey ? modelsList : modelsList.filter((m) => m.free);
+        return {
+          success: true,
+          message: "\u8FDE\u63A5\u6210\u529F\uFF08\u5DF2\u540C\u6B65\u5B98\u65B9\u6700\u65B0 2.0 \u6A21\u578B\u76EE\u5F55\uFF09",
+          statusCode: 200,
+          data: {
+            object: "list",
+            data: filtered
+          }
+        };
+      }
+    }
+  } catch {
+  }
   const response = await proxyOpenCodeRequest({
     baseUrl,
     apiKeys,
     mirrorUrls,
     method: "GET",
     subPath: "models",
-    fetcher
+    fetcher: f
   });
   if (!response.ok) {
     const body = await response.text();
@@ -15480,13 +15536,15 @@ async function fetchOpenCodeModels(baseUrl, apiKeys, mirrorUrls, fetcher) {
   }
   try {
     const data = await response.json();
+    const rawList = Array.isArray(data.data) ? data.data : [];
+    const list = hasKey ? rawList : filterOpenCodeModels(rawList);
     return {
       success: true,
       message: "\u8FDE\u63A5\u6210\u529F",
       statusCode: response.status,
       data: {
         ...data,
-        data: Array.isArray(data.data) ? filterOpenCodeModels(data.data) : []
+        data: list
       }
     };
   } catch (err) {
