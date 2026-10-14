@@ -15093,36 +15093,34 @@ init_config();
 
 // src/opencode.ts
 var OPENCODE_PROVIDER_ID = "opencode";
-var OPENCODE_VERSION = "2.0.29";
+var OPENCODE_VERSION = "1.19.0";
 var OPENCODE_TIMEOUT_MS = 3e5;
 var OPENCODE_MODELS_CATALOG_URL = "https://models.opencode.ai/api.json";
 var BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-var lastTimestamp = 0;
-var idCounter = 0;
 function createOpenCodeId(prefix) {
-  const isDesc = prefix === "ses";
-  const timestamp = Date.now();
-  if (timestamp !== lastTimestamp) {
-    lastTimestamp = timestamp;
-    idCounter = 0;
-  }
-  idCounter++;
-  const current = BigInt(timestamp) * 0x1000n + BigInt(idCounter);
-  const value = isDesc ? ~current : current;
-  const time2 = Array.from(
-    { length: 6 },
-    (_, index) => Number(value >> BigInt(40 - 8 * index) & 0xffn).toString(16).padStart(2, "0")
-  ).join("");
   const bytes = new Uint8Array(14);
   crypto.getRandomValues(bytes);
   let random = "";
   for (let i = 0; i < 14; i++) {
     random += BASE62_CHARS[bytes[i] % 62];
   }
-  return `${prefix}_${time2}${random}`;
+  if (prefix === "ses") {
+    const now = Date.now();
+    const epoch = 27n << 36n;
+    const high36 = epoch - 1n - BigInt(now);
+    const hex122 = (high36 << 12n | 0xffen).toString(16).padStart(12, "0");
+    return `ses_${hex122}${random}`;
+  }
+  const hex12 = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  return `${prefix}_${hex12}${random}`;
 }
-var OPENCODE_CORE_TOOL_NAMES = ["edit", "glob", "grep", "read", "shell", "write"];
-var OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION = "Agent tool for file, workspace, and execution operations.";
+function createProjectHash() {
+  const bytes = new Uint8Array(20);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+var OPENCODE_CORE_TOOL_NAMES = ["bash", "edit", "glob", "grep", "read", "shell", "write"];
+var OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION = "Agent tool for workspace and execution operations. Do not call this tool directly.";
 var OPENCODE_CORE_TOOLS = OPENCODE_CORE_TOOL_NAMES.map((name) => ({
   type: "function",
   function: {
@@ -15173,11 +15171,13 @@ function buildUrl(baseUrl, subPath, search = "") {
   return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}${search}`;
 }
 function createRequestHeaders(apiKey, requestId, sessionId) {
+  const projectHash = createProjectHash();
   const headers = new Headers({
     "Content-Type": "application/json",
-    "User-Agent": `opencode/latest/${OPENCODE_VERSION}/cli ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14`,
-    "x-opencode-client": "cli",
-    "x-opencode-project": "global",
+    "Accept": "text/event-stream, application/json",
+    "User-Agent": `opencode/${OPENCODE_VERSION} ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14`,
+    "x-opencode-client": "desktop",
+    "x-opencode-project": projectHash,
     "x-opencode-request": requestId,
     "x-opencode-request-id": requestId,
     "x-opencode-session": sessionId,
@@ -15368,8 +15368,10 @@ async function proxyOpenCodeRequest(options) {
         requestedModel = typeof parsed.model === "string" ? parsed.model : "";
         clientWantsStream = parsed.stream !== false && parsed.stream !== void 0;
         parsed.stream = true;
-        if (!Array.isArray(parsed.tools) || parsed.tools.length === 0) {
+        const hadTools = Array.isArray(parsed.tools) && parsed.tools.length > 0;
+        if (!hadTools) {
           parsed.tools = OPENCODE_CORE_TOOLS;
+          parsed.tool_choice = "none";
         } else {
           const existingNames = new Set(
             parsed.tools.map((t) => t?.function?.name || t?.name).filter(Boolean)
@@ -15382,6 +15384,7 @@ async function proxyOpenCodeRequest(options) {
           const nb = b?.function?.name || b?.name || "";
           return na.localeCompare(nb);
         });
+        parsed.store = false;
         upstreamBody = JSON.stringify(parsed);
       }
     } catch {
@@ -15774,16 +15777,32 @@ async function handleProxy(c) {
       }
       return queryAgnesVideoStatus2(statusProvider.baseUrl, statusApiKey, statusTaskId);
     }
+    let providerId = "";
+    let modelId = "";
     const parsed = parseModelId(model);
-    if (!parsed) {
-      return c.json({
-        error: {
-          message: `\u6A21\u578B\u683C\u5F0F\u9519\u8BEF "${model}"\uFF0C\u8BF7\u4F7F\u7528 \u63D0\u4F9B\u5546ID/\u6A21\u578BID \u683C\u5F0F`,
-          type: "invalid_request_error"
+    if (parsed) {
+      providerId = parsed.providerId;
+      modelId = parsed.modelId;
+    } else {
+      const allProviders = await getProviders(c.env);
+      for (const p of allProviders) {
+        if (!p.enabled) continue;
+        const matched = findModelConfig(p.models, model);
+        if (matched && matched.enabled) {
+          providerId = p.id;
+          modelId = matched.id;
+          break;
         }
-      }, 400);
+      }
+      if (!providerId) {
+        return c.json({
+          error: {
+            message: `\u6A21\u578B\u683C\u5F0F\u9519\u8BEF "${model}"\uFF0C\u672A\u627E\u5230\u5BF9\u5E94\u7684\u63D0\u4F9B\u5546\uFF0C\u8BF7\u4F7F\u7528 \u63D0\u4F9B\u5546ID/\u6A21\u578BID \u683C\u5F0F`,
+            type: "invalid_request_error"
+          }
+        }, 400);
+      }
     }
-    const { providerId, modelId } = parsed;
     const provider = await getProvider(c.env, providerId);
     if (!provider) {
       return c.json({
