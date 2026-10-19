@@ -12508,28 +12508,89 @@ async function fetchClineKeyQuota(env, refreshToken) {
     cooldowns: cooldowns2
   };
 }
+async function probeClineStream(body, maxBytes = 2 * 1024 * 1024) {
+  if (!body) return { kind: "empty", reasoning: false, detail: "\u65E0\u54CD\u5E94\u4F53" };
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let bytes = 0;
+  let sawReasoning = false;
+  let sawError = "";
+  try {
+    for (; ; ) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        bytes += value.length;
+        buf += decoder.decode(value, { stream: true });
+      }
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        let obj;
+        try {
+          obj = JSON.parse(payload);
+        } catch {
+          continue;
+        }
+        const errObj = obj?.error || obj?.data?.error;
+        if (errObj) {
+          sawError = String(errObj.message || errObj.code || "\u672A\u77E5\u9519\u8BEF");
+          continue;
+        }
+        const delta = unwrapData(obj)?.choices?.[0]?.delta;
+        const text = delta?.content;
+        if (typeof text === "string" && text.length > 0) return { kind: "content", bytes };
+        if (delta?.reasoning_content || delta?.reasoning) sawReasoning = true;
+      }
+      if (bytes >= maxBytes) break;
+    }
+  } catch (err) {
+    if (sawError) return { kind: "error", detail: sawError };
+    return { kind: "empty", reasoning: sawReasoning, detail: err.message || "\u8BFB\u53D6\u54CD\u5E94\u6D41\u5931\u8D25" };
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+    }
+  }
+  if (sawError) return { kind: "error", detail: sawError };
+  return { kind: "empty", reasoning: sawReasoning };
+}
 async function testCline(env, refreshToken, modelId) {
   if (!refreshToken) return { success: false, message: "\u672A\u586B\u5199 refreshToken", statusCode: 0 };
+  const model = modelId || CLINE_DEFAULT_MODEL;
   try {
     const { accessToken } = await getClineAccess(env, refreshToken);
-    const sessionId = "sess_" + Date.now();
-    const res = await fetch(CLINE_API_BASE + "/chat/completions", {
-      method: "POST",
-      headers: clineChatHeaders(accessToken, sessionId),
-      body: JSON.stringify({
-        model: modelId || CLINE_DEFAULT_MODEL,
-        session_id: sessionId,
-        reasoning_effort: "high",
-        messages: [{ role: "user", content: "hi" }],
-        stream: true
-      }),
-      signal: AbortSignal.timeout(6e4)
-    });
-    if (res.ok) {
-      await res.text().catch(() => "");
-      return { success: true, message: "\u8FDE\u63A5\u6210\u529F", statusCode: 200 };
+    let verdict = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const sessionId = "sess_" + Date.now();
+      const res = await fetch(CLINE_API_BASE + "/chat/completions", {
+        method: "POST",
+        headers: clineChatHeaders(accessToken, sessionId),
+        body: JSON.stringify({
+          model,
+          session_id: sessionId,
+          reasoning_effort: "high",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true
+        }),
+        signal: AbortSignal.timeout(6e4)
+      });
+      if (!res.ok) {
+        return { success: false, message: `HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`, statusCode: res.status };
+      }
+      verdict = await probeClineStream(res.body);
+      if (verdict.kind !== "empty") break;
     }
-    return { success: false, message: `HTTP ${res.status}: ${(await readErrorBody(res)).slice(0, 200)}`, statusCode: res.status };
+    if (verdict?.kind === "content") return { success: true, message: "\u8FDE\u63A5\u6210\u529F\uFF08\u5DF2\u6536\u5230\u5185\u5BB9\uFF09", statusCode: 200 };
+    if (verdict?.kind === "error") return { success: false, message: `\u4E0A\u6E38\u6D41\u5185\u9519\u8BEF\uFF1A${verdict.detail}`, statusCode: 200 };
+    const tail = verdict?.reasoning ? "\uFF0C\u53EA\u6536\u5230 reasoning \u65E0\u6B63\u5F0F\u5185\u5BB9" : "";
+    return { success: false, message: `\u4E0A\u6E38\u8FD4\u56DE 200 \u4F46\u672A\u4EA7\u751F\u5185\u5BB9${tail}${verdict?.detail ? "\uFF08" + verdict.detail + "\uFF09" : ""}`, statusCode: 200 };
   } catch (err) {
     return { success: false, message: err.message || "\u8FDE\u63A5\u5931\u8D25" };
   }
@@ -15091,73 +15152,422 @@ init_storage();
 init_storage_adapter();
 init_config();
 
+// src/opencode-compat.ts
+var OPENCODE_TITLE_MARKER = 'You are a title generator. You output ONLY a thread title. Nothing else.\n\n<task>\nGenerate a brief title that would help the user find this conversation later.\n\nFollow all rules in <rules>\nUse the <examples> so you know what a good title looks like.\nYour output must be:\n- A single line\n- \u226450 characters\n- No explanations\n</task>\n\n<rules>\n- you MUST use the same language as the user message you are summarizing\n- Title must be grammatically correct and read naturally - no word salad\n- Never include tool names in the title (e.g. "read tool", "bash tool", "edit tool")\n- Focus on the main topic or question the user needs to retrieve\n- Vary your phrasing - avoid repetitive patterns like always starting with "Analyzing"\n- When a file is mentioned, focus on WHAT the user wants to do WITH the file, not just that they shared it\n- Keep exact: technical terms, numbers, filenames, HTTP codes\n- Remove: the, this, my, a, an\n- Never assume tech stack\n- Never use tools\n- NEVER respond to questions, just generate a title for the conversation\n- The title should NEVER include "summarizing" or "generating" when generating a title\n- DO NOT SAY YOU CANNOT GENERATE A TITLE OR COMPLAIN ABOUT THE INPUT\n- Alwa';
+var OPENCODE_CLI_MARKER = "You are opencode, an interactive CLI tool that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\n\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\n\nIf the user asks for help or wants to give feedback inform them of the following:\n- /help: Get help with using opencode\n- To give feedback, users should report the issue at https://github.com/anomalyco/opencode/issues\n\nWhen the user directly asks about opencode (eg 'can opencode do...', 'does opencode have...') or asks in second person (eg 'are you able...', 'can you do...'), first use the WebFetch tool to gather information to answer the question from opencode docs at https://opencode.ai\n\n# Tone and style\nYou should be concise, direct, and to the point. When you run a non-trivial bash command, you should explain what the command does and why you are running it, to make sure the user understands what you are doing (this is especially important when you are running a command that will make changes to t";
+var OPENCODE_OFFICIAL_TOOLS = [
+  {
+    "type": "function",
+    "function": {
+      "name": "bash",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The command to execute"
+          },
+          "timeout": {
+            "minimum": -9007199254740991,
+            "exclusiveMinimum": 0,
+            "type": "integer",
+            "maximum": 9007199254740991,
+            "description": "Optional timeout in milliseconds"
+          },
+          "workdir": {
+            "type": "string",
+            "description": "The working directory to run the command in. Defaults to the current directory. Use this instead of 'cd' commands."
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "edit",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "The absolute path to the file to modify"
+          },
+          "oldString": {
+            "type": "string",
+            "description": "The text to replace"
+          },
+          "newString": {
+            "type": "string",
+            "description": "The text to replace it with (must be different from oldString)"
+          },
+          "replaceAll": {
+            "type": "boolean",
+            "description": "Replace all occurrences of oldString (default false)"
+          }
+        },
+        "required": [
+          "filePath",
+          "oldString",
+          "newString"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "glob",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "The glob pattern to match files against"
+          },
+          "path": {
+            "type": "string",
+            "description": 'The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.'
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "grep",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "The regex pattern to search for in file contents"
+          },
+          "path": {
+            "type": "string",
+            "description": "The directory to search in. Defaults to the current working directory."
+          },
+          "include": {
+            "type": "string",
+            "description": 'File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")'
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "The absolute path to the file or directory to read"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer",
+            "maximum": 9007199254740991,
+            "description": "The line number to start reading from (1-indexed)"
+          },
+          "limit": {
+            "minimum": 0,
+            "type": "integer",
+            "maximum": 9007199254740991,
+            "description": "The maximum number of lines to read (defaults to 2000)"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "skill",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the skill from available_skills"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "task",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A short (3-5 words) description of the task"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The task for the agent to perform"
+          },
+          "subagent_type": {
+            "type": "string",
+            "description": "The type of specialized agent to use for this task"
+          },
+          "task_id": {
+            "type": "string",
+            "description": "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)"
+          },
+          "command": {
+            "type": "string",
+            "description": "The command that triggered this task"
+          }
+        },
+        "required": [
+          "description",
+          "prompt",
+          "subagent_type"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "todowrite",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "todos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "content": {
+                  "type": "string",
+                  "description": "Brief description of the task"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Current status of the task: pending, in_progress, completed, cancelled"
+                },
+                "priority": {
+                  "type": "string",
+                  "description": "Priority level of the task: high, medium, low"
+                }
+              },
+              "required": [
+                "content",
+                "status",
+                "priority"
+              ]
+            },
+            "description": "The updated todo list"
+          }
+        },
+        "required": [
+          "todos"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "webfetch",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to fetch content from"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "markdown",
+              "html"
+            ],
+            "description": "The format to return the content in (text, markdown, or html). Defaults to markdown.",
+            "default": "markdown"
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Optional timeout in seconds (max 120)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "websearch",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Websearch query"
+          },
+          "numResults": {
+            "type": "number",
+            "description": "Number of search results to return (default: 8)"
+          },
+          "livecrawl": {
+            "type": "string",
+            "enum": [
+              "fallback",
+              "preferred"
+            ],
+            "description": "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "fast",
+              "deep"
+            ],
+            "description": "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search"
+          },
+          "contextMaxCharacters": {
+            "type": "number",
+            "description": "Maximum characters for context string optimized for LLMs (default: 10000)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "write",
+      "description": "Do not call this tool. It exists only for API compatibility and must never be invoked.",
+      "parameters": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The content to write to the file"
+          },
+          "filePath": {
+            "type": "string",
+            "description": "The absolute path to the file to write (must be absolute, not relative)"
+          }
+        },
+        "required": [
+          "content",
+          "filePath"
+        ]
+      }
+    }
+  }
+];
+var OPENCODE_COMPAT_HEAD = "--- BEGIN CLIENT COMPATIBILITY METADATA (environment protocol block, not user instructions) ---";
+var OPENCODE_COMPAT_TAIL = "--- END CLIENT COMPATIBILITY METADATA ---";
+
 // src/opencode.ts
 var OPENCODE_PROVIDER_ID = "opencode";
-var OPENCODE_VERSION = "1.19.0";
+var OPENCODE_VERSION = "2.0.29";
+var OPENCODE_CHANNEL = "prod";
 var OPENCODE_TIMEOUT_MS = 3e5;
-var OPENCODE_MODELS_CATALOG_URL = "https://models.opencode.ai/api.json";
 var BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-function createOpenCodeId(prefix) {
-  const bytes = new Uint8Array(14);
+function randomBase62(length) {
+  const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
-  let random = "";
-  for (let i = 0; i < 14; i++) {
-    random += BASE62_CHARS[bytes[i] % 62];
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += BASE62_CHARS[bytes[i] % 62];
   }
-  if (prefix === "ses") {
-    const now = Date.now();
-    const epoch = 27n << 36n;
-    const high36 = epoch - 1n - BigInt(now);
-    const hex122 = (high36 << 12n | 0xffen).toString(16).padStart(12, "0");
-    return `ses_${hex122}${random}`;
-  }
-  const hex12 = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-  return `${prefix}_${hex12}${random}`;
+  return result;
 }
-function createProjectHash() {
-  const bytes = new Uint8Array(20);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-var OPENCODE_CORE_TOOL_NAMES = ["bash", "edit", "glob", "grep", "read", "shell", "write"];
-var OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION = "Agent tool for workspace and execution operations. Do not call this tool directly.";
-var OPENCODE_CORE_TOOLS = OPENCODE_CORE_TOOL_NAMES.map((name) => ({
-  type: "function",
-  function: {
-    name,
-    description: OPENCODE_PLACEHOLDER_TOOL_DESCRIPTION,
-    parameters: { type: "object", properties: {} }
+var lastTimestamp = 0;
+var idCounter = 0;
+function createOpenCodeId(prefix, descending = false) {
+  const currentTimestamp = Date.now();
+  if (currentTimestamp !== lastTimestamp) {
+    lastTimestamp = currentTimestamp;
+    idCounter = 0;
   }
-}));
+  idCounter++;
+  const current = BigInt(currentTimestamp) * BigInt(4096) + BigInt(idCounter);
+  const value = descending ? ~current : current;
+  let hex = "";
+  for (let i = 0; i < 6; i++) {
+    const byte = Number(value >> BigInt(40 - 8 * i) & BigInt(255));
+    hex += byte.toString(16).padStart(2, "0");
+  }
+  return `${prefix}_${hex}${randomBase62(14)}`;
+}
+var OPENCODE_TITLE_BLOCK = `${OPENCODE_COMPAT_HEAD}
+${OPENCODE_TITLE_MARKER}
+${OPENCODE_COMPAT_TAIL}`;
+var OPENCODE_CLI_BLOCK = `${OPENCODE_COMPAT_HEAD}
+${OPENCODE_CLI_MARKER}
+${OPENCODE_COMPAT_TAIL}`;
 function isOpenCodeProvider(providerId) {
   return providerId === OPENCODE_PROVIDER_ID;
 }
 function filterOpenCodeModels(models) {
-  return models.filter((model) => {
-    if (typeof model.id !== "string") return false;
-    const id = model.id;
-    if (!/^[A-Za-z0-9._:/-]+$/.test(id)) return false;
-    return id.endsWith("-free") || id.includes("-free") || id === "big-pickle" || id === "grok-code" || id === "gpt-5-nano" || id === "cat-jam-free" || id === "space-bunny-free";
-  });
+  return models.filter((model) => typeof model.id === "string" && /^[A-Za-z0-9._:/-]+$/.test(model.id) && (model.id === "big-pickle" || model.id.endsWith("-free")));
 }
 function resolveOpenCodeUrls(env) {
   const raw2 = env.OPENCODE_MIRRORS_URL || "";
   const parts = raw2.split("\n").flatMap((s) => s.split(",")).map((s) => s.trim()).filter(Boolean);
   return [...new Set(parts)];
 }
-var OPENCODE_DEFAULT_MIRRORS = [
-  "https://opencode.ai.cmliussss.net/zen/v1",
-  "https://opencode.fastly.cmliussss.net/zen/v1",
-  "https://opencode.gcore.cmliussss.net/zen/v1"
-];
 function resolveProviderMirrorUrls(env, provider) {
   if (provider?.mirrorUrls && provider.mirrorUrls.length > 0) {
-    const list = [...new Set(provider.mirrorUrls.map((s) => s.trim()).filter(Boolean))];
-    if (list.length > 0) return list;
+    return [...new Set(provider.mirrorUrls.map((s) => s.trim()).filter(Boolean))];
   }
-  const fromEnv = resolveOpenCodeUrls(env);
-  if (fromEnv.length > 0) return fromEnv;
-  return [...OPENCODE_DEFAULT_MIRRORS];
+  return resolveOpenCodeUrls(env);
 }
 function getMirrorOrder(urls, random) {
   if (urls.length === 0) return [];
@@ -15168,29 +15578,69 @@ function getMirrorOrder(urls, random) {
   ];
 }
 function buildUrl(baseUrl, subPath, search = "") {
-  return `${baseUrl.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}${search}`;
+  const normalized = baseUrl.replace(/\/zen\/v1(?=\/|$)/, "/inference/v1");
+  return `${normalized.replace(/\/+$/, "")}/${subPath.replace(/^\/+/, "")}${search}`;
 }
-function createRequestHeaders(apiKey, requestId, sessionId) {
-  const projectHash = createProjectHash();
-  const headers = new Headers({
+var OPENCODE_TITLE_PROBE = OPENCODE_TITLE_MARKER.slice(0, 80);
+var OPENCODE_CLI_PROBE = OPENCODE_CLI_MARKER.slice(0, 80);
+function officialToolKey(tool) {
+  return `${tool?.function?.name ?? tool?.name}:${JSON.stringify(tool?.function?.parameters)}`;
+}
+function injectCompatMarker(messages, block, probe) {
+  const containsProbe = (value) => typeof value === "string" && value.includes(probe);
+  const already = messages.some((message) => {
+    if (!message) return false;
+    if (containsProbe(message.content)) return true;
+    if (Array.isArray(message.content)) {
+      return message.content.some((part) => containsProbe(part?.text));
+    }
+    return false;
+  });
+  if (already) return;
+  const systemMessage = messages.find((message) => message && message.role === "system");
+  if (systemMessage) {
+    if (typeof systemMessage.content === "string") {
+      systemMessage.content = `${systemMessage.content}
+
+${block}`;
+      return;
+    }
+    if (Array.isArray(systemMessage.content)) {
+      systemMessage.content.push({ type: "text", text: block });
+      return;
+    }
+  }
+  messages.unshift({ role: "system", content: block });
+}
+function ensureOpenCodeCompat(payload) {
+  const messages = Array.isArray(payload?.messages) ? payload.messages : null;
+  if (!messages || messages.length === 0) return;
+  const hasTools = Array.isArray(payload.tools) && payload.tools.length > 0;
+  if (hasTools) {
+    const tools = payload.tools;
+    const officialNames = new Set(OPENCODE_OFFICIAL_TOOLS.map((tool) => tool.function.name));
+    const clientTools = tools.filter((tool) => !officialNames.has(tool?.function?.name ?? tool?.name));
+    const alreadyPrepended = clientTools.length === tools.length && tools.length >= OPENCODE_OFFICIAL_TOOLS.length && OPENCODE_OFFICIAL_TOOLS.every((official, index) => officialToolKey(tools[index]) === officialToolKey(official));
+    if (!alreadyPrepended) {
+      payload.tools = [...OPENCODE_OFFICIAL_TOOLS.map((tool) => JSON.parse(JSON.stringify(tool))), ...clientTools];
+    }
+    injectCompatMarker(messages, OPENCODE_CLI_BLOCK, OPENCODE_CLI_PROBE);
+    return;
+  }
+  injectCompatMarker(messages, OPENCODE_TITLE_BLOCK, OPENCODE_TITLE_PROBE);
+}
+function createRequestHeaders(apiKey, sessionId) {
+  return new Headers({
     "Content-Type": "application/json",
-    "Accept": "text/event-stream, application/json",
-    "User-Agent": `opencode/${OPENCODE_VERSION} ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14`,
-    "x-opencode-client": "desktop",
-    "x-opencode-project": projectHash,
-    "x-opencode-request": requestId,
-    "x-opencode-request-id": requestId,
-    "x-opencode-session": sessionId,
+    "Authorization": `Bearer ${apiKey}`,
+    "User-Agent": `opencode/${OPENCODE_CHANNEL}/${OPENCODE_VERSION}/cli`,
+    "x-opencode-client": "cli",
+    "x-opencode-project": "global",
     "x-opencode-session-id": sessionId,
+    "x-opencode-session": sessionId,
     "x-session-affinity": sessionId,
     "X-Session-Id": sessionId
   });
-  if (apiKey && apiKey !== "public") {
-    headers.set("Authorization", `Bearer ${apiKey}`);
-  } else {
-    headers.set("Authorization", "Bearer public");
-  }
-  return headers;
 }
 async function storeFailure(response) {
   return {
@@ -15216,10 +15666,10 @@ function transportErrorResponse(error) {
     headers: { "Content-Type": "application/json; charset=utf-8" }
   });
 }
-async function requestUpstream(fetcher, url, apiKey, options, requestId, sessionId) {
+async function requestUpstream(fetcher, url, apiKey, options, sessionId) {
   return fetcher(url, {
     method: options.method,
-    headers: createRequestHeaders(apiKey, requestId, sessionId),
+    headers: createRequestHeaders(apiKey, sessionId),
     body: options.method === "GET" || options.method === "HEAD" ? void 0 : options.body,
     signal: AbortSignal.timeout(OPENCODE_TIMEOUT_MS)
   });
@@ -15353,8 +15803,7 @@ function formatOpenCodeErrorMessage(status, rawBody) {
 async function proxyOpenCodeRequest(options) {
   const fetcher = options.fetcher ?? fetch;
   const random = options.random ?? Math.random;
-  const requestId = createOpenCodeId("msg");
-  const sessionId = createOpenCodeId("ses");
+  const sessionId = createOpenCodeId("ses", true);
   let officialFailure = null;
   let mirrorFailure = null;
   let lastTransportError = null;
@@ -15368,23 +15817,7 @@ async function proxyOpenCodeRequest(options) {
         requestedModel = typeof parsed.model === "string" ? parsed.model : "";
         clientWantsStream = parsed.stream !== false && parsed.stream !== void 0;
         parsed.stream = true;
-        const hadTools = Array.isArray(parsed.tools) && parsed.tools.length > 0;
-        if (!hadTools) {
-          parsed.tools = OPENCODE_CORE_TOOLS;
-          parsed.tool_choice = "none";
-        } else {
-          const existingNames = new Set(
-            parsed.tools.map((t) => t?.function?.name || t?.name).filter(Boolean)
-          );
-          const missingTools = OPENCODE_CORE_TOOLS.filter((t) => !existingNames.has(t.function.name));
-          parsed.tools = [...parsed.tools, ...missingTools];
-        }
-        parsed.tools = [...parsed.tools].sort((a, b) => {
-          const na = a?.function?.name || a?.name || "";
-          const nb = b?.function?.name || b?.name || "";
-          return na.localeCompare(nb);
-        });
-        parsed.store = false;
+        ensureOpenCodeCompat(parsed);
         upstreamBody = JSON.stringify(parsed);
       }
     } catch {
@@ -15404,7 +15837,6 @@ async function proxyOpenCodeRequest(options) {
           officialUrl,
           entry.key,
           upstreamOptions,
-          requestId,
           sessionId
         );
         if (response.ok) {
@@ -15421,32 +15853,43 @@ async function proxyOpenCodeRequest(options) {
       }
     }
   } else {
-    const candidateBases = [
-      ...getMirrorOrder(options.mirrorUrls, random),
-      options.baseUrl,
-      "https://opencode.ai/inference/v1"
-    ];
-    const uniqueBases = [...new Set(candidateBases)];
-    for (const base of uniqueBases) {
-      try {
-        const response = await requestUpstream(
-          fetcher,
-          buildUrl(base, options.subPath, options.search),
-          "public",
-          upstreamOptions,
-          requestId,
-          sessionId
-        );
-        if (response.ok) {
-          if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
-            return aggregateOpenCodeStream(response, requestedModel);
-          }
-          return response;
+    try {
+      const response = await requestUpstream(
+        fetcher,
+        officialUrl,
+        "public",
+        upstreamOptions,
+        sessionId
+      );
+      if (response.ok) {
+        if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
+          return aggregateOpenCodeStream(response, requestedModel);
         }
-        mirrorFailure = await storeFailure(response);
-      } catch (error) {
-        lastTransportError = error;
+        return response;
       }
+      officialFailure = await storeFailure(response);
+    } catch (error) {
+      lastTransportError = error;
+    }
+  }
+  for (const mirror of getMirrorOrder(options.mirrorUrls, random)) {
+    try {
+      const response = await requestUpstream(
+        fetcher,
+        buildUrl(mirror, options.subPath, options.search),
+        "public",
+        upstreamOptions,
+        sessionId
+      );
+      if (response.ok) {
+        if (!clientWantsStream && (response.headers.get("content-type") || "").includes("text/event-stream")) {
+          return aggregateOpenCodeStream(response, requestedModel);
+        }
+        return response;
+      }
+      mirrorFailure = await storeFailure(response);
+    } catch (error) {
+      lastTransportError = error;
     }
   }
   const finalFailure = mirrorFailure || officialFailure;
@@ -15478,56 +15921,13 @@ async function testOpenCodeModel(baseUrl, apiKeys, modelId, mirrorUrls, fetcher)
   };
 }
 async function fetchOpenCodeModels(baseUrl, apiKeys, mirrorUrls, fetcher) {
-  const f = fetcher ?? fetch;
-  const hasKey = apiKeys.some((k) => k.enabled && k.key);
-  try {
-    const catalogRes = await f(OPENCODE_MODELS_CATALOG_URL, {
-      headers: {
-        "User-Agent": `opencode/latest/${OPENCODE_VERSION}/cli`,
-        "Accept": "application/json"
-      },
-      signal: AbortSignal.timeout(1e4)
-    });
-    if (catalogRes.ok) {
-      const catalogData = await catalogRes.json();
-      const opencodeModels = catalogData?.opencode?.models || {};
-      const entries = Object.entries(opencodeModels);
-      if (entries.length > 0) {
-        const modelsList = entries.map(([id, m]) => {
-          const isFree = Boolean(
-            m.cost && m.cost.input === 0 && m.cost.output === 0 || id.endsWith("-free") || id.includes("-free") || id === "big-pickle" || id === "grok-code" || id === "gpt-5-nano"
-          );
-          return {
-            id,
-            object: "model",
-            created: m.release_date ? Math.floor(new Date(m.release_date).getTime() / 1e3) : 1791986e3,
-            owned_by: "opencode",
-            name: m.name || id,
-            description: m.description,
-            free: isFree
-          };
-        });
-        const filtered = hasKey ? modelsList : modelsList.filter((m) => m.free);
-        return {
-          success: true,
-          message: "\u8FDE\u63A5\u6210\u529F\uFF08\u5DF2\u540C\u6B65\u5B98\u65B9\u6700\u65B0 2.0 \u6A21\u578B\u76EE\u5F55\uFF09",
-          statusCode: 200,
-          data: {
-            object: "list",
-            data: filtered
-          }
-        };
-      }
-    }
-  } catch {
-  }
   const response = await proxyOpenCodeRequest({
     baseUrl,
     apiKeys,
     mirrorUrls,
     method: "GET",
     subPath: "models",
-    fetcher: f
+    fetcher
   });
   if (!response.ok) {
     const body = await response.text();
@@ -15539,15 +15939,13 @@ async function fetchOpenCodeModels(baseUrl, apiKeys, mirrorUrls, fetcher) {
   }
   try {
     const data = await response.json();
-    const rawList = Array.isArray(data.data) ? data.data : [];
-    const list = hasKey ? rawList : filterOpenCodeModels(rawList);
     return {
       success: true,
       message: "\u8FDE\u63A5\u6210\u529F",
       statusCode: response.status,
       data: {
         ...data,
-        data: list
+        data: Array.isArray(data.data) ? filterOpenCodeModels(data.data) : []
       }
     };
   } catch (err) {
@@ -15777,32 +16175,16 @@ async function handleProxy(c) {
       }
       return queryAgnesVideoStatus2(statusProvider.baseUrl, statusApiKey, statusTaskId);
     }
-    let providerId = "";
-    let modelId = "";
     const parsed = parseModelId(model);
-    if (parsed) {
-      providerId = parsed.providerId;
-      modelId = parsed.modelId;
-    } else {
-      const allProviders = await getProviders(c.env);
-      for (const p of allProviders) {
-        if (!p.enabled) continue;
-        const matched = findModelConfig(p.models, model);
-        if (matched && matched.enabled) {
-          providerId = p.id;
-          modelId = matched.id;
-          break;
+    if (!parsed) {
+      return c.json({
+        error: {
+          message: `\u6A21\u578B\u683C\u5F0F\u9519\u8BEF "${model}"\uFF0C\u8BF7\u4F7F\u7528 \u63D0\u4F9B\u5546ID/\u6A21\u578BID \u683C\u5F0F`,
+          type: "invalid_request_error"
         }
-      }
-      if (!providerId) {
-        return c.json({
-          error: {
-            message: `\u6A21\u578B\u683C\u5F0F\u9519\u8BEF "${model}"\uFF0C\u672A\u627E\u5230\u5BF9\u5E94\u7684\u63D0\u4F9B\u5546\uFF0C\u8BF7\u4F7F\u7528 \u63D0\u4F9B\u5546ID/\u6A21\u578BID \u683C\u5F0F`,
-            type: "invalid_request_error"
-          }
-        }, 400);
-      }
+      }, 400);
     }
+    const { providerId, modelId } = parsed;
     const provider = await getProvider(c.env, providerId);
     if (!provider) {
       return c.json({
