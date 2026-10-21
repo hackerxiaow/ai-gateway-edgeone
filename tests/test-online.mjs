@@ -1,147 +1,98 @@
-const BASE_URL = 'https://ai-gateway-edgeone-kuqnd19q.edgeone.cool'
-const AUTH_QUERY = '?eo_token=0c990f9bbebdbd596f662b39b8e68351&eo_time=1790271862'
+import assert from 'node:assert/strict'
 
-async function runOnlineTests() {
-  console.log('🚀 开始腾讯云 EdgeOne 线上全功能联调测试...\n')
+// This suite is opt-in and read-only apart from creating a short-lived login
+// session. It never creates API keys or stores credentials in the repository.
+const enabled = process.env.RUN_EDGEONE_ONLINE_TESTS === '1'
+if (!enabled) {
+  console.log('Online smoke tests skipped. Set RUN_EDGEONE_ONLINE_TESTS=1 and the EDGEONE_TEST_* variables to run.')
+} else {
+  const required = [
+    'EDGEONE_TEST_BASE_URL',
+    'EDGEONE_TEST_ADMIN_USERNAME',
+    'EDGEONE_TEST_ADMIN_PASSWORD',
+    'EDGEONE_TEST_PROXY_KEY',
+  ]
+  const missing = required.filter((name) => !process.env[name])
+  if (missing.length) {
+    console.error(`Missing required online-test settings: ${missing.join(', ')}`)
+    process.exitCode = 1
+  } else {
+    const baseUrl = process.env.EDGEONE_TEST_BASE_URL
+    const authQuery = process.env.EDGEONE_TEST_AUTH_QUERY || ''
+    const cookies = new Map()
 
-  let cookies = {}
-
-  function updateCookies(res) {
-    const raw = res.headers.get('set-cookie')
-    if (!raw) return
-    const parts = raw.split(/,(?=[^;]+?=)/)
-    for (const p of parts) {
-      const pair = p.trim().split(';')[0]
-      const eq = pair.indexOf('=')
-      if (eq > 0) {
-        const k = pair.slice(0, eq).trim()
-        const v = pair.slice(eq + 1).trim()
-        cookies[k] = v
+    function rememberCookies(response) {
+      const headers = response.headers
+      const setCookies = typeof headers.getSetCookie === 'function'
+        ? headers.getSetCookie()
+        : (headers.get('set-cookie') || '').split(/,(?=[^;]+?=)/)
+      for (const value of setCookies) {
+        const pair = value.trim().split(';', 1)[0]
+        const separator = pair.indexOf('=')
+        if (separator > 0) cookies.set(pair.slice(0, separator), pair.slice(separator + 1))
       }
     }
-  }
 
-  function getCookieHeader() {
-    return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-  }
-
-  // 1. 初始化会话与获取 EdgeOne 网关 Cookie
-  console.log('1. 获取 EdgeOne 网关入口授权 Cookie...')
-  const initRes = await fetch(`${BASE_URL}/${AUTH_QUERY}`, { redirect: 'manual' })
-  console.log('Init status:', initRes.status)
-  updateCookies(initRes)
-
-  // 2. 访问首页
-  console.log('\n2. 访问首页 / ...')
-  const homeRes = await fetch(`${BASE_URL}/`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Home status:', homeRes.status)
-  const homeHtml = await homeRes.text()
-  console.log('Home HTML length:', homeHtml.length, 'Contains title:', homeHtml.includes('AI Gateway'))
-
-  // 3. 访问 /admin/login 页面
-  console.log('\n3. 访问 /admin/login 页面...')
-  const loginPageRes = await fetch(`${BASE_URL}/admin/login`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Login page status:', loginPageRes.status)
-  updateCookies(loginPageRes)
-
-  // 4. POST /admin/login 登录
-  console.log('\n4. POST /admin/login 登录认证...')
-  const loginRes = await fetch(`${BASE_URL}/admin/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: getCookieHeader()
-    },
-    body: JSON.stringify({
-      username: 'admin',
-      password: 'yxy.@990524gdg'
-    })
-  })
-  console.log('Login status:', loginRes.status)
-  updateCookies(loginRes)
-  const loginData = await loginRes.json()
-  console.log('Login result:', JSON.stringify(loginData))
-  console.log('Session Cookie set:', !!cookies['session_id'])
-
-  // 5. GET /admin/api/status
-  console.log('\n5. 请求 /admin/api/status 检查系统与存储状态...')
-  const statusRes = await fetch(`${BASE_URL}/admin/api/status`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Status API Code:', statusRes.status)
-  const statusData = await statusRes.json()
-  console.log('Status result:', JSON.stringify(statusData))
-
-  // 6. GET /admin 页面
-  console.log('\n6. 请求 /admin 管理后台页面...')
-  const adminRes = await fetch(`${BASE_URL}/admin`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Admin Page Code:', adminRes.status)
-  const adminHtml = await adminRes.text()
-  console.log('Admin Page length:', adminHtml.length)
-  console.log('Contains EdgeOne Blob:', adminHtml.includes('EdgeOne Blob 数据库') || adminHtml.includes('EdgeOne · Blob'))
-
-  // 7. GET /admin/api/providers
-  console.log('\n7. 请求 /admin/api/providers 获取渠道列表...')
-  const provRes = await fetch(`${BASE_URL}/admin/api/providers`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Providers status:', provRes.status)
-  const provData = await provRes.json()
-  console.log('Providers count:', provData.data?.length ?? 0)
-
-  // 8. POST /admin/api/proxy-keys 创建测试令牌
-  console.log('\n8. POST /admin/api/proxy-keys 创建新的转发令牌...')
-  const createKeyRes = await fetch(`${BASE_URL}/admin/api/proxy-keys`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Cookie: getCookieHeader()
-    },
-    body: JSON.stringify({
-      name: '线上公网自动化测试令牌'
-    })
-  })
-  console.log('Create key status:', createKeyRes.status)
-  const createKeyData = await createKeyRes.json()
-  const rawKey = createKeyData.data?.key
-  console.log('Created Raw Key:', rawKey)
-
-  // 9. GET /v1/models 带 Bearer Token
-  if (rawKey) {
-    console.log('\n9. 请求 /v1/models (使用新创建的 Bearer Key)...')
-    const modelsRes = await fetch(`${BASE_URL}/v1/models`, {
-      headers: {
-        'Authorization': `Bearer ${rawKey}`,
-        Cookie: getCookieHeader()
+    async function request(path, init = {}) {
+      const url = new URL(path, baseUrl)
+      for (const [key, value] of new URLSearchParams(authQuery.replace(/^\?/, ''))) {
+        url.searchParams.set(key, value)
       }
-    })
-    console.log('Models status:', modelsRes.status)
-    const modelsData = await modelsRes.json()
-    console.log('Models count:', modelsData.data?.length ?? 0)
-    if (modelsData.data?.length > 0) {
-      console.log('Sample model ID:', modelsData.data[0].id)
+      const headers = new Headers(init.headers)
+      if (cookies.size && !headers.has('Cookie')) {
+        headers.set('Cookie', [...cookies].map(([key, value]) => `${key}=${value}`).join('; '))
+      }
+      const response = await fetch(url, { ...init, headers })
+      rememberCookies(response)
+      return response
     }
+
+    async function runOnlineTests() {
+      const homeRes = await request('/')
+      assert.equal(homeRes.status, 200, 'home page should load')
+      assert.match(await homeRes.text(), /AI Gateway/, 'home page should contain the product title')
+
+      const loginPageRes = await request('/admin/login')
+      assert.equal(loginPageRes.status, 200, 'login page should load')
+
+      const loginRes = await request('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: process.env.EDGEONE_TEST_ADMIN_USERNAME,
+          password: process.env.EDGEONE_TEST_ADMIN_PASSWORD,
+        }),
+      })
+      assert.equal(loginRes.status, 200, 'admin login should succeed')
+      assert.equal((await loginRes.json()).success, true)
+      assert.ok(cookies.has('session_id'), 'login should set a session cookie')
+
+      const statusRes = await request('/admin/api/status')
+      assert.equal(statusRes.status, 200, 'status API should load')
+
+      const adminRes = await request('/admin')
+      assert.equal(adminRes.status, 200, 'admin page should load')
+
+      const providersRes = await request('/admin/api/providers')
+      assert.equal(providersRes.status, 200, 'providers API should load')
+      assert.ok(Array.isArray((await providersRes.json()).data))
+
+      const modelsRes = await request('/v1/models', {
+        headers: { Authorization: `Bearer ${process.env.EDGEONE_TEST_PROXY_KEY}` },
+      })
+      assert.equal(modelsRes.status, 200, 'models API should accept the configured test key')
+      assert.ok(Array.isArray((await modelsRes.json()).data))
+
+      const usageRes = await request('/admin/api/usage?days=7')
+      assert.equal(usageRes.status, 200, 'usage API should load')
+      assert.equal(typeof (await usageRes.json()).data?.totalRequests, 'number')
+
+      console.log('Online smoke tests passed: home, login, status, admin, providers, models, and usage.')
+    }
+
+    runOnlineTests().catch((error) => {
+      console.error('Online smoke tests failed:', error)
+      process.exitCode = 1
+    })
   }
-
-  // 10. GET /admin/api/usage 用量统计
-  console.log('\n10. 请求 /admin/api/usage 获取用量数据...')
-  const usageRes = await fetch(`${BASE_URL}/admin/api/usage?days=7`, {
-    headers: { Cookie: getCookieHeader() }
-  })
-  console.log('Usage status:', usageRes.status)
-  const usageData = await usageRes.json()
-  console.log('Usage totalRequests:', usageData.data?.totalRequests ?? 0)
-
-  console.log('\n🎉🎉🎉 腾讯云 EdgeOne 线上生产环境全流程联调测试全部通过！🎉🎉🎉')
 }
-
-runOnlineTests().catch(err => {
-  console.error('Online Test Failed:', err)
-  process.exit(1)
-})

@@ -21,10 +21,19 @@ const SITES = [
   },
 ]
 
-const ADMIN_KEY = 'sk_cf_2781e99f40f74df98c51a4592ab7ad95'
-const ADMIN_USER = 'admin'
-const ADMIN_PASS = 'yxy.@990524gdg'
+const ADMIN_KEY = process.env.ADMIN_PROXY_KEY || ''
+const ADMIN_USER = process.env.ADMIN_USERNAME || ''
+const ADMIN_PASS = process.env.ADMIN_PASSWORD || ''
 const CALL_TIMEOUT_MS = 60000
+
+const missingCredentials = [
+  ['ADMIN_PROXY_KEY', ADMIN_KEY],
+  ['ADMIN_USERNAME', ADMIN_USER],
+  ['ADMIN_PASSWORD', ADMIN_PASS],
+].filter(([, value]) => !value).map(([name]) => name)
+if (missingCredentials.length) {
+  throw new Error(`Set required environment variables: ${missingCredentials.join(', ')}`)
+}
 
 function createClient(site) {
   const cookies = {}

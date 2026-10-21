@@ -29,8 +29,10 @@ export async function onRequest(context: any) {
   const incoming: Request = context.request
 
   const env = {
-    ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'admin',
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'yxy.@990524gdg',
+    // Fail closed when deployment credentials are missing. Never ship a shared
+    // default admin password in the bundle.
+    ADMIN_USERNAME: process.env.ADMIN_USERNAME || '',
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
     OPENCODE_MIRRORS_URL: process.env.OPENCODE_MIRRORS_URL,
     AG_CLIENT_ID: process.env.AG_CLIENT_ID,
     AG_CLIENT_SECRET: process.env.AG_CLIENT_SECRET,
