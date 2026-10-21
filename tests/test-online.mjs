@@ -50,7 +50,7 @@ if (!enabled) {
     async function runOnlineTests() {
       const homeRes = await request('/')
       assert.equal(homeRes.status, 200, 'home page should load')
-      assert.match(await homeRes.text(), /AI Gateway/, 'home page should contain the product title')
+      assert.match(await homeRes.text(), /AI GATEWAY/, 'home page should contain the product title')
 
       const loginPageRes = await request('/admin/login')
       assert.equal(loginPageRes.status, 200, 'login page should load')
