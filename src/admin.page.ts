@@ -90,6 +90,7 @@ export function renderProviderPanel(p: Provider): string {
         <option value="antigravity" ${p.type === 'antigravity' ? 'selected' : ''}>Antigravity 反代</option>
         <option value="claude" ${p.type === 'claude' ? 'selected' : ''}>Claude OAuth 反代</option>
         <option value="codex" ${p.type === 'codex' ? 'selected' : ''}>ChatGPT (Codex) 反代</option>
+        <option value="chatgptweb" ${p.type === 'chatgptweb' ? 'selected' : ''}>ChatGPT 网页版反代 (Free/RT)</option>
         <option value="kimi" ${p.type === 'kimi' ? 'selected' : ''}>Kimi Coding OAuth 反代</option>
         <option value="kimiweb" ${p.type === 'kimiweb' ? 'selected' : ''}>Kimi 网页版反代 (kimi.ai)</option>
         <option value="geminiweb" ${p.type === 'geminiweb' ? 'selected' : ''}>Gemini 网页版反代 (Cookie)</option>
@@ -103,6 +104,7 @@ export function renderProviderPanel(p: Provider): string {
         <option value="zai" ${p.type === 'zai' ? 'selected' : ''}>Z.AI (GLM 国际)</option>
         <option value="codebuddy" ${p.type === 'codebuddy' ? 'selected' : ''}>CodeBuddy (腾讯) 反代</option>
         <option value="cline" ${p.type === 'cline' ? 'selected' : ''}>Cline 反代</option>
+        <option value="duckai" ${p.type === 'duckai' ? 'selected' : ''}>Duck.ai 免 Key 聊天</option>
       </select>
     </div>
   </div>
@@ -352,6 +354,7 @@ ${H('控制台')}
                 <option value="antigravity">Antigravity 反代</option>
                 <option value="claude">Claude OAuth 反代</option>
                 <option value="codex">ChatGPT (Codex) 反代</option>
+                <option value="chatgptweb">ChatGPT 网页版反代 (Free/RT)</option>
                 <option value="kimi">Kimi Coding OAuth 反代</option>
                 <option value="kimiweb">Kimi 网页版反代 (kimi.ai)</option>
                 <option value="geminiweb">Gemini 网页版反代 (Cookie)</option>
@@ -365,6 +368,7 @@ ${H('控制台')}
                 <option value="zai">Z.AI (GLM 国际)</option>
                 <option value="codebuddy">CodeBuddy (腾讯) 反代</option>
                 <option value="cline">Cline 反代</option>
+                <option value="duckai">Duck.ai 免 Key 聊天</option>
               </select>
               <span class="form-helper" id="apt-hint-new">Agnes 等聚合平台建议选 OpenAI 兼容, 视频模型自动走异步适配。</span>
             </div>
@@ -517,7 +521,7 @@ ${H('控制台')}
                   <h3>${escapePageHtml(p.name)}</h3>
                   <div class="pu">
                     <code>${escapePageHtml(p.id)}</code>
-                    <span>${p.type === 'antigravity' ? 'Antigravity' : p.type === 'claude' ? 'Claude' : p.type === 'codex' ? 'Codex' : p.type === 'kimi' ? 'Kimi' : p.type === 'grok' ? 'Grok' : p.type === 'qwen' ? 'Qwen' : p.type === 'deepseek' ? 'DeepSeek' : p.type === 'vertex' ? 'Vertex' : p.type === 'devin' ? 'Devin' : p.type === 'codebuddy' ? 'CodeBuddy' : p.type === 'cline' ? 'Cline' : p.type === 'zai' ? 'Z.AI' : (p.apiType || 'openai') === 'anthropic' ? 'Anthropic' : 'OpenAI'}</span>
+                    <span>${p.type === 'antigravity' ? 'Antigravity' : p.type === 'claude' ? 'Claude' : p.type === 'codex' ? 'Codex' : p.type === 'chatgptweb' ? 'ChatGPT Web' : p.type === 'kimi' ? 'Kimi' : p.type === 'grok' ? 'Grok' : p.type === 'qwen' ? 'Qwen' : p.type === 'deepseek' ? 'DeepSeek' : p.type === 'vertex' ? 'Vertex' : p.type === 'devin' ? 'Devin' : p.type === 'codebuddy' ? 'CodeBuddy' : p.type === 'cline' ? 'Cline' : p.type === 'zai' ? 'Z.AI' : (p.apiType || 'openai') === 'anthropic' ? 'Anthropic' : 'OpenAI'}</span>
                     <span>${p.apiKeys.length} 个 Key</span>
                     <span>${p.models.length} 个模型</span>
                   </div>

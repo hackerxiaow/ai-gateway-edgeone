@@ -35,30 +35,6 @@ function passthroughEventStream(response: Response): Response | null {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
-/**
- * 只约束「等待上游响应头」阶段的超时。
- * 不能把 AbortSignal.timeout(60000) 直接挂在 fetch 上：该信号在 undici 中作用于
- * 整个请求生命周期（含响应体流式读取），会让持续超过 60 秒的 SSE 回复在生成中途断流。
- */
-function createHeadersTimeout(ms = 60000): { signal: AbortSignal; done: () => void } {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(new Error('上游 60 秒内未返回响应头')), ms)
-  return { signal: controller.signal, done: () => clearTimeout(timer) }
-}
-
-/**
- * 记录用量改为 waitUntil 异步执行：强一致存储写入（Blob/D1/PG）放在返回响应前
- * 会白白推迟首字节，叠加进平台 120 秒执行预算里。
- */
-function recordUsageLater(c: Context<{ Bindings: Env }>, record: UsageRecord): void {
-  const task = addUsageRecord(c.env, record).catch(() => {})
-  try {
-    c.executionCtx?.waitUntil(task)
-  } catch {
-    /* 无 executionCtx 的运行时忽略：task 已在后台执行且带 catch，不会产生未处理拒绝 */
-  }
-}
-
 /** 读取响应体（保留原始字节），返回 JSON 解析结果与原始 Response */
 async function readResponseWithUsage(response: Response): Promise<{ body: string; json: unknown }> {
   const buf = await response.arrayBuffer()
@@ -388,6 +364,49 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
 
     const providerType = provider.type || 'openai'
 
+    // ===== Duck.ai AI Chat 免 Key 路由 =====
+    if (providerType === 'duckai') {
+      const targetSubPath = subPath.replace(/^\//, '')
+      if (targetSubPath !== 'chat/completions') {
+        return c.json({
+          error: { message: `duckai 渠道暂不支持端点 /v1/${targetSubPath}`, type: 'invalid_request_error' },
+        }, 400)
+      }
+      const targetUrl = 'https://api.seurl.eu.org/v1/chat/completions'
+      const forwardHeaders = new Headers()
+      forwardHeaders.set('Content-Type', 'application/json')
+      forwardHeaders.set('Authorization', 'Bearer sk_cf_2781e99f40f74df98c51a4592ab7ad95')
+
+      const upstream = await fetch(targetUrl, {
+        method: 'POST',
+        headers: forwardHeaders,
+        body: JSON.stringify(forwardBody),
+        signal: c.req.raw.signal,
+      })
+
+      const isStream = (upstream.headers.get('content-type') || '').includes('text/event-stream')
+      const record: UsageRecord = {
+        ts: new Date().toISOString(),
+        provider: providerId,
+        model: modelSafe,
+        token: maskedToken,
+        ok: upstream.ok,
+        status: upstream.status,
+        promptTokens: 0,
+        completionTokens: 0,
+        latencyMs: Date.now() - startedAt,
+      }
+      await addUsageRecord(c.env, record).catch(() => {})
+
+      if (isStream) {
+        return passthroughEventStream(upstream) || upstream
+      }
+      return new Response(upstream.body, {
+        status: upstream.status,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      })
+    }
+
     // ===== Azure TTS 内置语音合成(无需 API Key, 参考 one-api-cf azure-tts-proxy) =====
     if (providerType === 'azure-tts' && subPath === 'audio/speech') {
       const { handleAzureTtsSpeech } = await import('./azure-tts')
@@ -417,7 +436,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         completionTokens: 0,
         latencyMs: Date.now() - startedAt,
       }
-      recordUsageLater(c, record)
+      await addUsageRecord(c.env, record).catch(() => {})
       return audioResp
     }
 
@@ -442,7 +461,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         completionTokens: 0,
         latencyMs: Date.now() - startedAt,
       }
-      recordUsageLater(c, record)
+      await addUsageRecord(c.env, record).catch(() => {})
       return videoResp
     }
 
@@ -525,11 +544,11 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
     }
 
     // ===== OAuth 反代渠道 (type = claude / codex / kimi / grok / qwen / deepseek / codebuddy / cline) =====
-    const OAUTH_TYPES = ['claude', 'codex', 'kimi', 'kimiweb', 'geminiweb', 'minimaxweb', 'lingxi', 'grok', 'qwen', 'deepseek', 'codebuddy', 'cline']
+    const OAUTH_TYPES = ['claude', 'codex', 'kimi', 'kimiweb', 'geminiweb', 'minimaxweb', 'lingxi', 'grok', 'qwen', 'deepseek', 'codebuddy', 'cline', 'chatgptweb']
     if (OAUTH_TYPES.includes(providerType)) {
       const supported = providerType === 'claude'
         ? ['chat/completions', 'messages']
-        : providerType === 'kimi' || providerType === 'kimiweb' || providerType === 'geminiweb' || providerType === 'minimaxweb' || providerType === 'lingxi' || providerType === 'qwen' || providerType === 'deepseek' || providerType === 'codebuddy' || providerType === 'cline'
+        : providerType === 'kimi' || providerType === 'kimiweb' || providerType === 'geminiweb' || providerType === 'minimaxweb' || providerType === 'lingxi' || providerType === 'qwen' || providerType === 'deepseek' || providerType === 'codebuddy' || providerType === 'cline' || providerType === 'chatgptweb'
           ? ['chat/completions']
           : ['chat/completions', 'responses']
       if (!supported.includes(subPath)) {
@@ -599,6 +618,11 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         const { handleClineRequest } = await import('./cline')
         return handleClineRequest(oauthParams)
       }
+      if (providerType === 'chatgptweb') {
+        // ChatGPT 网页版反代：RT→AT + Sentinel(PoW/Turnstile) + /backend-api/conversation
+        const { handleChatgptWebRequest } = await import('./chatgpt-web')
+        return handleChatgptWebRequest(oauthParams)
+      }
       const { handleGrokRequest } = await import('./grok')
       return handleGrokRequest({ ...oauthParams, body: subPath === 'responses' ? nativeBody : (body as Record<string, any>) }, subPath === 'responses' ? 'responses-passthrough' : 'translate')
     }
@@ -632,7 +656,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           completionTokens: 0,
           latencyMs: Date.now() - startedAt,
         }
-        recordUsageLater(c, record)
+        await addUsageRecord(c.env, record).catch(() => {})
         headers.delete('content-length')
         return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
       }
@@ -651,7 +675,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         completionTokens,
         latencyMs: Date.now() - startedAt,
       }
-      recordUsageLater(c, record)
+      await addUsageRecord(c.env, record).catch(() => {})
       return new Response(responseBody, { status: response.status, statusText: response.statusText, headers })
     }
 
@@ -681,18 +705,12 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
         forwardHeaders['anthropic-version'] = '2023-06-01'
       }
       try {
-        const headersGuard = createHeadersTimeout()
-        let response: Response
-        try {
-          response = await fetch(forwardUrl, {
-            method: c.req.method,
-            headers: forwardHeaders,
-            body: forwardPayload,
-            signal: headersGuard.signal,
-          })
-        } finally {
-          headersGuard.done()
-        }
+        const response = await fetch(forwardUrl, {
+          method: c.req.method,
+          headers: forwardHeaders,
+          body: forwardPayload,
+          signal: AbortSignal.timeout(60000),
+        })
         // 流式响应直接透传，避免整段缓冲导致客户端长时间收不到数据而重连
         const passthrough = passthroughEventStream(response)
         if (passthrough) {
@@ -707,7 +725,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
             completionTokens: 0,
             latencyMs: Date.now() - startedAt,
           }
-          recordUsageLater(c, record)
+          await addUsageRecord(c.env, record).catch(() => {})
           return passthrough
         }
         // 读取 body 提取 usage 并记录
@@ -724,7 +742,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           completionTokens,
           latencyMs: Date.now() - startedAt,
         }
-        recordUsageLater(c, record)
+        await addUsageRecord(c.env, record).catch(() => {})
         const responseHeaders: Record<string, string> = {
           'Content-Type': response.headers.get('Content-Type') || 'application/json',
           'Cache-Control': 'no-store',
@@ -806,18 +824,12 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
           forwardHeaders['Authorization'] = `Bearer ${apiKey}`
         }
 
-        const headersGuard = createHeadersTimeout()
-        let response: Response
-        try {
-          response = await fetch(forwardUrl, {
-            method: c.req.method,
-            headers: forwardHeaders,
-            body: forwardPayload,
-            signal: headersGuard.signal,
-          })
-        } finally {
-          headersGuard.done()
-        }
+        const response = await fetch(forwardUrl, {
+          method: c.req.method,
+          headers: forwardHeaders,
+          body: forwardPayload,
+          signal: AbortSignal.timeout(60000),
+        })
 
         if (response.ok) {
           // 成功：重置健康状态
@@ -841,7 +853,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
               completionTokens: 0,
               latencyMs: Date.now() - startedAt,
             }
-            recordUsageLater(c, record)
+            await addUsageRecord(c.env, record).catch(() => {})
             return passthrough
           }
 
@@ -859,7 +871,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
             completionTokens,
             latencyMs: Date.now() - startedAt,
           }
-          recordUsageLater(c, record)
+          await addUsageRecord(c.env, record).catch(() => {})
 
           const responseHeaders: Record<string, string> = {
             'Content-Type': response.headers.get('Content-Type') || 'application/json',
