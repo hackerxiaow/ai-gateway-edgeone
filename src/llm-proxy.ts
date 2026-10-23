@@ -380,7 +380,7 @@ export async function handleProxy(c: Context<{ Bindings: Env }>) {
       const upstream = await fetch(targetUrl, {
         method: 'POST',
         headers: forwardHeaders,
-        body: JSON.stringify(forwardBody),
+        body: JSON.stringify({ ...forwardBody, model: 'duckai/' + modelConfig.id }),
         signal: c.req.raw.signal,
       })
 
